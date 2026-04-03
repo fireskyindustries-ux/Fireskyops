@@ -2,6 +2,7 @@ import { useGetCustomer, getGetCustomerQueryKey } from "@workspace/api-client-re
 import { useParams, Link } from "wouter";
 import { MapPin, Phone, Mail, Map, Navigation, AlignLeft, Info, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SkyInlineButton } from "@/components/sky";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -33,7 +34,14 @@ export default function CustomerDetail() {
           <h1 className="text-3xl font-bold tracking-tight">{customer.name}</h1>
           {customer.farmName && <p className="text-xl text-muted-foreground mt-1">{customer.farmName}</p>}
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex gap-2 w-full sm:w-auto flex-wrap">
+          <SkyInlineButton
+            contextType="customer"
+            contextData={customer as unknown as Record<string, unknown>}
+            contextLabel={customer.name}
+            variant="outline"
+            className="w-full sm:w-auto"
+          />
           <Link href={`/enquiries/new?customerId=${customer.id}`}>
             <Button className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" /> New Enquiry</Button>
           </Link>

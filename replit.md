@@ -19,6 +19,13 @@ A mobile-first React web app for Firesky Industries — a field operations tool 
 
 ## Features
 
+- **Sky AI Assistant** — built-in AI assistant powered by OpenAI (via Replit AI Integrations, billed to Replit credits):
+  - Floating "Ask Sky" button on all pages (mobile and desktop)
+  - Inline "Ask Sky" button on each record (inspection, customer, enquiry, job, dashboard)
+  - Context-aware: reads the currently open record and uses it in responses
+  - Streaming chat interface with conversation history per session
+  - Suggested actions per context: "Review this inspection", "Summarize for quote", "Stand or plinth?", "Check missing details", etc.
+  - Firesky-specific system prompt: knows about tanks, stand/plinth decisions, site access, pipe runs, delivery risks
 - **Dashboard** — summary stats, pipeline stage breakdown, recent enquiries and jobs
 - **Customer CRM** — searchable customer/farm list with full remote location support
 - **New Enquiry Form** — fast capture in the field, JSON-driven field config
@@ -44,8 +51,11 @@ A mobile-first React web app for Firesky Industries — a field operations tool 
 ## Architecture
 
 - **lib/api-spec/openapi.yaml** — single source of truth for API contract
-- **lib/db/src/schema/** — Drizzle DB schema (customers, enquiries, inspections, jobs)
-- **artifacts/api-server/src/routes/** — Express route handlers (customers, enquiries, inspections, jobs, dashboard)
+- **lib/db/src/schema/** — Drizzle DB schema (customers, enquiries, inspections, jobs, conversations, messages)
+- **lib/integrations-openai-ai-server/** — OpenAI SDK client wired to Replit AI Integrations
+- **artifacts/api-server/src/routes/sky.ts** — `/api/sky/chat` SSE endpoint with Firesky system prompt
+- **artifacts/firesky/src/components/sky/** — Sky context provider, panel, floating button, inline button
+- **artifacts/api-server/src/routes/** — Express route handlers (customers, enquiries, inspections, jobs, dashboard, sky)
 - **artifacts/firesky/src/** — React frontend app
   - All forms are driven by JSON field config arrays for easy future expansion
 

@@ -5,6 +5,7 @@ import enquiriesRouter from "./enquiries";
 import inspectionsRouter from "./inspections";
 import jobsRouter from "./jobs";
 import dashboardRouter from "./dashboard";
+import skyRouter from "./sky";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(customersRouter);
 router.use(enquiriesRouter);
 router.use(inspectionsRouter);
 router.use(jobsRouter);
+router.use(skyRouter);
 
 export default router;

@@ -6,6 +6,7 @@ import { Users, FileText, Briefcase, Plus, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { SkyInlineButton } from "@/components/sky";
 
 export default function Dashboard() {
   const { data: summary, isLoading, error } = useGetDashboardSummary();
@@ -52,11 +53,20 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">Overview of current field operations</p>
         </div>
-        <Link href="/enquiries/new">
-          <Button size="lg" className="w-full sm:w-auto h-12 px-6">
-            <Plus className="mr-2 h-5 w-5" /> Start New Enquiry
-          </Button>
-        </Link>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <SkyInlineButton
+            contextType="dashboard"
+            contextData={summary as unknown as Record<string, unknown>}
+            contextLabel="Overview"
+            variant="outline"
+            className="flex-1 sm:flex-none"
+          />
+          <Link href="/enquiries/new">
+            <Button size="lg" className="w-full sm:w-auto h-12 px-6">
+              <Plus className="mr-2 h-5 w-5" /> Start New Enquiry
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">

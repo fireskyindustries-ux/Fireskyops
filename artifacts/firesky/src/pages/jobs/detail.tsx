@@ -2,6 +2,7 @@ import { useGetJob, useUpdateJob, getGetJobQueryKey } from "@workspace/api-clien
 import { useParams, Link } from "wouter";
 import { Briefcase, Calendar, Info, DollarSign, Clock, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SkyInlineButton } from "@/components/sky";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +68,13 @@ export default function JobDetail() {
             <p className="text-xl text-primary hover:underline cursor-pointer">{job.customerName || `Customer #${job.customerId}`}</p>
           </Link>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto items-center">
+        <div className="flex gap-2 w-full sm:w-auto items-center flex-wrap">
+          <SkyInlineButton
+            contextType="job"
+            contextData={job as unknown as Record<string, unknown>}
+            contextLabel={job.title}
+            variant="outline"
+          />
           <span className="text-sm font-medium mr-2">Stage:</span>
           <Select value={job.stage} onValueChange={handleStageChange} disabled={updateJob.isPending}>
             <SelectTrigger className="w-[180px]">

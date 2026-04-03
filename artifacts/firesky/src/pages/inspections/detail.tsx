@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
+import { SkyInlineButton } from "@/components/sky";
 
 export default function InspectionDetail() {
   const params = useParams();
@@ -60,6 +61,13 @@ export default function InspectionDetail() {
           </p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto flex-col sm:flex-row">
+          <SkyInlineButton
+            contextType="inspection"
+            contextData={inspection as unknown as Record<string, unknown>}
+            contextLabel={`#${inspection.id}${inspection.farmName ? ` - ${inspection.farmName}` : ''}`}
+            variant="outline"
+            className="w-full sm:w-auto"
+          />
           <Link href={`/jobs/new?inspectionId=${inspection.id}&customerId=${inspection.customerId}${inspection.enquiryId ? `&enquiryId=${inspection.enquiryId}` : ''}`}>
             <Button className="w-full sm:w-auto"><Briefcase className="mr-2 h-4 w-4" /> Convert to Job</Button>
           </Link>

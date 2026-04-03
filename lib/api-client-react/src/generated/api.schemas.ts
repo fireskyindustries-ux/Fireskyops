@@ -252,6 +252,73 @@ export interface CreateJobBody {
   notes?: string;
 }
 
+export type SkyChatMessageRole =
+  (typeof SkyChatMessageRole)[keyof typeof SkyChatMessageRole];
+
+export const SkyChatMessageRole = {
+  user: "user",
+  assistant: "assistant",
+} as const;
+
+export interface SkyChatMessage {
+  role: SkyChatMessageRole;
+  content: string;
+}
+
+export type SkyChatBodyContextType =
+  (typeof SkyChatBodyContextType)[keyof typeof SkyChatBodyContextType];
+
+export const SkyChatBodyContextType = {
+  dashboard: "dashboard",
+  customer: "customer",
+  enquiry: "enquiry",
+  inspection: "inspection",
+  job: "job",
+  general: "general",
+} as const;
+
+export type SkyChatBodyContextData = { [key: string]: unknown };
+
+export interface SkyChatBody {
+  message: string;
+  contextType?: SkyChatBodyContextType;
+  contextData?: SkyChatBodyContextData;
+  history?: SkyChatMessage[];
+}
+
+export interface OpenaiConversation {
+  id: number;
+  title: string;
+  createdAt: string;
+}
+
+export interface OpenaiMessage {
+  id: number;
+  conversationId: number;
+  role: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface CreateOpenaiConversationBody {
+  title: string;
+}
+
+export interface SendOpenaiMessageBody {
+  content: string;
+}
+
+export interface OpenaiConversationWithMessages {
+  id: number;
+  title: string;
+  createdAt: string;
+  messages: OpenaiMessage[];
+}
+
+export interface OpenaiError {
+  error: string;
+}
+
 export type ListCustomersParams = {
   search?: string;
 };

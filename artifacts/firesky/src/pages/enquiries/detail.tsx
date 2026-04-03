@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { SkyInlineButton } from "@/components/sky";
 
 export default function EnquiryDetail() {
   const params = useParams();
@@ -47,6 +48,13 @@ export default function EnquiryDetail() {
           </Link>
         </div>
         <div className="flex gap-2 w-full sm:w-auto flex-col sm:flex-row">
+          <SkyInlineButton
+            contextType="enquiry"
+            contextData={enquiry as unknown as Record<string, unknown>}
+            contextLabel={enquiry.title}
+            variant="outline"
+            className="w-full sm:w-auto"
+          />
           <Link href={`/inspections/new?enquiryId=${enquiry.id}&customerId=${enquiry.customerId}`}>
             <Button variant="outline" className="w-full sm:w-auto"><ClipboardCheck className="mr-2 h-4 w-4" /> Do Inspection</Button>
           </Link>

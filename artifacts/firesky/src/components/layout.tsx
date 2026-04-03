@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { Home, Users, FileText, ClipboardCheck, Briefcase, Plus, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { SkyPanel, SkyFloatingButton } from "./sky";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
@@ -19,7 +20,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border">
         <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
-          <h1 className="font-bold text-xl text-sidebar-primary">Firesky Ops</h1>
+          <div>
+            <h1 className="font-bold text-xl text-sidebar-primary">Firesky Ops</h1>
+            <p className="text-xs text-muted-foreground">Field Operations</p>
+          </div>
         </div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {navItems.map((item) => (
@@ -34,7 +38,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="p-4 border-t border-sidebar-border space-y-2">
           <Link href="/enquiries/new">
             <Button className="w-full h-12">
               <Plus className="mr-2 h-5 w-5" /> New Enquiry
@@ -45,7 +49,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Header */}
       <header className="md:hidden flex items-center justify-between p-4 bg-sidebar border-b border-sidebar-border sticky top-0 z-10">
-        <h1 className="font-bold text-xl text-sidebar-primary">Firesky Ops</h1>
+        <div>
+          <h1 className="font-bold text-xl text-sidebar-primary leading-tight">Firesky Ops</h1>
+        </div>
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -106,6 +112,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Link>
         ))}
       </nav>
+
+      {/* Sky AI Assistant */}
+      <SkyFloatingButton />
+      <SkyPanel />
     </div>
   );
 }
