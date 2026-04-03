@@ -1,0 +1,163 @@
+import { useGetCustomer, getGetCustomerQueryKey } from "@workspace/api-client-react";
+import { useParams, Link } from "wouter";
+import { MapPin, Phone, Mail, Map, Navigation, AlignLeft, Info, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+
+export default function CustomerDetail() {
+  const params = useParams();
+  const id = Number(params.id);
+  
+  const { data: customer, isLoading, error } = useGetCustomer(id, { 
+    query: { enabled: !!id, queryKey: getGetCustomerQueryKey(id) } 
+  });
+
+  if (isLoading) {
+    return <div className="space-y-4 max-w-4xl mx-auto">
+      <Skeleton className="h-10 w-1/3" />
+      <Skeleton className="h-4 w-1/4" />
+      <Skeleton className="h-64 w-full" />
+    </div>;
+  }
+
+  if (error || !customer) {
+    return <div className="text-destructive">Customer not found</div>;
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">{customer.name}</h1>
+          {customer.farmName && <p className="text-xl text-muted-foreground mt-1">{customer.farmName}</p>}
+        </div>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Link href={`/enquiries/new?customerId=${customer.id}`}>
+            <Button className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" /> New Enquiry</Button>
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Contact Info</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {customer.contactName && (
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Contact Person</p>
+                  <p className="text-sm text-muted-foreground">{customer.contactName}</p>
+                </div>
+              </div>
+            )}
+            
+            {customer.phone && (
+              <div className="flex items-start gap-3">
+                <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Phone</p>
+                  <a href={`tel:${customer.phone}`} className="text-sm text-primary hover:underline">{customer.phone}</a>
+                </div>
+              </div>
+            )}
+
+            {customer.email && (
+              <div className="flex items-start gap-3">
+                <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Email</p>
+                  <a href={`mailto:${customer.email}`} className="text-sm text-primary hover:underline">{customer.email}</a>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Location Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-start gap-3">
+              <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Nearest Town / Region</p>
+                <p className="text-sm text-muted-foreground">
+                  {[customer.nearestTown, customer.province].filter(Boolean).join(", ") || "Not specified"}
+                </p>
+              </div>
+            </div>
+
+            {customer.whatsappLocation && (
+              <div className="flex items-start gap-3">
+                <Map className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">GPS / Location Link</p>
+                  {customer.whatsappLocation.startsWith('http') ? (
+                    <a href={customer.whatsappLocation} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline break-all">
+                      Open in Maps
+                    </a>
+                  ) : (
+                    <p className="text-sm text-muted-foreground break-all">{customer.whatsappLocation}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {customer.manualDirections && (
+              <div className="flex items-start gap-3">
+                <Navigation className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Manual Directions</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{customer.manualDirections}</p>
+                </div>
+              </div>
+            )}
+
+            {customer.landmarks && (
+              <div className="flex items-start gap-3">
+                <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Landmarks</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{customer.landmarks}</p>
+                </div>
+              </div>
+            )}
+            
+            {customer.accessNotes && (
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Access Notes</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{customer.accessNotes}</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {customer.notes && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start gap-3">
+              <AlignLeft className="h-5 w-5 text-muted-foreground mt-0.5" />
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{customer.notes}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Could also show related Enquiries/Jobs here if the API returned them, 
+          but we only have separate list endpoints. Let's just provide a simple button. */}
+    </div>
+  );
+}

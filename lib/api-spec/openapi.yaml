@@ -3,20 +3,29 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Firesky Industries Field Operations API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: customers
+    description: Customer management
+  - name: enquiries
+    description: Enquiry management
+  - name: inspections
+    description: Site inspection management
+  - name: jobs
+    description: Jobs pipeline
+  - name: dashboard
+    description: Dashboard summaries
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +33,374 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Dashboard summary stats
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List all customers
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+    post:
+      operationId: createCustomer
+      tags: [customers]
+      summary: Create a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomerBody"
+      responses:
+        "201":
+          description: Created customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get a customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    put:
+      operationId: updateCustomer
+      tags: [customers]
+      summary: Update a customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomerBody"
+      responses:
+        "200":
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    delete:
+      operationId: deleteCustomer
+      tags: [customers]
+      summary: Delete a customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /enquiries:
+    get:
+      operationId: listEnquiries
+      tags: [enquiries]
+      summary: List all enquiries
+      parameters:
+        - name: customerId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of enquiries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Enquiry"
+    post:
+      operationId: createEnquiry
+      tags: [enquiries]
+      summary: Create an enquiry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEnquiryBody"
+      responses:
+        "201":
+          description: Created enquiry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enquiry"
+
+  /enquiries/{id}:
+    get:
+      operationId: getEnquiry
+      tags: [enquiries]
+      summary: Get an enquiry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Enquiry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enquiry"
+    put:
+      operationId: updateEnquiry
+      tags: [enquiries]
+      summary: Update an enquiry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEnquiryBody"
+      responses:
+        "200":
+          description: Updated enquiry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enquiry"
+
+  /inspections:
+    get:
+      operationId: listInspections
+      tags: [inspections]
+      summary: List all site inspections
+      parameters:
+        - name: enquiryId
+          in: query
+          schema:
+            type: integer
+        - name: customerId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of inspections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Inspection"
+    post:
+      operationId: createInspection
+      tags: [inspections]
+      summary: Create a site inspection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInspectionBody"
+      responses:
+        "201":
+          description: Created inspection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Inspection"
+
+  /inspections/{id}:
+    get:
+      operationId: getInspection
+      tags: [inspections]
+      summary: Get a site inspection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Inspection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Inspection"
+    put:
+      operationId: updateInspection
+      tags: [inspections]
+      summary: Update a site inspection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInspectionBody"
+      responses:
+        "200":
+          description: Updated inspection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Inspection"
+
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      summary: List all jobs
+      parameters:
+        - name: stage
+          in: query
+          schema:
+            type: string
+        - name: customerId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+    post:
+      operationId: createJob
+      tags: [jobs]
+      summary: Create a job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobBody"
+      responses:
+        "201":
+          description: Created job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get a job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+    put:
+      operationId: updateJob
+      tags: [jobs]
+      summary: Update a job (including stage/pipeline move)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobBody"
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+    delete:
+      operationId: deleteJob
+      tags: [jobs]
+      summary: Delete a job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +411,374 @@ components:
       required:
         - status
 
+    DashboardSummary:
+      type: object
+      properties:
+        totalCustomers:
+          type: integer
+        totalEnquiries:
+          type: integer
+        totalJobs:
+          type: integer
+        jobsByStage:
+          type: object
+          additionalProperties:
+            type: integer
+        recentEnquiries:
+          type: array
+          items:
+            $ref: "#/components/schemas/Enquiry"
+        recentJobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Job"
+      required:
+        - totalCustomers
+        - totalEnquiries
+        - totalJobs
+        - jobsByStage
+        - recentEnquiries
+        - recentJobs
+
+    Customer:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        contactName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        farmName:
+          type: string
+        nearestTown:
+          type: string
+        province:
+          type: string
+        manualDirections:
+          type: string
+        landmarks:
+          type: string
+        whatsappLocation:
+          type: string
+        accessNotes:
+          type: string
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - createdAt
+        - updatedAt
+
+    CreateCustomerBody:
+      type: object
+      properties:
+        name:
+          type: string
+        contactName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        farmName:
+          type: string
+        nearestTown:
+          type: string
+        province:
+          type: string
+        manualDirections:
+          type: string
+        landmarks:
+          type: string
+        whatsappLocation:
+          type: string
+        accessNotes:
+          type: string
+        notes:
+          type: string
+      required:
+        - name
+
+    Enquiry:
+      type: object
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+        customerName:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        tankSize:
+          type: string
+        tankQuantity:
+          type: integer
+        status:
+          type: string
+          enum: [new, in_progress, inspection_done, quoted, won, lost]
+        priority:
+          type: string
+          enum: [low, medium, high]
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - customerId
+        - title
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateEnquiryBody:
+      type: object
+      properties:
+        customerId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        tankSize:
+          type: string
+        tankQuantity:
+          type: integer
+        status:
+          type: string
+          enum: [new, in_progress, inspection_done, quoted, won, lost]
+        priority:
+          type: string
+          enum: [low, medium, high]
+        notes:
+          type: string
+      required:
+        - customerId
+        - title
+
+    Inspection:
+      type: object
+      properties:
+        id:
+          type: integer
+        enquiryId:
+          type: integer
+        customerId:
+          type: integer
+        customerName:
+          type: string
+        farmName:
+          type: string
+        nearestTown:
+          type: string
+        manualDirections:
+          type: string
+        landmarks:
+          type: string
+        whatsappLocation:
+          type: string
+        accessNotes:
+          type: string
+        tankSize:
+          type: string
+        tankQuantity:
+          type: integer
+        requiresStand:
+          type: boolean
+        requiresPlinth:
+          type: boolean
+        standHeight:
+          type: string
+        plinthDetails:
+          type: string
+        pipeLength:
+          type: number
+        pipeDetails:
+          type: string
+        distanceFromRoad:
+          type: number
+        distanceFromHouse:
+          type: number
+        truckAccess:
+          type: boolean
+        trailerAccess:
+          type: boolean
+        offloadingConstraints:
+          type: string
+        groundCondition:
+          type: string
+        siteReadyToQuote:
+          type: boolean
+        photoUrls:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+        inspectedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - customerId
+        - createdAt
+        - updatedAt
+
+    CreateInspectionBody:
+      type: object
+      properties:
+        enquiryId:
+          type: integer
+        customerId:
+          type: integer
+        farmName:
+          type: string
+        nearestTown:
+          type: string
+        manualDirections:
+          type: string
+        landmarks:
+          type: string
+        whatsappLocation:
+          type: string
+        accessNotes:
+          type: string
+        tankSize:
+          type: string
+        tankQuantity:
+          type: integer
+        requiresStand:
+          type: boolean
+        requiresPlinth:
+          type: boolean
+        standHeight:
+          type: string
+        plinthDetails:
+          type: string
+        pipeLength:
+          type: number
+        pipeDetails:
+          type: string
+        distanceFromRoad:
+          type: number
+        distanceFromHouse:
+          type: number
+        truckAccess:
+          type: boolean
+        trailerAccess:
+          type: boolean
+        offloadingConstraints:
+          type: string
+        groundCondition:
+          type: string
+        siteReadyToQuote:
+          type: boolean
+        photoUrls:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+        inspectedAt:
+          type: string
+          format: date-time
+      required:
+        - customerId
+
+    Job:
+      type: object
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+        customerName:
+          type: string
+        enquiryId:
+          type: integer
+        inspectionId:
+          type: integer
+        title:
+          type: string
+        stage:
+          type: string
+          enum: [enquiry, inspection, quoting, quoted, won, lost]
+        priority:
+          type: string
+          enum: [low, medium, high]
+        tankSize:
+          type: string
+        tankQuantity:
+          type: integer
+        estimatedValue:
+          type: number
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - customerId
+        - title
+        - stage
+        - createdAt
+        - updatedAt
+
+    CreateJobBody:
+      type: object
+      properties:
+        customerId:
+          type: integer
+        enquiryId:
+          type: integer
+        inspectionId:
+          type: integer
+        title:
+          type: string
+        stage:
+          type: string
+          enum: [enquiry, inspection, quoting, quoted, won, lost]
+        priority:
+          type: string
+          enum: [low, medium, high]
+        tankSize:
+          type: string
+        tankQuantity:
+          type: integer
+        estimatedValue:
+          type: number
+        notes:
+          type: string
+      required:
+        - customerId
+        - title
+        - stage

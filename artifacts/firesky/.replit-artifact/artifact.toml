@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Firesky Industries Field Ops"
+version = "1.0.0"
+id = "artifacts/firesky"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22857
+
+[services.development]
+run = "pnpm --filter @workspace/firesky run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/firesky", "run", "build" ]
+publicDir = "artifacts/firesky/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22857"
+BASE_PATH = "/"
