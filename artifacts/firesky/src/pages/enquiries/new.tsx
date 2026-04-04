@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { Loader2, LocateFixed } from "lucide-react";
+import { Loader2, LocateFixed, Sparkles } from "lucide-react";
+import { useSkyActions } from "@/components/sky";
 
 const PROVINCES = [
   "Eastern Cape", "Free State", "Gauteng", "KwaZulu-Natal",
@@ -61,6 +62,7 @@ export default function NewEnquiry() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { openSky } = useSkyActions();
   const createCustomer = useCreateCustomer();
   const createEnquiry = useCreateEnquiry();
   const { data: customers } = useListCustomers();
@@ -168,6 +170,17 @@ export default function NewEnquiry() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-10">
+
+      {/* Sky AI Ribbon */}
+      <button
+        type="button"
+        onClick={() => openSky({ contextType: "enquiry" })}
+        className="w-full flex items-center gap-3 px-5 py-3 rounded-lg bg-primary text-primary-foreground shadow-md hover:brightness-110 active:scale-[0.99] transition-all text-left"
+      >
+        <Sparkles className="h-5 w-5 shrink-0" />
+        <span className="font-semibold text-sm tracking-wide">Use Sky AI to Assist you with your system build.</span>
+      </button>
+
       <div>
         <h1 className="text-3xl font-bold tracking-tight">New Enquiry</h1>
         <p className="text-muted-foreground">Capture a new lead — customer info and request in one step</p>
