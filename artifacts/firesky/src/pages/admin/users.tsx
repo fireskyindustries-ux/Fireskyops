@@ -154,22 +154,26 @@ export default function AdminUsers() {
           ) : (
             <div className="divide-y">
               {users?.map((user) => (
-                <div key={user.id} className="flex items-center gap-4 px-4 sm:px-6 py-4">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
-                    {user.imageUrl ? (
-                      <img src={user.imageUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="text-sm font-bold text-primary">{initials(user)}</span>
-                    )}
+                <div key={user.id} className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 sm:px-6 py-4">
+                  {/* Avatar + name/email */}
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+                      {user.imageUrl ? (
+                        <img src={user.imageUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-sm font-bold text-primary">{initials(user)}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {[user.firstName, user.lastName].filter(Boolean).join(" ") || "—"}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {[user.firstName, user.lastName].filter(Boolean).join(" ") || "—"}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant={user.role === "admin" ? "default" : "secondary"} className="gap-1 text-xs">
+                  {/* Actions — indented on mobile to align under name */}
+                  <div className="flex items-center gap-2 pl-[52px] sm:pl-0 shrink-0">
+                    <Badge variant={user.role === "admin" ? "default" : "secondary"} className="gap-1 text-xs hidden sm:flex">
                       {user.role === "admin" ? <Shield className="h-3 w-3" /> : <User className="h-3 w-3" />}
                       {user.role}
                     </Badge>
@@ -177,7 +181,7 @@ export default function AdminUsers() {
                       value={user.role}
                       onValueChange={(role) => updateRole.mutate({ userId: user.id, role })}
                     >
-                      <SelectTrigger className="h-8 w-28 text-xs">
+                      <SelectTrigger className="h-9 w-28 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -188,7 +192,7 @@ export default function AdminUsers() {
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      className="h-9 w-9 text-muted-foreground hover:text-destructive"
                       onClick={() => {
                         if (confirm(`Remove ${user.email}?`)) deleteUser.mutate(user.id);
                       }}

@@ -23,51 +23,46 @@ export default function JobsPipeline() {
   const updateJob = useUpdateJob();
 
   const handleMoveJob = (e: React.MouseEvent, jobId: number, currentStage: string, direction: "next" | "prev") => {
-    e.preventDefault(); // Prevent navigating to job detail
-    
+    e.preventDefault();
     const currentIndex = STAGES.findIndex(s => s.id === currentStage);
-    let newIndex = direction === "next" ? currentIndex + 1 : currentIndex - 1;
-    
+    const newIndex = direction === "next" ? currentIndex + 1 : currentIndex - 1;
     if (newIndex >= 0 && newIndex < STAGES.length) {
-      updateJob.mutate({ 
-        id: jobId, 
-        data: { stage: STAGES[newIndex].id as any } 
-      }, {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
-        }
-      });
+      updateJob.mutate(
+        { id: jobId, data: { stage: STAGES[newIndex].id as any } },
+        { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() }) }
+      );
     }
   };
 
   if (isLoading) {
-    return <div className="space-y-4">
-      <h1 className="text-3xl font-bold">Pipeline</h1>
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {[1, 2, 3, 4].map(i => (
-          <div key={i} className="min-w-[300px] space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-32 w-full" />
-          </div>
-        ))}
+    return (
+      <div className="space-y-4">
+        <h1 className="text-3xl font-bold">Pipeline</h1>
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="min-w-[260px] space-y-4 shrink-0">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ))}
+        </div>
       </div>
-    </div>;
+    );
   }
 
   if (error || !jobs) {
     return <div className="text-destructive">Failed to load pipeline</div>;
   }
 
-  // Group jobs by stage
   const groupedJobs: Record<string, any[]> = {};
   STAGES.forEach(stage => {
     groupedJobs[stage.id] = jobs.filter(j => j.stage === stage.id) || [];
   });
 
   return (
-    <div className="h-[calc(100vh-100px)] flex flex-col space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Jobs Pipeline</h1>
           <p className="text-muted-foreground">Track installation progress</p>
@@ -79,29 +74,33 @@ export default function JobsPipeline() {
         </Link>
       </div>
 
-      <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
-        <div className="flex gap-4 h-full min-w-max">
+      {/* Horizontally scrollable kanban board */}
+      <div className="overflow-x-auto -mx-4 px-4 md:-mx-8 md:px-8 pb-4">
+        <div className="flex gap-4 min-w-max">
           {STAGES.map((stage, stageIndex) => (
-            <div key={stage.id} className="w-[300px] flex flex-col bg-muted/30 rounded-xl p-3 h-full">
-              <div className="flex items-center justify-between mb-3 px-1 shrink-0">
-                <h3 className="font-semibold text-foreground/80">{stage.label}</h3>
-                <Badge variant="secondary" className="rounded-full">{groupedJobs[stage.id].length}</Badge>
+            <div key={stage.id} className="w-[260px] sm:w-[280px] flex flex-col bg-muted/30 rounded-xl p-3 shrink-0">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <h3 className="font-semibold text-foreground/80 text-sm">{stage.label}</h3>
+                <Badge variant="secondary" className="rounded-full text-xs">{groupedJobs[stage.id].length}</Badge>
               </div>
-              
-              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+
+              <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-0.5">
                 {groupedJobs[stage.id].map(job => (
                   <Link key={job.id} href={`/jobs/${job.id}`}>
                     <Card className="hover:border-primary/50 transition-colors cursor-pointer shadow-sm relative group">
-                      <CardContent className="p-4 space-y-3">
-                        <div className="space-y-1">
+                      <CardContent className="p-3 space-y-2">
+                        <div className="space-y-0.5">
                           <p className="text-xs text-muted-foreground line-clamp-1">{job.customerName || `Customer #${job.customerId}`}</p>
-                          <h4 className="font-semibold text-base leading-tight line-clamp-2">{job.title}</h4>
+                          <h4 className="font-semibold text-sm leading-tight line-clamp-2">{job.title}</h4>
                         </div>
-                        
+
                         <div className="flex items-center justify-between">
-                          <div className="flex gap-2">
+                          <div className="flex gap-1.5 flex-wrap">
                             {job.priority && (
-                              <Badge variant={job.priority === "high" ? "destructive" : job.priority === "medium" ? "default" : "outline"} className="text-[10px] px-1.5 h-5 uppercase">
+                              <Badge
+                                variant={job.priority === "high" ? "destructive" : job.priority === "medium" ? "default" : "outline"}
+                                className="text-[10px] px-1.5 h-5 uppercase"
+                              >
                                 {job.priority}
                               </Badge>
                             )}
@@ -111,25 +110,25 @@ export default function JobsPipeline() {
                           </span>
                         </div>
 
-                        {/* Hover actions for quick move */}
-                        <div className="absolute inset-x-0 bottom-0 bg-background/95 backdrop-blur-sm border-t p-2 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity rounded-b-lg">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-8 px-2" 
+                        {/* Quick move buttons — visible on hover (desktop) or always (mobile) */}
+                        <div className="flex justify-between pt-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
                             disabled={stageIndex === 0 || updateJob.isPending}
                             onClick={(e) => handleMoveJob(e, job.id, stage.id, "prev")}
                           >
-                            <ArrowLeft className="h-4 w-4" />
+                            <ArrowLeft className="h-3.5 w-3.5" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-8 px-2" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
                             disabled={stageIndex === STAGES.length - 1 || updateJob.isPending}
                             onClick={(e) => handleMoveJob(e, job.id, stage.id, "next")}
                           >
-                            <ArrowRight className="h-4 w-4" />
+                            <ArrowRight className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </CardContent>
@@ -137,8 +136,8 @@ export default function JobsPipeline() {
                   </Link>
                 ))}
                 {groupedJobs[stage.id].length === 0 && (
-                  <div className="h-20 border-2 border-dashed rounded-lg border-muted-foreground/20 flex items-center justify-center">
-                    <span className="text-sm text-muted-foreground/50">Empty</span>
+                  <div className="h-16 border-2 border-dashed rounded-lg border-muted-foreground/20 flex items-center justify-center">
+                    <span className="text-xs text-muted-foreground/50">Empty</span>
                   </div>
                 )}
               </div>
