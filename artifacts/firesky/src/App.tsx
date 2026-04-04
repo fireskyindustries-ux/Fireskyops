@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Router as WouterRouter, Switch, Route, Redirect, useLocation } from "wouter";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, useAuth, useClerk } from "@clerk/react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -107,6 +107,27 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+function AuthGate() {
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <div className="h-8 w-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+          <span className="text-sm">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isSignedIn) {
+    return <Redirect to="/sign-in" />;
+  }
+
+  return <Router />;
+}
+
 function AppRoutes() {
   const [, setLocation] = useLocation();
 
@@ -126,12 +147,7 @@ function AppRoutes() {
                 <Route path="/sign-in/*?" component={SignInPage} />
                 <Route path="/sign-up/*?" component={SignUpPage} />
                 <Route>
-                  <Show when="signed-in">
-                    <Router />
-                  </Show>
-                  <Show when="signed-out">
-                    <Redirect to="/sign-in" />
-                  </Show>
+                  <AuthGate />
                 </Route>
               </Switch>
             </ErrorBoundary>
