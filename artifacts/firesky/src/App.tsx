@@ -32,48 +32,19 @@ const clerkAppearance = {
 
 function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-[100dvh] flex">
-      {/* Left panel — tanks image + branding (desktop only) */}
-      <div
-        className="hidden lg:flex flex-col justify-between w-[55%] relative overflow-hidden"
-        style={{
-          backgroundImage: `url(${basePath}/tanks-bg.jpg)`,
-          backgroundSize: "cover",
-          backgroundPosition: "center 60%",
-        }}
-      >
-        {/* Dark overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/30" />
-        <div className="relative z-10 p-10 flex flex-col justify-between h-full">
-          <div className="bg-white/95 rounded-xl px-4 py-2 self-start shadow-md">
-            <img
-              src={`${basePath}/firesky-logo.png`}
-              alt="Firesky Industries"
-              className="h-14 w-auto object-contain"
-            />
-          </div>
-          <div>
-            <h1 className="text-5xl font-extrabold text-white leading-tight mb-4 tracking-tight">
-              Field Ops.<br />Under Control.
-            </h1>
-            <p className="text-white/70 text-lg max-w-sm">
-              Manage customers, inspections, jobs, and quotes — all from the field.
-            </p>
-          </div>
-          <p className="text-white/40 text-sm">Firesky Industries · Your Solution</p>
-        </div>
-      </div>
+    <div
+      className="min-h-[100dvh] flex flex-col items-center justify-end relative overflow-hidden"
+      style={{
+        backgroundImage: `url(${basePath}/firesky-splash.png)`,
+        backgroundSize: "cover",
+        backgroundPosition: "center top",
+      }}
+    >
+      {/* Gradient fade — transparent at top, dark at bottom for card readability */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/20 to-black/75 pointer-events-none" />
 
-      {/* Right panel — auth form */}
-      <div className="flex-1 flex flex-col items-center justify-center bg-white px-6 py-10">
-        {/* Logo shown only on mobile */}
-        <div className="lg:hidden mb-8 text-center">
-          <img
-            src={`${basePath}/firesky-logo.png`}
-            alt="Firesky Industries"
-            className="h-20 w-auto object-contain mx-auto"
-          />
-        </div>
+      {/* Sign-in card pinned to the bottom */}
+      <div className="relative z-10 w-full max-w-sm px-4 pb-8 pt-6">
         {children}
       </div>
     </div>
