@@ -62,7 +62,7 @@ export default function Dashboard() {
             className="flex-1 sm:flex-none"
           />
           <Link href="/enquiries/new">
-            <Button size="lg" className="w-full sm:w-auto h-12 px-6">
+            <Button size="lg" className="w-full sm:w-auto h-12 px-8 hex-clip font-semibold tracking-wide">
               <Plus className="mr-2 h-5 w-5" /> Start New Enquiry
             </Button>
           </Link>
