@@ -19,41 +19,90 @@ function stripBase(path: string): string {
 
 const queryClient = new QueryClient();
 
+const clerkAppearance = {
+  elements: {
+    card: "shadow-2xl border-0 rounded-2xl",
+    headerTitle: "text-[#222] font-bold",
+    headerSubtitle: "text-gray-500",
+    formButtonPrimary: "bg-[#E85D04] hover:bg-[#d45200] text-white font-semibold rounded-none",
+    footerActionLink: "text-[#E85D04] font-semibold",
+    socialButtonsBlockButton: "border border-gray-200 hover:bg-gray-50",
+  }
+};
+
+function AuthLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-[100dvh] flex">
+      {/* Left panel — tanks image + branding (desktop only) */}
+      <div
+        className="hidden lg:flex flex-col justify-between w-[55%] relative overflow-hidden"
+        style={{
+          backgroundImage: `url(${basePath}/tanks-bg.jpg)`,
+          backgroundSize: "cover",
+          backgroundPosition: "center 60%",
+        }}
+      >
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/30" />
+        <div className="relative z-10 p-10 flex flex-col justify-between h-full">
+          <div className="bg-white/95 rounded-xl px-4 py-2 self-start shadow-md">
+            <img
+              src={`${basePath}/firesky-logo.png`}
+              alt="Firesky Industries"
+              className="h-14 w-auto object-contain"
+            />
+          </div>
+          <div>
+            <h1 className="text-5xl font-extrabold text-white leading-tight mb-4 tracking-tight">
+              Field Ops.<br />Under Control.
+            </h1>
+            <p className="text-white/70 text-lg max-w-sm">
+              Manage customers, inspections, jobs, and quotes — all from the field.
+            </p>
+          </div>
+          <p className="text-white/40 text-sm">Firesky Industries · Your Solution</p>
+        </div>
+      </div>
+
+      {/* Right panel — auth form */}
+      <div className="flex-1 flex flex-col items-center justify-center bg-white px-6 py-10">
+        {/* Logo shown only on mobile */}
+        <div className="lg:hidden mb-8 text-center">
+          <img
+            src={`${basePath}/firesky-logo.png`}
+            alt="Firesky Industries"
+            className="h-20 w-auto object-contain mx-auto"
+          />
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function SignInPage() {
   return (
-    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-muted/30 p-4">
-      <div className="mb-6 text-center">
-        <img src={`${basePath}/firesky-logo.png`} alt="Firesky Industries" className="h-16 w-auto object-contain mx-auto" />
-      </div>
+    <AuthLayout>
       <SignIn
         routing="path"
         path={`${basePath}/sign-in`}
         signUpUrl={`${basePath}/sign-up`}
-        appearance={{ elements: {
-          formButtonPrimary: "bg-primary hover:bg-primary/90",
-          footerActionLink: "text-primary",
-        }}}
+        appearance={clerkAppearance}
       />
-    </div>
+    </AuthLayout>
   );
 }
 
 function SignUpPage() {
   return (
-    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-muted/30 p-4">
-      <div className="mb-6 text-center">
-        <img src={`${basePath}/firesky-logo.png`} alt="Firesky Industries" className="h-16 w-auto object-contain mx-auto" />
-      </div>
+    <AuthLayout>
       <SignUp
         routing="path"
         path={`${basePath}/sign-up`}
         signInUrl={`${basePath}/sign-in`}
-        appearance={{ elements: {
-          formButtonPrimary: "bg-primary hover:bg-primary/90",
-          footerActionLink: "text-primary",
-        }}}
+        appearance={clerkAppearance}
       />
-    </div>
+    </AuthLayout>
   );
 }
 

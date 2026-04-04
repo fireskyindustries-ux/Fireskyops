@@ -107,9 +107,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] flex flex-col md:flex-row bg-muted/30">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border">
-        <div className="px-4 pt-5 pb-4 border-b border-sidebar-border">
-          <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-16 w-auto object-contain" />
+      <aside className="hidden md:flex w-72 flex-col bg-sidebar border-r border-sidebar-border">
+        <div className="flex flex-col items-center px-4 pt-6 pb-5 border-b border-sidebar-border bg-white">
+          <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-24 w-auto object-contain" />
         </div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {navItems.map((item) => (
@@ -135,8 +135,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden flex items-center justify-between px-4 py-2 bg-sidebar border-b border-sidebar-border sticky top-0 z-10">
-        <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-11 w-auto object-contain" />
+      <header className="md:hidden flex items-center justify-between px-4 py-3 bg-sidebar border-b border-sidebar-border sticky top-0 z-10">
+        <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-14 w-auto object-contain" />
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -144,8 +144,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0 flex flex-col">
-            <div className="px-4 pt-5 pb-4 border-b border-sidebar-border">
-              <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-14 w-auto object-contain" />
+            <div className="flex flex-col items-center px-4 pt-6 pb-5 border-b border-sidebar-border">
+              <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-20 w-auto object-contain" />
             </div>
             <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
               {navItems.map((item) => (
