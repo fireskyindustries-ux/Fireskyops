@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { useUser } from "@clerk/react";
 
 export type SkyContextType = "dashboard" | "customer" | "enquiry" | "inspection" | "job" | "general";
 
@@ -38,10 +39,13 @@ function getApiUrl(path: string) {
 }
 
 export function SkyProvider({ children }: { children: ReactNode }) {
+  const { user } = useUser();
   const [isOpen, setIsOpen] = useState(false);
   const [context, setContextState] = useState<SkyContextData>({ contextType: "general" });
   const [messages, setMessages] = useState<SkyChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+
+  const userName = user?.firstName || user?.fullName || user?.primaryEmailAddress?.emailAddress || undefined;
 
   const openSky = useCallback((ctx?: Partial<SkyContextData>) => {
     if (ctx) {
@@ -88,6 +92,7 @@ export function SkyProvider({ children }: { children: ReactNode }) {
             contextType: context.contextType,
             contextData: context.contextData,
             history: messages.slice(-10),
+            userName,
           }),
         });
 

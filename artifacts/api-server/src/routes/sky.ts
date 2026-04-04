@@ -55,11 +55,12 @@ function buildContextBlock(contextType: string | undefined, contextData: Record<
 }
 
 router.post("/sky/chat", async (req, res) => {
-  const { message, contextType, contextData, history } = req.body as {
+  const { message, contextType, contextData, history, userName } = req.body as {
     message: string;
     contextType?: string;
     contextData?: Record<string, unknown>;
     history?: SkyChatMessage[];
+    userName?: string;
   };
 
   if (!message || typeof message !== "string") {
@@ -73,7 +74,8 @@ router.post("/sky/chat", async (req, res) => {
 
   try {
     const contextBlock = buildContextBlock(contextType, contextData);
-    const systemContent = FIRESKY_SYSTEM_PROMPT + contextBlock;
+    const userBlock = userName ? `\n\nThe field team member you are currently assisting is: ${userName}. Address them by name when appropriate.` : "";
+    const systemContent = FIRESKY_SYSTEM_PROMPT + userBlock + contextBlock;
 
     const chatMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
       { role: "system", content: systemContent },
