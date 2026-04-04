@@ -1,5 +1,6 @@
 import { Layout } from "./components/layout";
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
+import { useUser } from "@clerk/react";
 
 import Dashboard from "./pages/dashboard";
 import CustomersList from "./pages/customers/list";
@@ -17,29 +18,63 @@ import JobDetail from "./pages/jobs/detail";
 import AdminUsers from "./pages/admin/users";
 import NotFound from "./pages/not-found";
 
+function useIsAdmin() {
+  const { user } = useUser();
+  return (user?.publicMetadata?.role as string) === "admin";
+}
+
+function AdminRoute({ component: Component }: { component: React.ComponentType }) {
+  const isAdmin = useIsAdmin();
+  return isAdmin ? <Component /> : <Redirect to="/customers" />;
+}
+
 export function Router() {
+  const isAdmin = useIsAdmin();
+
   return (
     <Layout>
       <Switch>
-        <Route path="/" component={Dashboard} />
+        {/* Root — admin sees dashboard, field workers go to customers */}
+        <Route path="/">
+          {isAdmin ? <Dashboard /> : <Redirect to="/customers" />}
+        </Route>
 
+        {/* Customers — accessible to everyone */}
         <Route path="/customers" component={CustomersList} />
         <Route path="/customers/new" component={NewCustomer} />
         <Route path="/customers/:id" component={CustomerDetail} />
 
-        <Route path="/enquiries" component={EnquiriesList} />
-        <Route path="/enquiries/new" component={NewEnquiry} />
-        <Route path="/enquiries/:id" component={EnquiryDetail} />
+        {/* Enquiries — admin only */}
+        <Route path="/enquiries">
+          <AdminRoute component={EnquiriesList} />
+        </Route>
+        <Route path="/enquiries/new">
+          <AdminRoute component={NewEnquiry} />
+        </Route>
+        <Route path="/enquiries/:id">
+          <AdminRoute component={EnquiryDetail} />
+        </Route>
 
+        {/* Inspections — accessible to everyone */}
         <Route path="/inspections" component={InspectionsList} />
         <Route path="/inspections/new" component={NewInspection} />
         <Route path="/inspections/:id" component={InspectionDetail} />
 
-        <Route path="/jobs" component={JobsPipeline} />
-        <Route path="/jobs/new" component={NewJob} />
-        <Route path="/jobs/:id" component={JobDetail} />
+        {/* Jobs — admin only */}
+        <Route path="/jobs">
+          <AdminRoute component={JobsPipeline} />
+        </Route>
+        <Route path="/jobs/new">
+          <AdminRoute component={NewJob} />
+        </Route>
+        <Route path="/jobs/:id">
+          <AdminRoute component={JobDetail} />
+        </Route>
 
-        <Route path="/admin/users" component={AdminUsers} />
+        {/* Admin panel — admin only */}
+        <Route path="/admin/users">
+          <AdminRoute component={AdminUsers} />
+        </Route>
 
         <Route component={NotFound} />
       </Switch>

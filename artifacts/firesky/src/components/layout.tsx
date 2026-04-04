@@ -5,16 +5,20 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SkyPanel, SkyFloatingButton } from "./sky";
 import { useUser, useClerk } from "@clerk/react";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const navItems = [
+const adminNavItems = [
   { href: "/", label: "Dashboard", icon: Home },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/enquiries", label: "Enquiries", icon: FileText },
   { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
+];
+
+const fieldNavItems = [
+  { href: "/customers", label: "Customers", icon: Users },
+  { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
 ];
 
 function isActive(location: string, href: string) {
@@ -27,23 +31,7 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
   const { signOut } = useClerk();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [claiming, setClaiming] = useState(false);
   const role = (user?.publicMetadata?.role as string) || "user";
-
-  const handleClaimAdmin = async () => {
-    setClaiming(true);
-    try {
-      const res = await fetch("/api/users/claim-admin", { method: "POST", credentials: "include" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed");
-      toast({ title: "Admin access granted", description: "Reload to see admin options." });
-      setTimeout(() => window.location.reload(), 1500);
-    } catch (err: any) {
-      toast({ title: "Could not claim admin", description: err.message, variant: "destructive" });
-    } finally {
-      setClaiming(false);
-    }
-  };
 
   return (
     <div className="border-t border-sidebar-border">
@@ -55,20 +43,6 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
               Manage Users
             </Button>
           </Link>
-        </div>
-      )}
-      {role !== "admin" && (
-        <div className="px-4 pt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start h-8 text-xs text-muted-foreground hover:text-primary"
-            onClick={handleClaimAdmin}
-            disabled={claiming}
-          >
-            <Shield className="mr-2 h-3 w-3" />
-            {claiming ? "Requesting..." : "Claim Admin Access"}
-          </Button>
         </div>
       )}
       <div className="p-4 flex items-center gap-3">
@@ -103,6 +77,11 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const { user } = useUser();
+  const role = (user?.publicMetadata?.role as string) || "user";
+  const isAdmin = role === "admin";
+
+  const navItems = isAdmin ? adminNavItems : fieldNavItems;
 
   return (
     <div className="min-h-[100dvh] flex flex-col md:flex-row bg-muted/30">
@@ -125,11 +104,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
         <div className="px-4 pb-3 pt-2">
-          <Link href="/enquiries/new">
-            <Button className="w-full h-12 hex-clip px-8 font-semibold tracking-wide">
-              <Plus className="mr-2 h-5 w-5" /> New Enquiry
-            </Button>
-          </Link>
+          {isAdmin ? (
+            <Link href="/enquiries/new">
+              <Button className="w-full h-12 hex-clip px-8 font-semibold tracking-wide">
+                <Plus className="mr-2 h-5 w-5" /> New Enquiry
+              </Button>
+            </Link>
+          ) : (
+            <Link href="/inspections/new">
+              <Button className="w-full h-12 hex-clip px-8 font-semibold tracking-wide">
+                <Plus className="mr-2 h-5 w-5" /> New Inspection
+              </Button>
+            </Link>
+          )}
         </div>
         <UserFooter />
       </aside>
@@ -161,11 +148,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
               ))}
             </nav>
             <div className="px-4 pb-3 pt-2">
-              <Link href="/enquiries/new">
-                <Button className="w-full h-12 hex-clip px-8 font-semibold">
-                  <Plus className="mr-2 h-5 w-5" /> New Enquiry
-                </Button>
-              </Link>
+              {isAdmin ? (
+                <Link href="/enquiries/new">
+                  <Button className="w-full h-12 hex-clip px-8 font-semibold">
+                    <Plus className="mr-2 h-5 w-5" /> New Enquiry
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/inspections/new">
+                  <Button className="w-full h-12 hex-clip px-8 font-semibold">
+                    <Plus className="mr-2 h-5 w-5" /> New Inspection
+                  </Button>
+                </Link>
+              )}
             </div>
             <UserFooter />
           </SheetContent>
@@ -180,31 +175,55 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-sidebar border-t border-sidebar-border flex items-center justify-around px-2 z-10 pb-safe">
-        {navItems.slice(0, 2).map((item) => (
-          <Link key={item.href} href={item.href} className="flex-1">
-            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, item.href) ? "text-primary" : "text-muted-foreground"}`}>
-              <item.icon className="h-6 w-6" />
-              <span className="text-[10px] font-medium">{item.label}</span>
+      {isAdmin ? (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-sidebar border-t border-sidebar-border flex items-center justify-around px-2 z-10 pb-safe">
+          {adminNavItems.slice(0, 2).map((item) => (
+            <Link key={item.href} href={item.href} className="flex-1">
+              <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, item.href) ? "text-primary" : "text-muted-foreground"}`}>
+                <item.icon className="h-6 w-6" />
+                <span className="text-[10px] font-medium">{item.label}</span>
+              </div>
+            </Link>
+          ))}
+          <div className="flex-1 flex justify-center -mt-6">
+            <Link href="/enquiries/new">
+              <Button size="icon" className="h-14 w-14 rounded-full shadow-lg shadow-primary/25">
+                <Plus className="h-8 w-8" />
+              </Button>
+            </Link>
+          </div>
+          {adminNavItems.slice(2, 4).map((item) => (
+            <Link key={item.href} href={item.href} className="flex-1">
+              <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, item.href) ? "text-primary" : "text-muted-foreground"}`}>
+                <item.icon className="h-6 w-6" />
+                <span className="text-[10px] font-medium">{item.label}</span>
+              </div>
+            </Link>
+          ))}
+        </nav>
+      ) : (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-sidebar border-t border-sidebar-border flex items-center justify-around px-2 z-10 pb-safe">
+          <Link href="/customers" className="flex-1">
+            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, "/customers") ? "text-primary" : "text-muted-foreground"}`}>
+              <Users className="h-6 w-6" />
+              <span className="text-[10px] font-medium">Customers</span>
             </div>
           </Link>
-        ))}
-        <div className="flex-1 flex justify-center -mt-6">
-          <Link href="/enquiries/new">
-            <Button size="icon" className="h-14 w-14 rounded-full shadow-lg shadow-primary/25">
-              <Plus className="h-8 w-8" />
-            </Button>
-          </Link>
-        </div>
-        {navItems.slice(2, 4).map((item) => (
-          <Link key={item.href} href={item.href} className="flex-1">
-            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, item.href) ? "text-primary" : "text-muted-foreground"}`}>
-              <item.icon className="h-6 w-6" />
-              <span className="text-[10px] font-medium">{item.label}</span>
+          <div className="flex-1 flex justify-center -mt-6">
+            <Link href="/inspections/new">
+              <Button size="icon" className="h-14 w-14 rounded-full shadow-lg shadow-primary/25">
+                <Plus className="h-8 w-8" />
+              </Button>
+            </Link>
+          </div>
+          <Link href="/inspections" className="flex-1">
+            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, "/inspections") ? "text-primary" : "text-muted-foreground"}`}>
+              <ClipboardCheck className="h-6 w-6" />
+              <span className="text-[10px] font-medium">Inspections</span>
             </div>
           </Link>
-        ))}
-      </nav>
+        </nav>
+      )}
 
       <SkyFloatingButton />
       <SkyPanel />
