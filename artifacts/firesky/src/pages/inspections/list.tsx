@@ -4,7 +4,16 @@ import { Plus, MapPin, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
+
+function safeFormat(value: unknown, fmt: string, fallback = "No date"): string {
+  try {
+    const d = new Date(value as any);
+    return isValid(d) ? format(d, fmt) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 export default function InspectionsList() {
   const { data: inspections, isLoading, error } = useListInspections();
@@ -55,7 +64,7 @@ export default function InspectionsList() {
                     )}
                     <div className="flex items-center gap-2">
                       <ClipboardCheck className="h-4 w-4 shrink-0" />
-                      <span>{inspection.inspectedAt ? format(new Date(inspection.inspectedAt), "PPP") : "No date"}</span>
+                      <span>{safeFormat(inspection.inspectedAt, "PPP")}</span>
                     </div>
                   </div>
                 </CardContent>
