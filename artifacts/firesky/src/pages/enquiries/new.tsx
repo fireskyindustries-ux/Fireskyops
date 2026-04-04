@@ -1,86 +1,309 @@
-import { useCreateEnquiry, useListCustomers, getListEnquiriesQueryKey } from "@workspace/api-client-react";
-import { DynamicForm, FieldConfig } from "@/components/dynamic-form";
+import { useState } from "react";
+import { useCreateEnquiry, useCreateCustomer, useListCustomers, getListEnquiriesQueryKey, getListCustomersQueryKey } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
+
+const PROVINCES = [
+  "Eastern Cape", "Free State", "Gauteng", "KwaZulu-Natal",
+  "Limpopo", "Mpumalanga", "Northern Cape", "North West", "Western Cape"
+];
+
+type CustomerMode = "new" | "existing";
+
+interface FormValues {
+  // Customer (new)
+  name: string;
+  phone: string;
+  email?: string;
+  contactName?: string;
+  farmName?: string;
+  nearestTown: string;
+  province?: string;
+  whatsappLocation?: string;
+  manualDirections?: string;
+  landmarks?: string;
+  accessNotes?: string;
+  // Customer (existing)
+  existingCustomerId?: string;
+  // Enquiry
+  title: string;
+  priority?: string;
+  tankSize?: string;
+  tankQuantity?: string;
+  description?: string;
+  notes?: string;
+}
+
+function Field({ label, required, children, hint }: { label: string; required?: boolean; children: React.ReactNode; hint?: string }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-sm font-medium">
+        {label}
+        {required && <span className="text-destructive ml-1">*</span>}
+      </Label>
+      {children}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
 
 export default function NewEnquiry() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const createCustomer = useCreateCustomer();
   const createEnquiry = useCreateEnquiry();
-  
-  // Use a simple window.location parsing for query params since wouter doesn't have a built-in search params hook that's reactive enough without extra libraries
-  const urlParams = new URLSearchParams(window.location.search);
-  const customerIdParam = urlParams.get("customerId");
+  const { data: customers } = useListCustomers();
+  const [mode, setMode] = useState<CustomerMode>("new");
+  const [submitting, setSubmitting] = useState(false);
 
-  // Need customers list for the select dropdown
-  const { data: customers, isLoading: customersLoading } = useListCustomers();
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormValues>({
+    defaultValues: { priority: "medium" }
+  });
 
-  const customerOptions = customers?.map(c => ({
-    label: c.farmName ? `${c.name} (${c.farmName})` : c.name,
-    value: c.id.toString()
-  })) || [];
+  const selectedProvince = watch("province");
+  const selectedExistingId = watch("existingCustomerId");
 
-  const enquiryFields: FieldConfig[] = [
-    { key: "customerId", label: "Customer", type: "select", required: true, options: customerOptions, section: "General" },
-    { key: "title", label: "Enquiry Title", type: "text", required: true, placeholder: "e.g. 2x 10000L tanks for irrigation", section: "General" },
-    { key: "priority", label: "Priority", type: "select", options: [
-      { label: "Low", value: "low" },
-      { label: "Medium", value: "medium" },
-      { label: "High", value: "high" }
-    ], section: "General" },
-    
-    { key: "tankSize", label: "Tank Size (if known)", type: "text", placeholder: "e.g. 10000L, 5000L", section: "Requirements" },
-    { key: "tankQuantity", label: "Quantity", type: "number", placeholder: "1", section: "Requirements" },
-    { key: "description", label: "Description / Request", type: "textarea", placeholder: "Customer needs tanks installed on a 2m stand...", section: "Requirements" },
-    { key: "notes", label: "Internal Notes", type: "textarea", placeholder: "Any internal remarks...", section: "Requirements" },
-  ];
+  const onSubmit = async (data: FormValues) => {
+    setSubmitting(true);
+    try {
+      let customerId: number;
 
-  const handleSubmit = (data: any) => {
-    // Coerce customerId and tankQuantity to numbers
-    const payload = {
-      ...data,
-      customerId: Number(data.customerId),
-      tankQuantity: data.tankQuantity ? Number(data.tankQuantity) : undefined,
-      status: "new"
-    };
-
-    createEnquiry.mutate({ data: payload }, {
-      onSuccess: (res) => {
-        toast({ title: "Enquiry created successfully" });
-        queryClient.invalidateQueries({ queryKey: getListEnquiriesQueryKey() });
-        setLocation(`/enquiries/${res.id}`);
-      },
-      onError: (err) => {
-        toast({ title: "Failed to create enquiry", description: (err as any)?.message || "Unknown error", variant: "destructive" });
+      if (mode === "new") {
+        if (!data.name || !data.phone || !data.nearestTown) {
+          toast({ title: "Please fill in required customer fields", variant: "destructive" });
+          setSubmitting(false);
+          return;
+        }
+        const customer = await createCustomer.mutateAsync({
+          data: {
+            name: data.name,
+            phone: data.phone,
+            email: data.email || undefined,
+            contactName: data.contactName || undefined,
+            farmName: data.farmName || undefined,
+            nearestTown: data.nearestTown,
+            province: data.province || undefined,
+            whatsappLocation: data.whatsappLocation || undefined,
+            manualDirections: data.manualDirections || undefined,
+            landmarks: data.landmarks || undefined,
+            accessNotes: data.accessNotes || undefined,
+          }
+        });
+        customerId = customer.id;
+        queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey() });
+      } else {
+        if (!data.existingCustomerId) {
+          toast({ title: "Please select an existing customer", variant: "destructive" });
+          setSubmitting(false);
+          return;
+        }
+        customerId = Number(data.existingCustomerId);
       }
-    });
+
+      if (!data.title) {
+        toast({ title: "Please fill in the enquiry title", variant: "destructive" });
+        setSubmitting(false);
+        return;
+      }
+
+      const enquiry = await createEnquiry.mutateAsync({
+        data: {
+          customerId,
+          title: data.title,
+          priority: data.priority || "medium",
+          tankSize: data.tankSize || undefined,
+          tankQuantity: data.tankQuantity ? Number(data.tankQuantity) : undefined,
+          description: data.description || undefined,
+          notes: data.notes || undefined,
+          status: "new",
+        }
+      });
+
+      queryClient.invalidateQueries({ queryKey: getListEnquiriesQueryKey() });
+      toast({ title: "Enquiry created", description: "Customer and enquiry saved successfully" });
+      setLocation(`/enquiries/${enquiry.id}`);
+    } catch (err: any) {
+      toast({ title: "Failed to save", description: err?.message || "Unknown error", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  if (customersLoading) {
-    return <div>Loading customers...</div>;
-  }
-
-  const defaultValues = customerIdParam ? { customerId: customerIdParam } : {};
-
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6 pb-10">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">New Enquiry</h1>
-        <p className="text-muted-foreground">Capture a new lead or request</p>
+        <p className="text-muted-foreground">Capture a new lead — customer info and request in one step</p>
       </div>
 
-      <div className="bg-card border rounded-lg p-4 sm:p-6 shadow-sm">
-        <DynamicForm 
-          fields={enquiryFields} 
-          onSubmit={handleSubmit} 
-          storageKey="firesky_draft_enquiry" 
-          submitLabel="Create Enquiry"
-          isSubmitting={createEnquiry.isPending}
-          defaultValues={defaultValues}
-        />
-      </div>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+
+        {/* Customer Section */}
+        <div className="bg-card border rounded-lg shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b bg-muted/40">
+            <div>
+              <h2 className="text-base font-semibold">Customer Details</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Who is this enquiry from?</p>
+            </div>
+            <Tabs value={mode} onValueChange={(v) => setMode(v as CustomerMode)}>
+              <TabsList className="h-8 text-xs">
+                <TabsTrigger value="new" className="text-xs px-3">New Customer</TabsTrigger>
+                <TabsTrigger value="existing" className="text-xs px-3">Existing</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          <div className="p-4 sm:p-6 space-y-6">
+            {mode === "existing" ? (
+              <Field label="Select Customer" required>
+                <Select onValueChange={(v) => setValue("existingCustomerId", v)} value={selectedExistingId}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Choose an existing customer..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers?.map(c => (
+                      <SelectItem key={c.id} value={c.id.toString()}>
+                        {c.farmName ? `${c.name} — ${c.farmName}` : c.name}
+                        {c.nearestTown ? ` (${c.nearestTown})` : ""}
+                      </SelectItem>
+                    ))}
+                    {!customers?.length && (
+                      <SelectItem value="__none" disabled>No customers yet</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </Field>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Customer / Business Name" required>
+                    <Input {...register("name")} placeholder="e.g. John Smith or Willow Creek Farms" className="h-11" />
+                  </Field>
+                  <Field label="Contact Person" hint="If different from name above">
+                    <Input {...register("contactName")} placeholder="e.g. Jane Smith" className="h-11" />
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Phone Number" required>
+                    <Input {...register("phone")} type="tel" placeholder="082 123 4567" className="h-11" />
+                  </Field>
+                  <Field label="Email Address">
+                    <Input {...register("email")} type="email" placeholder="john@example.com" className="h-11" />
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Farm / Site Name">
+                    <Input {...register("farmName")} placeholder="e.g. Willow Creek" className="h-11" />
+                  </Field>
+                  <Field label="Nearest Town" required>
+                    <Input {...register("nearestTown")} placeholder="e.g. Bethal" className="h-11" />
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Province">
+                    <Select onValueChange={(v) => setValue("province", v)} value={selectedProvince}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Select province..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PROVINCES.map(p => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="WhatsApp / GPS Location" hint="Paste a WhatsApp location link or GPS coordinates">
+                    <Input {...register("whatsappLocation")} placeholder="https://maps.app.goo.gl/... or -26.123, 28.456" className="h-11" />
+                  </Field>
+                </div>
+
+                <Field label="Manual Directions" hint="How to get there from the nearest town">
+                  <Textarea {...register("manualDirections")} placeholder="Take the R38 from Bethal, turn left at the silo..." rows={2} />
+                </Field>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Landmarks">
+                    <Textarea {...register("landmarks")} placeholder="Red gate, green roof on the shed" rows={2} />
+                  </Field>
+                  <Field label="Access Notes">
+                    <Textarea {...register("accessNotes")} placeholder="Call 10 mins before arrival for the gate code" rows={2} />
+                  </Field>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Enquiry Section */}
+        <div className="bg-card border rounded-lg shadow-sm overflow-hidden">
+          <div className="px-4 sm:px-6 py-4 border-b bg-muted/40">
+            <h2 className="text-base font-semibold">Enquiry Details</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">What are they looking for?</p>
+          </div>
+
+          <div className="p-4 sm:p-6 space-y-4">
+            <Field label="Enquiry Title" required hint='Brief description, e.g. "2x 10000L tanks on 2m stand for irrigation"'>
+              <Input {...register("title")} placeholder="e.g. 2x 10000L cattle water tanks" className="h-11" />
+            </Field>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Field label="Priority">
+                <Select onValueChange={(v) => setValue("priority", v)} defaultValue="medium">
+                  <SelectTrigger className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Tank Size (if known)">
+                <Input {...register("tankSize")} placeholder="e.g. 10000L, 5000L" className="h-11" />
+              </Field>
+              <Field label="Quantity">
+                <Input {...register("tankQuantity")} type="number" placeholder="1" min="1" className="h-11" />
+              </Field>
+            </div>
+
+            <Field label="Description / Request">
+              <Textarea {...register("description")} placeholder="Customer needs tanks installed on a 2m stand, prefers poly tanks, site has good access..." rows={3} />
+            </Field>
+
+            <Field label="Internal Notes">
+              <Textarea {...register("notes")} placeholder="Any internal remarks — follow-up timing, pricing notes..." rows={2} />
+            </Field>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <Button type="button" variant="outline" onClick={() => window.history.back()} className="h-11 px-6">
+            Cancel
+          </Button>
+          <Button type="submit" disabled={submitting} className="h-11 px-8 hex-clip font-semibold">
+            {submitting ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+            ) : (
+              mode === "new" ? "Create Customer & Enquiry" : "Create Enquiry"
+            )}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }
