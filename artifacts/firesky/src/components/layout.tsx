@@ -21,6 +21,10 @@ const fieldNavItems = [
   { href: "/jobs", label: "Jobs", icon: Briefcase },
 ];
 
+const guestNavItems = [
+  { href: "/enquiries/new", label: "New Enquiry", icon: FileText },
+];
+
 function isActive(location: string, href: string) {
   if (href === "/") return location === "/";
   return location.startsWith(href);
@@ -77,34 +81,15 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user } = useUser();
-  const { signOut } = useClerk();
-  const [, setLocation] = useLocation();
   const role = (user?.publicMetadata?.role as string) || "guest";
   const isAdmin = role === "admin";
   const isFieldWorker = role === "user";
+  const isGuest = role === "guest";
 
-  const navItems = isAdmin ? adminNavItems : fieldNavItems;
+  const navItems = isAdmin ? adminNavItems : isFieldWorker ? fieldNavItems : guestNavItems;
 
-  if (!isAdmin && !isFieldWorker) {
-    return (
-      <div className="min-h-[100dvh] flex flex-col bg-gray-950">
-        <header className="flex items-center justify-between px-4 py-3 bg-sidebar border-b border-sidebar-border">
-          <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-14 w-auto object-contain" />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-foreground gap-2"
-            onClick={() => signOut(() => setLocation("/"))}
-          >
-            <LogOut className="h-4 w-4" /> Sign out
-          </Button>
-        </header>
-        <main className="flex-1 p-4 md:p-8 max-w-2xl mx-auto w-full">
-          {children}
-        </main>
-      </div>
-    );
-  }
+  const ctaLink = isAdmin ? "/enquiries/new" : isFieldWorker ? "/inspections/new" : "/enquiries/new";
+  const ctaLabel = isAdmin ? "New Enquiry" : isFieldWorker ? "New Inspection" : "New Enquiry";
 
   return (
     <div className="min-h-[100dvh] flex flex-col md:flex-row bg-muted/30">
@@ -127,19 +112,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
         <div className="px-4 pb-3 pt-2">
-          {isAdmin ? (
-            <Link href="/enquiries/new">
-              <Button className="w-full h-12 hex-clip px-8 font-semibold tracking-wide">
-                <Plus className="mr-2 h-5 w-5" /> New Enquiry
-              </Button>
-            </Link>
-          ) : (
-            <Link href="/inspections/new">
-              <Button className="w-full h-12 hex-clip px-8 font-semibold tracking-wide">
-                <Plus className="mr-2 h-5 w-5" /> New Inspection
-              </Button>
-            </Link>
-          )}
+          <Link href={ctaLink}>
+            <Button className="w-full h-12 hex-clip px-8 font-semibold tracking-wide">
+              <Plus className="mr-2 h-5 w-5" /> {ctaLabel}
+            </Button>
+          </Link>
         </div>
         <UserFooter />
       </aside>
@@ -171,19 +148,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
               ))}
             </nav>
             <div className="px-4 pb-3 pt-2">
-              {isAdmin ? (
-                <Link href="/enquiries/new">
-                  <Button className="w-full h-12 hex-clip px-8 font-semibold">
-                    <Plus className="mr-2 h-5 w-5" /> New Enquiry
-                  </Button>
-                </Link>
-              ) : (
-                <Link href="/inspections/new">
-                  <Button className="w-full h-12 hex-clip px-8 font-semibold">
-                    <Plus className="mr-2 h-5 w-5" /> New Inspection
-                  </Button>
-                </Link>
-              )}
+              <Link href={ctaLink}>
+                <Button className="w-full h-12 hex-clip px-8 font-semibold">
+                  <Plus className="mr-2 h-5 w-5" /> {ctaLabel}
+                </Button>
+              </Link>
             </div>
             <UserFooter />
           </SheetContent>
@@ -260,6 +229,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <span className="text-[10px] font-medium">Add</span>
             </div>
           </Link>
+        </nav>
+      )}
+
+      {/* Mobile Bottom Nav — Guest */}
+      {isGuest && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-sidebar border-t border-sidebar-border flex items-center justify-around px-2 z-10 pb-safe">
+          <div className="flex-1 flex justify-center -mt-6">
+            <Link href="/enquiries/new">
+              <Button size="icon" className="h-14 w-14 rounded-full shadow-lg shadow-primary/25">
+                <Plus className="h-8 w-8" />
+              </Button>
+            </Link>
+          </div>
         </nav>
       )}
 
