@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SkyProvider } from "./components/sky";
 import { Router } from "./AppRouter";
+import { ErrorBoundary } from "./components/error-boundary";
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
@@ -120,18 +121,20 @@ function AppRoutes() {
         <ClerkQueryClientCacheInvalidator />
         <TooltipProvider>
           <SkyProvider>
-            <Switch>
-              <Route path="/sign-in/*?" component={SignInPage} />
-              <Route path="/sign-up/*?" component={SignUpPage} />
-              <Route>
-                <Show when="signed-in">
-                  <Router />
-                </Show>
-                <Show when="signed-out">
-                  <Redirect to="/sign-in" />
-                </Show>
-              </Route>
-            </Switch>
+            <ErrorBoundary>
+              <Switch>
+                <Route path="/sign-in/*?" component={SignInPage} />
+                <Route path="/sign-up/*?" component={SignUpPage} />
+                <Route>
+                  <Show when="signed-in">
+                    <Router />
+                  </Show>
+                  <Show when="signed-out">
+                    <Redirect to="/sign-in" />
+                  </Show>
+                </Route>
+              </Switch>
+            </ErrorBoundary>
             <Toaster />
           </SkyProvider>
         </TooltipProvider>
