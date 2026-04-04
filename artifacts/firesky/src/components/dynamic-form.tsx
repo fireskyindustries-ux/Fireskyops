@@ -8,11 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { CheckCircle2, Save, Trash2 } from "lucide-react";
+import { CheckCircle2, Crosshair, ExternalLink, Loader2, Save, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 
-export type FieldType = "text" | "textarea" | "number" | "select" | "boolean" | "email" | "tel";
+export type FieldType = "text" | "textarea" | "number" | "select" | "boolean" | "email" | "tel" | "gps";
 
 export interface FieldConfig {
   key: string;
@@ -37,13 +37,14 @@ interface DynamicFormProps {
 export function DynamicForm({ fields, onSubmit, defaultValues = {}, storageKey, submitLabel = "Submit", isSubmitting }: DynamicFormProps) {
   const { toast } = useToast();
   const [draftSavedAt, setDraftSavedAt] = useState<Date | null>(null);
+  const [locatingField, setLocatingField] = useState<string | null>(null);
 
   // Generate Zod Schema dynamically
   const schemaShape: any = {};
   fields.forEach(field => {
     let fieldSchema: any = z.any();
     
-    if (field.type === "text" || field.type === "textarea" || field.type === "select") {
+    if (field.type === "text" || field.type === "textarea" || field.type === "select" || field.type === "gps") {
       fieldSchema = z.string();
       if (field.required) {
         fieldSchema = fieldSchema.min(1, `${field.label} is required`);
@@ -119,6 +120,30 @@ export function DynamicForm({ fields, onSubmit, defaultValues = {}, storageKey, 
     return () => clearTimeout(timer);
   }, [watchedValues, storageKey]);
 
+  const captureGPS = (fieldKey: string) => {
+    if (!navigator.geolocation) {
+      toast({ title: "GPS not supported", description: "Your browser does not support location access", variant: "destructive" });
+      return;
+    }
+    setLocatingField(fieldKey);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+        form.setValue(fieldKey as any, coords, { shouldValidate: true });
+        setLocatingField(null);
+        toast({ title: "Location captured", description: coords });
+      },
+      (err) => {
+        setLocatingField(null);
+        const msg = err.code === 1 ? "Location permission denied — allow location access in your browser"
+                  : err.code === 2 ? "Location unavailable — check GPS signal"
+                  : "Location request timed out";
+        toast({ title: "Could not get location", description: msg, variant: "destructive" });
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  };
+
   const handleClearDraft = () => {
     localStorage.removeItem(storageKey);
     setDraftSavedAt(null);
@@ -172,7 +197,7 @@ export function DynamicForm({ fields, onSubmit, defaultValues = {}, storageKey, 
             
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {sectionFields.map((field) => (
-                <div key={field.key} className={field.type === "textarea" || field.type === "boolean" ? "md:col-span-2" : ""}>
+                <div key={field.key} className={field.type === "textarea" || field.type === "boolean" || field.type === "gps" ? "md:col-span-2" : ""}>
                   <FormField
                     control={form.control}
                     name={field.key}
@@ -186,7 +211,42 @@ export function DynamicForm({ fields, onSubmit, defaultValues = {}, storageKey, 
                         </div>
                         
                         <FormControl>
-                          {field.type === "text" || field.type === "email" || field.type === "tel" ? (
+                          {field.type === "gps" ? (
+                            <div className="space-y-2">
+                              <div className="flex gap-2">
+                                <Input
+                                  placeholder="Tap button to capture location, or paste coordinates"
+                                  {...formField}
+                                  value={formField.value ?? ""}
+                                  className="h-12 md:h-10 flex-1"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="h-12 md:h-10 px-3 border-primary text-primary hover:bg-primary/10 flex-shrink-0"
+                                  onClick={() => captureGPS(field.key)}
+                                  disabled={locatingField === field.key}
+                                  title="Use my current GPS location"
+                                >
+                                  {locatingField === field.key
+                                    ? <Loader2 className="h-5 w-5 animate-spin" />
+                                    : <Crosshair className="h-5 w-5" />
+                                  }
+                                </Button>
+                              </div>
+                              {formField.value && /^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/.test(formField.value.trim()) && (
+                                <a
+                                  href={`https://www.google.com/maps?q=${encodeURIComponent(formField.value.trim())}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-xs text-primary font-medium hover:underline"
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                  Open in Google Maps
+                                </a>
+                              )}
+                            </div>
+                          ) : field.type === "text" || field.type === "email" || field.type === "tel" ? (
                             <Input 
                               placeholder={field.placeholder} 
                               type={field.type} 

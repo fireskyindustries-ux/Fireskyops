@@ -1,6 +1,6 @@
 import { useGetInspection, getGetInspectionQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { MapPin, Briefcase, FileText, CheckCircle2, XCircle } from "lucide-react";
+import { MapPin, Briefcase, FileText, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -83,9 +83,25 @@ export default function InspectionDetail() {
             <div className="space-y-2">
               <div className="flex items-start gap-3">
                 <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
+                <div className="space-y-1">
                   <p className="text-sm font-medium">Location</p>
                   <p className="text-sm text-muted-foreground">{inspection.nearestTown || "Not specified"}</p>
+                  {inspection.whatsappLocation && (
+                    <div className="pt-1">
+                      <p className="text-xs text-muted-foreground font-mono truncate">{inspection.whatsappLocation}</p>
+                      {/^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/.test((inspection.whatsappLocation ?? "").trim()) && (
+                        <a
+                          href={`https://www.google.com/maps?q=${encodeURIComponent((inspection.whatsappLocation ?? "").trim())}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary font-medium mt-1 hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Open in Google Maps
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -33,7 +33,7 @@ export default function NewInspection() {
     
     { key: "farmName", label: "Farm / Site Name", type: "text", section: "Location Details" },
     { key: "nearestTown", label: "Nearest Town", type: "text", required: true, helperText: "Enter the nearest town as a landmark for navigation", section: "Location Details" },
-    { key: "whatsappLocation", label: "WhatsApp / GPS Location", type: "text", helperText: "Paste a WhatsApp location link or GPS coordinates", section: "Location Details" },
+    { key: "whatsappLocation", label: "GPS / WhatsApp Location", type: "gps", helperText: "Tap the crosshair to capture your current GPS location, or paste a WhatsApp location link", section: "Location Details" },
     { key: "manualDirections", label: "Manual Directions", type: "textarea", section: "Location Details" },
     { key: "landmarks", label: "Landmarks", type: "textarea", section: "Location Details" },
     { key: "accessNotes", label: "Access Notes", type: "textarea", section: "Location Details" },
