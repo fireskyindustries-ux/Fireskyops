@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
+import { useUser } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { Loader2, LocateFixed, Sparkles } from "lucide-react";
+import { CheckCircle2, Loader2, LocateFixed, Sparkles } from "lucide-react";
 import { useSkyActions } from "@/components/sky";
 
 const PROVINCES = [
@@ -63,12 +64,16 @@ export default function NewEnquiry() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { openSky } = useSkyActions();
+  const { user } = useUser();
+  const role = ((user?.publicMetadata?.role as string) || "guest") as "admin" | "user" | "guest";
+  const isGuest = role === "guest";
   const createCustomer = useCreateCustomer();
   const createEnquiry = useCreateEnquiry();
   const { data: customers } = useListCustomers();
   const [mode, setMode] = useState<CustomerMode>("new");
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormValues>({
     defaultValues: { priority: "medium" }
@@ -159,14 +164,40 @@ export default function NewEnquiry() {
       });
 
       queryClient.invalidateQueries({ queryKey: getListEnquiriesQueryKey() });
-      toast({ title: "Enquiry created", description: "Customer and enquiry saved successfully" });
-      setLocation(`/enquiries/${enquiry.id}`);
+      if (isGuest) {
+        setSubmitted(true);
+      } else {
+        toast({ title: "Enquiry created", description: "Customer and enquiry saved successfully" });
+        setLocation(`/enquiries/${enquiry.id}`);
+      }
     } catch (err: any) {
       toast({ title: "Failed to save", description: err?.message || "Unknown error", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (submitted) {
+    return (
+      <div className="max-w-md mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center gap-6 px-4">
+        <div className="h-20 w-20 rounded-full bg-green-100 flex items-center justify-center">
+          <CheckCircle2 className="h-10 w-10 text-green-600" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold tracking-tight">Request Received</h1>
+          <p className="text-muted-foreground">
+            Thank you — your enquiry has been submitted. The Firesky Industries team will be in touch with you shortly.
+          </p>
+        </div>
+        <Button
+          className="h-12 px-10 hex-clip font-semibold text-base"
+          onClick={() => { window.location.href = "https://www.fireskyindustries.co.za"; }}
+        >
+          Done
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-10">
@@ -195,12 +226,14 @@ export default function NewEnquiry() {
               <h2 className="text-base font-semibold">Customer Details</h2>
               <p className="text-xs text-muted-foreground mt-0.5">Who is this enquiry from?</p>
             </div>
-            <Tabs value={mode} onValueChange={(v) => setMode(v as CustomerMode)}>
-              <TabsList className="h-8 text-xs">
-                <TabsTrigger value="new" className="text-xs px-3">New Customer</TabsTrigger>
-                <TabsTrigger value="existing" className="text-xs px-3">Existing</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {!isGuest && (
+              <Tabs value={mode} onValueChange={(v) => setMode(v as CustomerMode)}>
+                <TabsList className="h-8 text-xs">
+                  <TabsTrigger value="new" className="text-xs px-3">New Customer</TabsTrigger>
+                  <TabsTrigger value="existing" className="text-xs px-3">Existing</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
           </div>
 
           <div className="p-4 sm:p-6 space-y-6">
