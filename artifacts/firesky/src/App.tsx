@@ -1,24 +1,126 @@
-import { Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { Router as WouterRouter, Switch, Route, Redirect, useLocation } from "wouter";
+import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Router } from "./AppRouter";
 import { SkyProvider } from "./components/sky";
+import { Router } from "./AppRouter";
+
+const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function stripBase(path: string): string {
+  return basePath && path.startsWith(basePath)
+    ? path.slice(basePath.length) || "/"
+    : path;
+}
 
 const queryClient = new QueryClient();
 
-function App() {
+function SignInPage() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <SkyProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-          <Toaster />
-        </SkyProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-muted/30 p-4">
+      <div className="mb-6 text-center">
+        <img src={`${basePath}/firesky-logo.png`} alt="Firesky Industries" className="h-16 w-auto object-contain mx-auto" />
+      </div>
+      <SignIn
+        routing="path"
+        path={`${basePath}/sign-in`}
+        signUpUrl={`${basePath}/sign-up`}
+        appearance={{ elements: {
+          formButtonPrimary: "bg-primary hover:bg-primary/90",
+          footerActionLink: "text-primary",
+        }}}
+      />
+    </div>
+  );
+}
+
+function SignUpPage() {
+  return (
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-muted/30 p-4">
+      <div className="mb-6 text-center">
+        <img src={`${basePath}/firesky-logo.png`} alt="Firesky Industries" className="h-16 w-auto object-contain mx-auto" />
+      </div>
+      <SignUp
+        routing="path"
+        path={`${basePath}/sign-up`}
+        signInUrl={`${basePath}/sign-in`}
+        appearance={{ elements: {
+          formButtonPrimary: "bg-primary hover:bg-primary/90",
+          footerActionLink: "text-primary",
+        }}}
+      />
+    </div>
+  );
+}
+
+function ClerkQueryClientCacheInvalidator() {
+  const { addListener } = useClerk();
+  const qc = useQueryClient();
+  const prevUserIdRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const unsubscribe = addListener(({ user }) => {
+      const userId = user?.id ?? null;
+      if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
+        qc.clear();
+      }
+      prevUserIdRef.current = userId;
+    });
+    return unsubscribe;
+  }, [addListener, qc]);
+  return null;
+}
+
+function AppRoutes() {
+  const [, setLocation] = useLocation();
+
+  return (
+    <ClerkProvider
+      publishableKey={clerkPubKey}
+      proxyUrl={clerkProxyUrl}
+      routerPush={(to) => setLocation(stripBase(to))}
+      routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
+    >
+      <QueryClientProvider client={queryClient}>
+        <ClerkQueryClientCacheInvalidator />
+        <TooltipProvider>
+          <SkyProvider>
+            <Switch>
+              <Route path="/sign-in/*?" component={SignInPage} />
+              <Route path="/sign-up/*?" component={SignUpPage} />
+              <Route>
+                <Show when="signed-in">
+                  <Router />
+                </Show>
+                <Show when="signed-out">
+                  <Redirect to="/sign-in" />
+                </Show>
+              </Route>
+            </Switch>
+            <Toaster />
+          </SkyProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ClerkProvider>
+  );
+}
+
+function App() {
+  if (!clerkPubKey) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm">
+        Authentication not configured. Please check environment variables.
+      </div>
+    );
+  }
+
+  return (
+    <WouterRouter base={basePath}>
+      <AppRoutes />
+    </WouterRouter>
   );
 }
 

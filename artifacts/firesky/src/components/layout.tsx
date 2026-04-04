@@ -1,8 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, FileText, ClipboardCheck, Briefcase, Plus, Menu } from "lucide-react";
+import { Home, Users, FileText, ClipboardCheck, Briefcase, Plus, Menu, LogOut, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SkyPanel, SkyFloatingButton } from "./sky";
+import { useUser, useClerk } from "@clerk/react";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -14,6 +17,90 @@ const navItems = [
   { href: "/jobs", label: "Jobs", icon: Briefcase },
 ];
 
+function isActive(location: string, href: string) {
+  if (href === "/") return location === "/";
+  return location.startsWith(href);
+}
+
+function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
+  const { user } = useUser();
+  const { signOut } = useClerk();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const [claiming, setClaiming] = useState(false);
+  const role = (user?.publicMetadata?.role as string) || "user";
+
+  const handleClaimAdmin = async () => {
+    setClaiming(true);
+    try {
+      const res = await fetch("/api/users/claim-admin", { method: "POST", credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      toast({ title: "Admin access granted", description: "Reload to see admin options." });
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err: any) {
+      toast({ title: "Could not claim admin", description: err.message, variant: "destructive" });
+    } finally {
+      setClaiming(false);
+    }
+  };
+
+  return (
+    <div className="border-t border-sidebar-border">
+      {role === "admin" && (
+        <div className="px-4 pt-3">
+          <Link href="/admin/users" onClick={onNavigate}>
+            <Button variant="ghost" className="w-full justify-start h-10 text-primary">
+              <Shield className="mr-2 h-4 w-4" />
+              Manage Users
+            </Button>
+          </Link>
+        </div>
+      )}
+      {role !== "admin" && (
+        <div className="px-4 pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start h-8 text-xs text-muted-foreground hover:text-primary"
+            onClick={handleClaimAdmin}
+            disabled={claiming}
+          >
+            <Shield className="mr-2 h-3 w-3" />
+            {claiming ? "Requesting..." : "Claim Admin Access"}
+          </Button>
+        </div>
+      )}
+      <div className="p-4 flex items-center gap-3">
+        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+          {user?.imageUrl ? (
+            <img src={user.imageUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-xs font-bold text-primary">
+              {(user?.firstName?.[0] || user?.emailAddresses?.[0]?.emailAddress?.[0] || "U").toUpperCase()}
+            </span>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium truncate">
+            {user?.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : user?.emailAddresses?.[0]?.emailAddress}
+          </p>
+          <p className="text-[10px] text-muted-foreground capitalize">{role}</p>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
+          onClick={() => signOut(() => setLocation("/"))}
+          title="Sign out"
+        >
+          <LogOut className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
 
@@ -22,17 +109,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border">
         <div className="px-4 pt-5 pb-4 border-b border-sidebar-border">
-          <img
-            src={`${BASE}/firesky-logo.png`}
-            alt="Firesky Industries"
-            className="h-16 w-auto object-contain"
-          />
+          <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-16 w-auto object-contain" />
         </div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {navItems.map((item) => (
             <Link key={item.href} href={item.href}>
               <Button
-                variant={location === item.href || (item.href !== "/" && location.startsWith(item.href)) ? "secondary" : "ghost"}
+                variant={isActive(location, item.href) ? "secondary" : "ghost"}
                 className="w-full justify-start h-12"
               >
                 <item.icon className="mr-2 h-5 w-5" />
@@ -41,41 +124,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="px-4 pb-3 pt-2">
           <Link href="/enquiries/new">
             <Button className="w-full h-12 hex-clip px-8 font-semibold tracking-wide">
               <Plus className="mr-2 h-5 w-5" /> New Enquiry
             </Button>
           </Link>
         </div>
+        <UserFooter />
       </aside>
 
       {/* Mobile Header */}
       <header className="md:hidden flex items-center justify-between px-4 py-2 bg-sidebar border-b border-sidebar-border sticky top-0 z-10">
-        <img
-          src={`${BASE}/firesky-logo.png`}
-          alt="Firesky Industries"
-          className="h-11 w-auto object-contain"
-        />
+        <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-11 w-auto object-contain" />
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">
               <Menu className="h-6 w-6" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0">
+          <SheetContent side="left" className="w-64 p-0 flex flex-col">
             <div className="px-4 pt-5 pb-4 border-b border-sidebar-border">
-              <img
-                src={`${BASE}/firesky-logo.png`}
-                alt="Firesky Industries"
-                className="h-14 w-auto object-contain"
-              />
+              <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-14 w-auto object-contain" />
             </div>
-            <nav className="p-4 space-y-2">
+            <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
               {navItems.map((item) => (
                 <Link key={item.href} href={item.href}>
                   <Button
-                    variant={location === item.href || (item.href !== "/" && location.startsWith(item.href)) ? "secondary" : "ghost"}
+                    variant={isActive(location, item.href) ? "secondary" : "ghost"}
                     className="w-full justify-start h-12"
                   >
                     <item.icon className="mr-2 h-5 w-5" />
@@ -84,13 +160,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
             </nav>
-            <div className="p-4 border-t border-sidebar-border">
+            <div className="px-4 pb-3 pt-2">
               <Link href="/enquiries/new">
                 <Button className="w-full h-12 hex-clip px-8 font-semibold">
                   <Plus className="mr-2 h-5 w-5" /> New Enquiry
                 </Button>
               </Link>
             </div>
+            <UserFooter />
           </SheetContent>
         </Sheet>
       </header>
@@ -106,7 +183,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-sidebar border-t border-sidebar-border flex items-center justify-around px-2 z-10 pb-safe">
         {navItems.slice(0, 2).map((item) => (
           <Link key={item.href} href={item.href} className="flex-1">
-            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${location === item.href || (item.href !== "/" && location.startsWith(item.href)) ? "text-primary" : "text-muted-foreground"}`}>
+            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, item.href) ? "text-primary" : "text-muted-foreground"}`}>
               <item.icon className="h-6 w-6" />
               <span className="text-[10px] font-medium">{item.label}</span>
             </div>
@@ -121,7 +198,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
         {navItems.slice(2, 4).map((item) => (
           <Link key={item.href} href={item.href} className="flex-1">
-            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${location === item.href || (item.href !== "/" && location.startsWith(item.href)) ? "text-primary" : "text-muted-foreground"}`}>
+            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, item.href) ? "text-primary" : "text-muted-foreground"}`}>
               <item.icon className="h-6 w-6" />
               <span className="text-[10px] font-medium">{item.label}</span>
             </div>
@@ -129,7 +206,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         ))}
       </nav>
 
-      {/* Sky AI Assistant */}
       <SkyFloatingButton />
       <SkyPanel />
     </div>
