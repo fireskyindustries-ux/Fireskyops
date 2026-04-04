@@ -1,11 +1,21 @@
 import { useGetCustomer, getGetCustomerQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { MapPin, Phone, Mail, Map, Navigation, AlignLeft, Info, Plus } from "lucide-react";
+import { MapPin, Phone, Mail, Map, Navigation, AlignLeft, Info, Plus, LocateFixed, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SkyInlineButton } from "@/components/sky";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+
+function buildMapsUrl(value: string): string | null {
+  if (!value) return null;
+  if (value.startsWith("http")) return value;
+  const coordRegex = /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/;
+  if (coordRegex.test(value.trim())) {
+    return `https://www.google.com/maps?q=${encodeURIComponent(value.trim())}`;
+  }
+  return null;
+}
 
 export default function CustomerDetail() {
   const params = useParams();
@@ -101,21 +111,34 @@ export default function CustomerDetail() {
               </div>
             </div>
 
-            {customer.whatsappLocation && (
-              <div className="flex items-start gap-3">
-                <Map className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">GPS / Location Link</p>
-                  {customer.whatsappLocation.startsWith('http') ? (
-                    <a href={customer.whatsappLocation} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline break-all">
-                      Open in Maps
-                    </a>
-                  ) : (
-                    <p className="text-sm text-muted-foreground break-all">{customer.whatsappLocation}</p>
-                  )}
+            {customer.whatsappLocation && (() => {
+              const mapsUrl = buildMapsUrl(customer.whatsappLocation!);
+              const isCoord = /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/.test(customer.whatsappLocation!.trim());
+              return (
+                <div className="flex items-start gap-3">
+                  <LocateFixed className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <p className="text-sm font-medium">GPS Location</p>
+                    {isCoord && (
+                      <p className="text-xs text-muted-foreground font-mono">{customer.whatsappLocation}</p>
+                    )}
+                    {mapsUrl ? (
+                      <a
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-md hex-clip-sm hover:bg-primary/90 active:scale-95 transition-all"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Open in Google Maps
+                      </a>
+                    ) : (
+                      <p className="text-sm text-muted-foreground break-all">{customer.whatsappLocation}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {customer.manualDirections && (
               <div className="flex items-start gap-3">

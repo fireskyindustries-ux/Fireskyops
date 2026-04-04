@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { Loader2, LocateFixed } from "lucide-react";
 
 const PROVINCES = [
   "Eastern Cape", "Free State", "Gauteng", "KwaZulu-Natal",
@@ -66,6 +66,7 @@ export default function NewEnquiry() {
   const { data: customers } = useListCustomers();
   const [mode, setMode] = useState<CustomerMode>("new");
   const [submitting, setSubmitting] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormValues>({
     defaultValues: { priority: "medium" }
@@ -73,6 +74,31 @@ export default function NewEnquiry() {
 
   const selectedProvince = watch("province");
   const selectedExistingId = watch("existingCustomerId");
+  const locationValue = watch("whatsappLocation");
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      toast({ title: "GPS not supported", description: "Your browser doesn't support location access", variant: "destructive" });
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+        setValue("whatsappLocation", coords, { shouldValidate: true });
+        setLocating(false);
+        toast({ title: "Location captured", description: coords });
+      },
+      (err) => {
+        setLocating(false);
+        const msg = err.code === 1 ? "Location permission denied — please allow location access in your browser" :
+                    err.code === 2 ? "Location unavailable — check GPS signal" :
+                    "Location request timed out";
+        toast({ title: "Could not get location", description: msg, variant: "destructive" });
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  };
 
   const onSubmit = async (data: FormValues) => {
     setSubmitting(true);
@@ -226,8 +252,37 @@ export default function NewEnquiry() {
                       </SelectContent>
                     </Select>
                   </Field>
-                  <Field label="WhatsApp / GPS Location" hint="Paste a WhatsApp location link or GPS coordinates">
-                    <Input {...register("whatsappLocation")} placeholder="https://maps.app.goo.gl/... or -26.123, 28.456" className="h-11" />
+                  <Field label="GPS Location" hint={locationValue ? undefined : "Tap the button to capture phone location, or paste a link"}>
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          {...register("whatsappLocation")}
+                          placeholder="-26.123456, 28.456789"
+                          className="h-11 flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-11 w-11 shrink-0"
+                          onClick={handleGetLocation}
+                          disabled={locating}
+                          title="Use my current location"
+                        >
+                          {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      {locationValue && /^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(locationValue.trim()) && (
+                        <a
+                          href={`https://www.google.com/maps?q=${encodeURIComponent(locationValue.trim())}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
+                        >
+                          <LocateFixed className="h-3 w-3" /> Open in Google Maps
+                        </a>
+                      )}
+                    </div>
                   </Field>
                 </div>
 
