@@ -62,13 +62,29 @@ function buildContextBlock(contextType: string | undefined, contextData: Record<
   return `\n\n--- ${title} ---\n${lines.join("\n")}\n---`;
 }
 
+function buildRoleBlock(userRole: string | undefined, userName: string | undefined): string {
+  if (userRole === "admin") {
+    const name = userName ? userName : "the administrator";
+    return `\n\nYou are currently speaking with ${name}, the system administrator for Firesky Industries. They have full access to all customers, enquiries, site inspections, jobs, and team management. Provide thorough, business-level insights when relevant — pipeline health, stalled jobs, quote readiness, and operational priorities are all fair game. You maintain a persistent conversation history with this administrator across sessions. Build on what has been discussed before. If they refer to something from an earlier conversation, acknowledge it naturally. Address them by name.`;
+  }
+  if (userRole === "user") {
+    const name = userName ? userName : "a field team member";
+    return `\n\nYou are currently assisting ${name}, a field team member. Address them by name when appropriate.`;
+  }
+  if (userName) {
+    return `\n\nYou are currently assisting ${userName}. Address them by name when appropriate.`;
+  }
+  return "";
+}
+
 router.post("/sky/chat", async (req, res) => {
-  const { message, contextType, contextData, history, userName } = req.body as {
+  const { message, contextType, contextData, history, userName, userRole } = req.body as {
     message: string;
     contextType?: string;
     contextData?: Record<string, unknown>;
     history?: SkyChatMessage[];
     userName?: string;
+    userRole?: string;
   };
 
   if (!message || typeof message !== "string") {
@@ -82,15 +98,15 @@ router.post("/sky/chat", async (req, res) => {
 
   try {
     const contextBlock = buildContextBlock(contextType, contextData);
-    const userBlock = userName ? `\n\nThe field team member you are currently assisting is: ${userName}. Address them by name when appropriate.` : "";
-    const systemContent = FIRESKY_SYSTEM_PROMPT + userBlock + contextBlock;
+    const roleBlock = buildRoleBlock(userRole, userName);
+    const systemContent = FIRESKY_SYSTEM_PROMPT + roleBlock + contextBlock;
 
     const chatMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
       { role: "system", content: systemContent },
     ];
 
     if (Array.isArray(history)) {
-      for (const msg of history.slice(-10)) {
+      for (const msg of history) {
         if (msg.role === "user" || msg.role === "assistant") {
           chatMessages.push({ role: msg.role, content: msg.content });
         }

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { useUser } from "@clerk/react";
 
 export type SkyContextType = "dashboard" | "customer" | "enquiry" | "inspection" | "job" | "general";
@@ -38,8 +38,19 @@ function getApiUrl(path: string) {
   return `${BASE_URL}${path}`;
 }
 
+const MAX_STORED_MESSAGES = 60;
+const MAX_HISTORY_SENT = 30;
+
+function adminStorageKey(userId: string) {
+  return `sky-conversation-${userId}`;
+}
+
 export function SkyProvider({ children }: { children: ReactNode }) {
   const { user } = useUser();
+  const role = ((user?.publicMetadata?.role as string) || "guest") as "admin" | "user" | "guest";
+  const isAdmin = role === "admin";
+  const userId = user?.id ?? null;
+
   const [isOpen, setIsOpen] = useState(false);
   const [context, setContextState] = useState<SkyContextData>({ contextType: "general" });
   const [messages, setMessages] = useState<SkyChatMessage[]>([]);
@@ -47,12 +58,45 @@ export function SkyProvider({ children }: { children: ReactNode }) {
 
   const userName = user?.firstName || user?.fullName || user?.primaryEmailAddress?.emailAddress || undefined;
 
+  // Load persisted conversation for admin after mount — not during render
+  const loadedRef = useRef(false);
+  useEffect(() => {
+    if (!isAdmin || !userId || loadedRef.current) return;
+    loadedRef.current = true;
+    try {
+      const raw = localStorage.getItem(adminStorageKey(userId));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.messages) && parsed.messages.length > 0) {
+          setMessages(parsed.messages);
+        }
+      }
+    } catch {
+      // ignore corrupt storage
+    }
+  }, [isAdmin, userId]);
+
+  // Persist conversation to localStorage whenever messages change (admin only)
+  const isInitialMountRef = useRef(true);
+  useEffect(() => {
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+    if (!isAdmin || !userId) return;
+    try {
+      localStorage.setItem(
+        adminStorageKey(userId),
+        JSON.stringify({ messages: messages.slice(-MAX_STORED_MESSAGES), savedAt: new Date().toISOString() })
+      );
+    } catch {
+      // ignore storage quota errors
+    }
+  }, [messages, isAdmin, userId]);
+
   const openSky = useCallback((ctx?: Partial<SkyContextData>) => {
     if (ctx) {
-      setContextState((prev) => {
-        const newCtx = { ...prev, ...ctx };
-        return newCtx;
-      });
+      setContextState((prev) => ({ ...prev, ...ctx }));
       // Clear messages separately — never call setState inside another setState updater
       setMessages([]);
     }
@@ -69,7 +113,12 @@ export function SkyProvider({ children }: { children: ReactNode }) {
 
   const clearMessages = useCallback(() => {
     setMessages([]);
-  }, []);
+    if (isAdmin && userId) {
+      try {
+        localStorage.removeItem(adminStorageKey(userId));
+      } catch {}
+    }
+  }, [isAdmin, userId]);
 
   const sendMessage = useCallback(
     async (message: string) => {
@@ -90,8 +139,9 @@ export function SkyProvider({ children }: { children: ReactNode }) {
             message,
             contextType: context.contextType,
             contextData: context.contextData,
-            history: messages.slice(-10),
+            history: messages.slice(-MAX_HISTORY_SENT),
             userName,
+            userRole: role,
           }),
         });
 
@@ -156,7 +206,7 @@ export function SkyProvider({ children }: { children: ReactNode }) {
         setIsStreaming(false);
       }
     },
-    [context, isStreaming, messages]
+    [context, isStreaming, messages, userName, role]
   );
 
   const state: SkyState = { isOpen, context, messages, isStreaming };
