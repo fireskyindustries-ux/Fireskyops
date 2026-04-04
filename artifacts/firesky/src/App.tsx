@@ -141,8 +141,8 @@ function AppRoutes() {
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
         <TooltipProvider>
-          <SkyProvider>
-            <ErrorBoundary>
+          <ErrorBoundary>
+            <SkyProvider>
               <Switch>
                 <Route path="/sign-in/*?" component={SignInPage} />
                 <Route path="/sign-up/*?" component={SignUpPage} />
@@ -150,9 +150,9 @@ function AppRoutes() {
                   <AuthGate />
                 </Route>
               </Switch>
-            </ErrorBoundary>
-            <Toaster />
-          </SkyProvider>
+              <Toaster />
+            </SkyProvider>
+          </ErrorBoundary>
         </TooltipProvider>
       </QueryClientProvider>
     </ClerkProvider>

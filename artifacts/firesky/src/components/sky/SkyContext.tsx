@@ -51,11 +51,10 @@ export function SkyProvider({ children }: { children: ReactNode }) {
     if (ctx) {
       setContextState((prev) => {
         const newCtx = { ...prev, ...ctx };
-        if (JSON.stringify(newCtx) !== JSON.stringify(prev)) {
-          setMessages([]);
-        }
         return newCtx;
       });
+      // Clear messages separately — never call setState inside another setState updater
+      setMessages([]);
     }
     setIsOpen(true);
   }, []);
