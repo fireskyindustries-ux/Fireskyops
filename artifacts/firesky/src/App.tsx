@@ -32,22 +32,34 @@ const clerkAppearance = {
 
 function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="min-h-[100dvh] flex flex-col items-center justify-end relative overflow-hidden"
-      style={{
-        backgroundImage: `url(${basePath}/firesky-splash.png)`,
-        backgroundSize: "cover",
-        backgroundPosition: "center top",
-      }}
-    >
-      {/* Gradient fade — transparent at top, dark at bottom for card readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/20 to-black/75 pointer-events-none" />
-
-      {/* Sign-in card pinned to the bottom */}
-      <div className="relative z-10 w-full max-w-sm px-4 pb-8 pt-6">
-        {children}
+    <>
+      {/* ── Mobile: stacked — full image on top, form below ─────────────── */}
+      <div className="md:hidden min-h-[100dvh] flex flex-col bg-gray-950">
+        <img
+          src={`${basePath}/firesky-splash.png`}
+          alt="Firesky Industries"
+          className="w-full h-auto object-contain"
+        />
+        <div className="flex-1 flex items-start justify-center px-4 pt-4 pb-8">
+          {children}
+        </div>
       </div>
-    </div>
+
+      {/* ── Desktop: full-screen background with form centred ────────────── */}
+      <div
+        className="hidden md:flex min-h-[100dvh] items-center justify-center relative overflow-hidden"
+        style={{
+          backgroundImage: `url(${basePath}/firesky-splash.png)`,
+          backgroundSize: "cover",
+          backgroundPosition: "center top",
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/30 to-black/70 pointer-events-none" />
+        <div className="relative z-10 w-full max-w-sm px-4 py-8">
+          {children}
+        </div>
+      </div>
+    </>
   );
 }
 
