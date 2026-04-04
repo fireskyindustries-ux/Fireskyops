@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -81,27 +81,41 @@ export function DynamicForm({ fields, onSubmit, defaultValues = {}, storageKey, 
 
   const formSchema = z.object(schemaShape);
 
-  // Load draft
-  const loadDraft = () => {
+  // Read the draft once at mount time without calling setState during render.
+  // useRef ensures the localStorage read runs only on first render.
+  const initialDraftRef = useRef<{ values: any; savedAt: Date | null } | null>(null);
+  if (initialDraftRef.current === null) {
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.data) {
-          setDraftSavedAt(new Date(parsed.timestamp));
-          return { ...defaultValues, ...parsed.data };
+          initialDraftRef.current = {
+            values: { ...defaultValues, ...parsed.data },
+            savedAt: parsed.timestamp ? new Date(parsed.timestamp) : null,
+          };
         }
       }
     } catch (e) {
       console.error("Failed to load draft", e);
     }
-    return defaultValues;
-  };
+    if (initialDraftRef.current === null) {
+      initialDraftRef.current = { values: defaultValues, savedAt: null };
+    }
+  }
 
   const form = useForm({
     resolver: zodResolver(formSchema),
-    defaultValues: loadDraft(),
+    defaultValues: initialDraftRef.current.values,
   });
+
+  // Set draftSavedAt after mount — never during render
+  useEffect(() => {
+    if (initialDraftRef.current?.savedAt) {
+      setDraftSavedAt(initialDraftRef.current.savedAt);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const watchedValues = form.watch();
 
