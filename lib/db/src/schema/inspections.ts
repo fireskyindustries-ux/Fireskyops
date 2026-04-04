@@ -29,6 +29,7 @@ export const inspectionsTable = pgTable("inspections", {
   offloadingConstraints: text("offloading_constraints"),
   groundCondition: text("ground_condition"),
   siteReadyToQuote: boolean("site_ready_to_quote").default(false),
+  assignedToId: text("assigned_to_id"),
   photoUrls: text("photo_urls").array(),
   notes: text("notes"),
   inspectedAt: timestamp("inspected_at", { withTimezone: true }),

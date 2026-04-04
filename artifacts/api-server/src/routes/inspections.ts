@@ -11,61 +11,47 @@ import {
   UpdateInspectionBody,
   UpdateInspectionResponse,
 } from "@workspace/api-zod";
+import { requireAuth, getRole } from "../middlewares/requireAuth";
+import { getAuth } from "@clerk/express";
 
 const router: IRouter = Router();
 
-router.get("/inspections", async (req, res): Promise<void> => {
-  const query = ListInspectionsQueryParams.safeParse(req.query);
-  if (!query.success) {
-    res.status(400).json({ error: query.error.message });
-    return;
-  }
+const SELECT_FIELDS = {
+  id: inspectionsTable.id,
+  enquiryId: inspectionsTable.enquiryId,
+  customerId: inspectionsTable.customerId,
+  customerName: customersTable.name,
+  farmName: inspectionsTable.farmName,
+  nearestTown: inspectionsTable.nearestTown,
+  manualDirections: inspectionsTable.manualDirections,
+  landmarks: inspectionsTable.landmarks,
+  whatsappLocation: inspectionsTable.whatsappLocation,
+  accessNotes: inspectionsTable.accessNotes,
+  tankSize: inspectionsTable.tankSize,
+  tankQuantity: inspectionsTable.tankQuantity,
+  requiresStand: inspectionsTable.requiresStand,
+  requiresPlinth: inspectionsTable.requiresPlinth,
+  standHeight: inspectionsTable.standHeight,
+  plinthDetails: inspectionsTable.plinthDetails,
+  pipeLength: inspectionsTable.pipeLength,
+  pipeDetails: inspectionsTable.pipeDetails,
+  distanceFromRoad: inspectionsTable.distanceFromRoad,
+  distanceFromHouse: inspectionsTable.distanceFromHouse,
+  truckAccess: inspectionsTable.truckAccess,
+  trailerAccess: inspectionsTable.trailerAccess,
+  offloadingConstraints: inspectionsTable.offloadingConstraints,
+  groundCondition: inspectionsTable.groundCondition,
+  siteReadyToQuote: inspectionsTable.siteReadyToQuote,
+  assignedToId: inspectionsTable.assignedToId,
+  photoUrls: inspectionsTable.photoUrls,
+  notes: inspectionsTable.notes,
+  inspectedAt: inspectionsTable.inspectedAt,
+  createdAt: inspectionsTable.createdAt,
+  updatedAt: inspectionsTable.updatedAt,
+};
 
-  let rows = await db
-    .select({
-      id: inspectionsTable.id,
-      enquiryId: inspectionsTable.enquiryId,
-      customerId: inspectionsTable.customerId,
-      customerName: customersTable.name,
-      farmName: inspectionsTable.farmName,
-      nearestTown: inspectionsTable.nearestTown,
-      manualDirections: inspectionsTable.manualDirections,
-      landmarks: inspectionsTable.landmarks,
-      whatsappLocation: inspectionsTable.whatsappLocation,
-      accessNotes: inspectionsTable.accessNotes,
-      tankSize: inspectionsTable.tankSize,
-      tankQuantity: inspectionsTable.tankQuantity,
-      requiresStand: inspectionsTable.requiresStand,
-      requiresPlinth: inspectionsTable.requiresPlinth,
-      standHeight: inspectionsTable.standHeight,
-      plinthDetails: inspectionsTable.plinthDetails,
-      pipeLength: inspectionsTable.pipeLength,
-      pipeDetails: inspectionsTable.pipeDetails,
-      distanceFromRoad: inspectionsTable.distanceFromRoad,
-      distanceFromHouse: inspectionsTable.distanceFromHouse,
-      truckAccess: inspectionsTable.truckAccess,
-      trailerAccess: inspectionsTable.trailerAccess,
-      offloadingConstraints: inspectionsTable.offloadingConstraints,
-      groundCondition: inspectionsTable.groundCondition,
-      siteReadyToQuote: inspectionsTable.siteReadyToQuote,
-      photoUrls: inspectionsTable.photoUrls,
-      notes: inspectionsTable.notes,
-      inspectedAt: inspectionsTable.inspectedAt,
-      createdAt: inspectionsTable.createdAt,
-      updatedAt: inspectionsTable.updatedAt,
-    })
-    .from(inspectionsTable)
-    .leftJoin(customersTable, eq(inspectionsTable.customerId, customersTable.id))
-    .orderBy(inspectionsTable.createdAt);
-
-  if (query.data.customerId) {
-    rows = rows.filter((r) => r.customerId === query.data.customerId);
-  }
-  if (query.data.enquiryId) {
-    rows = rows.filter((r) => r.enquiryId === query.data.enquiryId);
-  }
-
-  const normalized = rows.map((r) => ({
+function normalize(r: any) {
+  return {
     ...r,
     customerName: r.customerName ?? undefined,
     enquiryId: r.enquiryId ?? undefined,
@@ -91,13 +77,42 @@ router.get("/inspections", async (req, res): Promise<void> => {
     offloadingConstraints: r.offloadingConstraints ?? undefined,
     groundCondition: r.groundCondition ?? undefined,
     siteReadyToQuote: r.siteReadyToQuote ?? undefined,
+    assignedToId: r.assignedToId ?? undefined,
     notes: r.notes ?? undefined,
     inspectedAt: r.inspectedAt ?? undefined,
-  }));
-  res.json(ListInspectionsResponse.parse(normalized));
+  };
+}
+
+router.get("/inspections", requireAuth, async (req, res): Promise<void> => {
+  const query = ListInspectionsQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: query.error.message });
+    return;
+  }
+
+  const role = (req as any).userRole;
+  const userId = (req as any).userId;
+
+  let rows = await db
+    .select(SELECT_FIELDS)
+    .from(inspectionsTable)
+    .leftJoin(customersTable, eq(inspectionsTable.customerId, customersTable.id))
+    .orderBy(inspectionsTable.createdAt);
+
+  if (role === "user") {
+    rows = rows.filter((r) => r.assignedToId === userId);
+  }
+  if (query.data.customerId) {
+    rows = rows.filter((r) => r.customerId === query.data.customerId);
+  }
+  if (query.data.enquiryId) {
+    rows = rows.filter((r) => r.enquiryId === query.data.enquiryId);
+  }
+
+  res.json(ListInspectionsResponse.parse(rows.map(normalize)));
 });
 
-router.post("/inspections", async (req, res): Promise<void> => {
+router.post("/inspections", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateInspectionBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -112,55 +127,25 @@ router.post("/inspections", async (req, res): Promise<void> => {
     .where(eq(customersTable.id, inspection.customerId));
 
   res.status(201).json(
-    GetInspectionResponse.parse({
+    GetInspectionResponse.parse(normalize({
       ...inspection,
-      customerName: customer?.name ?? undefined,
-      enquiryId: inspection.enquiryId ?? undefined,
-      photoUrls: inspection.photoUrls ?? undefined,
-    }),
+      customerName: customer?.name,
+    })),
   );
 });
 
-router.get("/inspections/:id", async (req, res): Promise<void> => {
+router.get("/inspections/:id", requireAuth, async (req, res): Promise<void> => {
   const params = GetInspectionParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
+  const role = (req as any).userRole;
+  const userId = (req as any).userId;
+
   const [row] = await db
-    .select({
-      id: inspectionsTable.id,
-      enquiryId: inspectionsTable.enquiryId,
-      customerId: inspectionsTable.customerId,
-      customerName: customersTable.name,
-      farmName: inspectionsTable.farmName,
-      nearestTown: inspectionsTable.nearestTown,
-      manualDirections: inspectionsTable.manualDirections,
-      landmarks: inspectionsTable.landmarks,
-      whatsappLocation: inspectionsTable.whatsappLocation,
-      accessNotes: inspectionsTable.accessNotes,
-      tankSize: inspectionsTable.tankSize,
-      tankQuantity: inspectionsTable.tankQuantity,
-      requiresStand: inspectionsTable.requiresStand,
-      requiresPlinth: inspectionsTable.requiresPlinth,
-      standHeight: inspectionsTable.standHeight,
-      plinthDetails: inspectionsTable.plinthDetails,
-      pipeLength: inspectionsTable.pipeLength,
-      pipeDetails: inspectionsTable.pipeDetails,
-      distanceFromRoad: inspectionsTable.distanceFromRoad,
-      distanceFromHouse: inspectionsTable.distanceFromHouse,
-      truckAccess: inspectionsTable.truckAccess,
-      trailerAccess: inspectionsTable.trailerAccess,
-      offloadingConstraints: inspectionsTable.offloadingConstraints,
-      groundCondition: inspectionsTable.groundCondition,
-      siteReadyToQuote: inspectionsTable.siteReadyToQuote,
-      photoUrls: inspectionsTable.photoUrls,
-      notes: inspectionsTable.notes,
-      inspectedAt: inspectionsTable.inspectedAt,
-      createdAt: inspectionsTable.createdAt,
-      updatedAt: inspectionsTable.updatedAt,
-    })
+    .select(SELECT_FIELDS)
     .from(inspectionsTable)
     .leftJoin(customersTable, eq(inspectionsTable.customerId, customersTable.id))
     .where(eq(inspectionsTable.id, params.data.id));
@@ -170,38 +155,15 @@ router.get("/inspections/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(GetInspectionResponse.parse({
-    ...row,
-    customerName: row.customerName ?? undefined,
-    enquiryId: row.enquiryId ?? undefined,
-    photoUrls: row.photoUrls ?? undefined,
-    farmName: row.farmName ?? undefined,
-    nearestTown: row.nearestTown ?? undefined,
-    manualDirections: row.manualDirections ?? undefined,
-    landmarks: row.landmarks ?? undefined,
-    whatsappLocation: row.whatsappLocation ?? undefined,
-    accessNotes: row.accessNotes ?? undefined,
-    tankSize: row.tankSize ?? undefined,
-    tankQuantity: row.tankQuantity ?? undefined,
-    requiresStand: row.requiresStand ?? undefined,
-    requiresPlinth: row.requiresPlinth ?? undefined,
-    standHeight: row.standHeight ?? undefined,
-    plinthDetails: row.plinthDetails ?? undefined,
-    pipeLength: row.pipeLength ?? undefined,
-    pipeDetails: row.pipeDetails ?? undefined,
-    distanceFromRoad: row.distanceFromRoad ?? undefined,
-    distanceFromHouse: row.distanceFromHouse ?? undefined,
-    truckAccess: row.truckAccess ?? undefined,
-    trailerAccess: row.trailerAccess ?? undefined,
-    offloadingConstraints: row.offloadingConstraints ?? undefined,
-    groundCondition: row.groundCondition ?? undefined,
-    siteReadyToQuote: row.siteReadyToQuote ?? undefined,
-    notes: row.notes ?? undefined,
-    inspectedAt: row.inspectedAt ?? undefined,
-  }));
+  if (role === "user" && row.assignedToId !== userId) {
+    res.status(403).json({ error: "Not assigned to you" });
+    return;
+  }
+
+  res.json(GetInspectionResponse.parse(normalize(row)));
 });
 
-router.put("/inspections/:id", async (req, res): Promise<void> => {
+router.put("/inspections/:id", requireAuth, async (req, res): Promise<void> => {
   const params = UpdateInspectionParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -231,13 +193,40 @@ router.put("/inspections/:id", async (req, res): Promise<void> => {
     .where(eq(customersTable.id, inspection.customerId));
 
   res.json(
-    UpdateInspectionResponse.parse({
+    UpdateInspectionResponse.parse(normalize({
       ...inspection,
-      customerName: customer?.name ?? undefined,
-      enquiryId: inspection.enquiryId ?? undefined,
-      photoUrls: inspection.photoUrls ?? undefined,
-    }),
+      customerName: customer?.name,
+    })),
   );
+});
+
+router.patch("/inspections/:id/assign", requireAuth, async (req, res): Promise<void> => {
+  const role = (req as any).userRole;
+  if (role !== "admin") {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+
+  const id = Number(req.params.id);
+  if (!id) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const { assignedToId } = req.body;
+
+  const [inspection] = await db
+    .update(inspectionsTable)
+    .set({ assignedToId: assignedToId ?? null, updatedAt: new Date() })
+    .where(eq(inspectionsTable.id, id))
+    .returning();
+
+  if (!inspection) {
+    res.status(404).json({ error: "Inspection not found" });
+    return;
+  }
+
+  res.json({ id: inspection.id, assignedToId: inspection.assignedToId });
 });
 
 export default router;

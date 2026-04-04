@@ -1,6 +1,7 @@
 import { useGetJob, useUpdateJob, getGetJobQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Briefcase, Calendar, Info, DollarSign, Clock, CheckCircle } from "lucide-react";
+import { AssignUser } from "@/components/assign-user";
 import { Button } from "@/components/ui/button";
 import { SkyInlineButton } from "@/components/sky";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -169,6 +170,20 @@ export default function JobDetail() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Assignment</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AssignUser
+            resourceType="jobs"
+            resourceId={job.id}
+            currentAssignedToId={job.assignedToId}
+            onAssigned={() => queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) })}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

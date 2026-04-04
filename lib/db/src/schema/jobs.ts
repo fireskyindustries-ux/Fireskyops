@@ -16,6 +16,7 @@ export const jobsTable = pgTable("jobs", {
   tankSize: text("tank_size"),
   tankQuantity: integer("tank_quantity"),
   estimatedValue: real("estimated_value"),
+  assignedToId: text("assigned_to_id"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

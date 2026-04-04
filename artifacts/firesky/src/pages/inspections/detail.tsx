@@ -1,6 +1,7 @@
 import { useGetInspection, getGetInspectionQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { MapPin, Briefcase, FileText, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
+import { AssignUser } from "@/components/assign-user";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -194,6 +195,19 @@ export default function InspectionDetail() {
           </Card>
         )}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Assignment</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AssignUser
+            resourceType="inspections"
+            resourceId={inspection.id}
+            currentAssignedToId={inspection.assignedToId}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -18,60 +18,73 @@ import JobDetail from "./pages/jobs/detail";
 import AdminUsers from "./pages/admin/users";
 import NotFound from "./pages/not-found";
 
-function useIsAdmin() {
+function useRole() {
   const { user } = useUser();
-  return (user?.publicMetadata?.role as string) === "admin";
+  return ((user?.publicMetadata?.role as string) || "guest") as "admin" | "user" | "guest";
 }
 
 function AdminRoute({ component: Component }: { component: React.ComponentType }) {
-  const isAdmin = useIsAdmin();
-  return isAdmin ? <Component /> : <Redirect to="/customers" />;
+  const role = useRole();
+  return role === "admin" ? <Component /> : <Redirect to="/customers" />;
 }
 
 export function Router() {
-  const isAdmin = useIsAdmin();
+  const role = useRole();
+  const isAdmin = role === "admin";
+  const isFieldWorker = role === "user";
+  const isGuest = role === "guest";
 
   return (
     <Layout>
       <Switch>
-        {/* Root — admin sees dashboard, field workers go to customers */}
+        {/* Root redirect based on role */}
         <Route path="/">
-          {isAdmin ? <Dashboard /> : <Redirect to="/customers" />}
+          {isAdmin ? <Dashboard /> : isFieldWorker ? <Redirect to="/customers" /> : <Redirect to="/enquiries/new" />}
         </Route>
 
-        {/* Customers — accessible to everyone */}
-        <Route path="/customers" component={CustomersList} />
-        <Route path="/customers/new" component={NewCustomer} />
-        <Route path="/customers/:id" component={CustomerDetail} />
+        {/* Customers — admin + field worker */}
+        <Route path="/customers">
+          {isGuest ? <Redirect to="/enquiries/new" /> : <CustomersList />}
+        </Route>
+        <Route path="/customers/new">
+          {isGuest ? <Redirect to="/enquiries/new" /> : <NewCustomer />}
+        </Route>
+        <Route path="/customers/:id">
+          {isGuest ? <Redirect to="/enquiries/new" /> : <CustomerDetail />}
+        </Route>
 
-        {/* Enquiries — admin only */}
+        {/* Enquiries — admin only (guests can submit via the new form) */}
         <Route path="/enquiries">
           <AdminRoute component={EnquiriesList} />
         </Route>
-        <Route path="/enquiries/new">
-          <AdminRoute component={NewEnquiry} />
-        </Route>
+        <Route path="/enquiries/new" component={NewEnquiry} />
         <Route path="/enquiries/:id">
           <AdminRoute component={EnquiryDetail} />
         </Route>
 
-        {/* Inspections — accessible to everyone */}
-        <Route path="/inspections" component={InspectionsList} />
-        <Route path="/inspections/new" component={NewInspection} />
-        <Route path="/inspections/:id" component={InspectionDetail} />
+        {/* Inspections — admin + field worker */}
+        <Route path="/inspections">
+          {isGuest ? <Redirect to="/enquiries/new" /> : <InspectionsList />}
+        </Route>
+        <Route path="/inspections/new">
+          {isGuest ? <Redirect to="/enquiries/new" /> : <NewInspection />}
+        </Route>
+        <Route path="/inspections/:id">
+          {isGuest ? <Redirect to="/enquiries/new" /> : <InspectionDetail />}
+        </Route>
 
-        {/* Jobs — admin only */}
+        {/* Jobs — admin + field worker */}
         <Route path="/jobs">
-          <AdminRoute component={JobsPipeline} />
+          {isGuest ? <Redirect to="/enquiries/new" /> : <JobsPipeline />}
         </Route>
         <Route path="/jobs/new">
           <AdminRoute component={NewJob} />
         </Route>
         <Route path="/jobs/:id">
-          <AdminRoute component={JobDetail} />
+          {isGuest ? <Redirect to="/enquiries/new" /> : <JobDetail />}
         </Route>
 
-        {/* Admin panel — admin only */}
+        {/* Admin panel */}
         <Route path="/admin/users">
           <AdminRoute component={AdminUsers} />
         </Route>

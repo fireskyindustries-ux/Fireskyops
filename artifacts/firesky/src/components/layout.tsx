@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SkyPanel, SkyFloatingButton } from "./sky";
 import { useUser, useClerk } from "@clerk/react";
-import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -19,6 +18,7 @@ const adminNavItems = [
 const fieldNavItems = [
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
+  { href: "/jobs", label: "Jobs", icon: Briefcase },
 ];
 
 function isActive(location: string, href: string) {
@@ -29,9 +29,8 @@ function isActive(location: string, href: string) {
 function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
   const { user } = useUser();
   const { signOut } = useClerk();
-  const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const role = (user?.publicMetadata?.role as string) || "user";
+  const role = (user?.publicMetadata?.role as string) || "guest";
 
   return (
     <div className="border-t border-sidebar-border">
@@ -78,10 +77,34 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user } = useUser();
-  const role = (user?.publicMetadata?.role as string) || "user";
+  const { signOut } = useClerk();
+  const [, setLocation] = useLocation();
+  const role = (user?.publicMetadata?.role as string) || "guest";
   const isAdmin = role === "admin";
+  const isFieldWorker = role === "user";
 
   const navItems = isAdmin ? adminNavItems : fieldNavItems;
+
+  if (!isAdmin && !isFieldWorker) {
+    return (
+      <div className="min-h-[100dvh] flex flex-col bg-gray-950">
+        <header className="flex items-center justify-between px-4 py-3 bg-sidebar border-b border-sidebar-border">
+          <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-14 w-auto object-contain" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground gap-2"
+            onClick={() => signOut(() => setLocation("/"))}
+          >
+            <LogOut className="h-4 w-4" /> Sign out
+          </Button>
+        </header>
+        <main className="flex-1 p-4 md:p-8 max-w-2xl mx-auto w-full">
+          {children}
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] flex flex-col md:flex-row bg-muted/30">
@@ -174,8 +197,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      {/* Mobile Bottom Nav */}
-      {isAdmin ? (
+      {/* Mobile Bottom Nav — Admin */}
+      {isAdmin && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-sidebar border-t border-sidebar-border flex items-center justify-around px-2 z-10 pb-safe">
           {adminNavItems.slice(0, 2).map((item) => (
             <Link key={item.href} href={item.href} className="flex-1">
@@ -201,12 +224,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
-      ) : (
+      )}
+
+      {/* Mobile Bottom Nav — Field Worker */}
+      {isFieldWorker && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-sidebar border-t border-sidebar-border flex items-center justify-around px-2 z-10 pb-safe">
           <Link href="/customers" className="flex-1">
             <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, "/customers") ? "text-primary" : "text-muted-foreground"}`}>
               <Users className="h-6 w-6" />
               <span className="text-[10px] font-medium">Customers</span>
+            </div>
+          </Link>
+          <Link href="/inspections" className="flex-1">
+            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, "/inspections") ? "text-primary" : "text-muted-foreground"}`}>
+              <ClipboardCheck className="h-6 w-6" />
+              <span className="text-[10px] font-medium">Inspections</span>
             </div>
           </Link>
           <div className="flex-1 flex justify-center -mt-6">
@@ -216,10 +248,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Button>
             </Link>
           </div>
-          <Link href="/inspections" className="flex-1">
-            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, "/inspections") ? "text-primary" : "text-muted-foreground"}`}>
-              <ClipboardCheck className="h-6 w-6" />
-              <span className="text-[10px] font-medium">Inspections</span>
+          <Link href="/jobs" className="flex-1">
+            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, "/jobs") ? "text-primary" : "text-muted-foreground"}`}>
+              <Briefcase className="h-6 w-6" />
+              <span className="text-[10px] font-medium">Jobs</span>
+            </div>
+          </Link>
+          <Link href="/customers/new" className="flex-1">
+            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, "/customers/new") ? "text-primary" : "text-muted-foreground"}`}>
+              <Users className="h-6 w-6" />
+              <span className="text-[10px] font-medium">Add</span>
             </div>
           </Link>
         </nav>
