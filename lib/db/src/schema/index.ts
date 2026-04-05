@@ -5,3 +5,4 @@ export * from "./jobs";
 export * from "./appointments";
 export * from "./conversations";
 export * from "./messages";
+export * from "./notifications";

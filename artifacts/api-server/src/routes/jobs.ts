@@ -11,6 +11,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { sendJobStageEmail } from "../lib/email";
+import { notifyUsers, notifyAdmins } from "../lib/notify";
 
 const router: IRouter = Router();
 
@@ -186,6 +187,20 @@ router.put("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
     });
   }
 
+  // In-app notification to assignee on stage change
+  if (stageChanged && job.assignedToId) {
+    const STAGE_LABELS: Record<string, string> = {
+      enquiry: "Enquiry", inspection: "Inspection", quoting: "Quoting",
+      quoted: "Quoted", won: "Won", lost: "Lost", closed: "Closed",
+    };
+    notifyUsers(
+      [job.assignedToId],
+      `Job stage updated — ${job.title}`,
+      `Moved to ${STAGE_LABELS[job.stage] || job.stage}`,
+      `/jobs/${job.id}`
+    );
+  }
+
   res.json(normalize({ ...job, customerName: customer?.name, customerEmail: customer?.email, customerPhone: customer?.phone }));
 });
 
@@ -213,6 +228,16 @@ router.patch("/jobs/:id/assign", requireAuth, async (req, res): Promise<void> =>
   if (!job) {
     res.status(404).json({ error: "Job not found" });
     return;
+  }
+
+  // Notify the newly assigned user
+  if (assignedToId) {
+    notifyUsers(
+      [assignedToId],
+      `You've been assigned to a job`,
+      job.title,
+      `/jobs/${job.id}`
+    );
   }
 
   res.json({ id: job.id, assignedToId: job.assignedToId });

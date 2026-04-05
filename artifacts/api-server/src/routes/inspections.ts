@@ -126,6 +126,13 @@ router.post("/inspections", requireAuth, async (req, res): Promise<void> => {
     .from(customersTable)
     .where(eq(customersTable.id, inspection.customerId));
 
+  const { notifyAdmins } = await import("../lib/notify");
+  notifyAdmins(
+    `New site inspection — ${customer?.name || "Unknown customer"}`,
+    null,
+    `/inspections/${inspection.id}`
+  );
+
   res.status(201).json(
     GetInspectionResponse.parse(normalize({
       ...inspection,

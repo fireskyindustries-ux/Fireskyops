@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SkyPanel, SkyFloatingButton } from "./sky";
 import { useUser, useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "./NotificationBell";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -91,6 +92,7 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
           </p>
           <p className="text-[10px] text-muted-foreground capitalize">{role}</p>
         </div>
+        {role !== "guest" && <NotificationBell />}
         <Button
           variant="ghost"
           size="icon"
@@ -158,12 +160,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Mobile Header */}
       <header className="md:hidden flex items-center justify-between px-4 py-2 bg-white border-b border-sidebar-border sticky top-0 z-10 shadow-sm">
         <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-12 w-auto object-contain" />
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
+        <div className="flex items-center gap-1">
+          {!isGuest && <NotificationBell />}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0 flex flex-col bg-sidebar">
             <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-white">
               <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-16 w-auto object-contain" />
@@ -182,7 +186,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <UserFooter />
           </SheetContent>
-        </Sheet>
+          </Sheet>
+        </div>
       </header>
 
       {/* Main Content */}

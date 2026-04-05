@@ -11,6 +11,7 @@ import {
   UpdateEnquiryBody,
   UpdateEnquiryResponse,
 } from "@workspace/api-zod";
+import { notifyAdmins } from "../lib/notify";
 
 const router: IRouter = Router();
 
@@ -71,6 +72,12 @@ router.post("/enquiries", async (req, res): Promise<void> => {
     .select()
     .from(customersTable)
     .where(eq(customersTable.id, enquiry.customerId));
+
+  notifyAdmins(
+    `New enquiry — ${customer?.name || "Unknown customer"}`,
+    enquiry.title || null,
+    `/enquiries/${enquiry.id}`
+  );
 
   res.status(201).json(
     GetEnquiryResponse.parse({ ...enquiry, customerName: customer?.name ?? undefined }),

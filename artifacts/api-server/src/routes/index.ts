@@ -10,6 +10,7 @@ import appointmentsRouter from "./appointments";
 import dashboardRouter from "./dashboard";
 import skyRouter from "./sky";
 import usersRouter from "./users";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -29,5 +30,6 @@ router.use(jobsRouter);
 router.use(appointmentsRouter);
 router.use(skyRouter);
 router.use(usersRouter);
+router.use(notificationsRouter);
 
 export default router;
