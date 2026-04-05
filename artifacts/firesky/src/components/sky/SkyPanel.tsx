@@ -220,8 +220,10 @@ export function SkyPanel() {
       audioCtxRef.current = audioCtx;
 
       const data = new Uint8Array(analyser.frequencyBinCount);
-      const THRESHOLD = 10;      // 0-255 amplitude; below = silence
-      const SILENCE_MS = 1800;   // stop after 1.8s of silence post-speech
+      const THRESHOLD = 22;      // 0-255; raised to ignore ambient noise
+      const SILENCE_MS = 2000;   // stop 2s after speech ends
+      const MIN_RECORD_MS = 1500; // don't stop before user has had a chance to speak
+      const startTime = Date.now();
       let speechDetected = false;
       let silenceStart: number | null = null;
 
@@ -229,10 +231,11 @@ export function SkyPanel() {
         if (!analyserRef.current) return;
         analyser.getByteFrequencyData(data);
         const avg = data.reduce((s, v) => s + v, 0) / data.length;
+        const elapsed = Date.now() - startTime;
         if (avg > THRESHOLD) {
           speechDetected = true;
           silenceStart = null;
-        } else if (speechDetected) {
+        } else if (speechDetected && elapsed > MIN_RECORD_MS) {
           if (silenceStart === null) silenceStart = Date.now();
           else if (Date.now() - silenceStart > SILENCE_MS) {
             stopSilenceDetection();
@@ -244,49 +247,56 @@ export function SkyPanel() {
       };
       silenceRafRef.current = requestAnimationFrame(tick);
     } catch {
-      // Web Audio not supported — fallback: 15s max recording timeout
-      const t = setTimeout(onSilence, 15000);
+      // Web Audio not supported — fallback: 20s max recording timeout
+      const t = setTimeout(onSilence, 20000);
       return () => clearTimeout(t);
     }
   }, [stopSilenceDetection]);
 
   const stopSpeaking = useCallback(() => {
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.pause();
-      audioPlayerRef.current.src = "";
-      audioPlayerRef.current = null;
-    }
+    window.speechSynthesis?.cancel();
     setIsSpeaking(false);
   }, []);
 
-  const playTTS = useCallback(async (text: string) => {
+  const playTTS = useCallback((text: string) => {
     stopSpeaking();
+    if (!window.speechSynthesis) {
+      if (conversationModeRef.current) setTimeout(() => startRecordingRef.current?.(), 400);
+      return;
+    }
     setIsSpeaking(true);
+
     const afterSpeak = () => {
       setIsSpeaking(false);
-      audioPlayerRef.current = null;
-      // Auto-listen again if still in conversation mode
-      if (conversationModeRef.current) {
-        setTimeout(() => startRecordingRef.current?.(), 400);
-      }
+      if (conversationModeRef.current) setTimeout(() => startRecordingRef.current?.(), 600);
     };
-    try {
-      const res = await fetch(skyApiUrl("/api/sky/speak"), {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) throw new Error("TTS failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioPlayerRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); afterSpeak(); };
-      audio.onerror = () => { URL.revokeObjectURL(url); afterSpeak(); };
-      await audio.play();
-    } catch {
-      afterSpeak();
+
+    const speak = () => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      // Pick the best available English female voice
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = ["Samantha", "Karen", "Moira", "Tessa", "Fiona", "Victoria",
+        "Google UK English Female", "Google US English", "Microsoft Zira"];
+      const pick = preferred.reduce<SpeechSynthesisVoice | null>((found, name) => {
+        return found ?? (voices.find(v => v.name.includes(name) && v.lang.startsWith("en")) ?? null);
+      }, null) ?? voices.find(v => v.lang.startsWith("en-")) ?? null;
+      if (pick) utterance.voice = pick;
+      utterance.rate = 0.92;
+      utterance.pitch = 1.05;
+      utterance.volume = 1;
+      utterance.onend = afterSpeak;
+      utterance.onerror = afterSpeak;
+      window.speechSynthesis.speak(utterance);
+    };
+
+    // Voices load asynchronously on first call
+    if (window.speechSynthesis.getVoices().length > 0) {
+      speak();
+    } else {
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.onvoiceschanged = null;
+        speak();
+      };
     }
   }, [stopSpeaking]);
 
