@@ -1,6 +1,6 @@
 import { useGetCustomer, getGetCustomerQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { MapPin, Phone, Mail, Map, Navigation, AlignLeft, Info, Plus, LocateFixed, ExternalLink } from "lucide-react";
+import { MapPin, Phone, Mail, Map, Navigation, AlignLeft, Info, Plus, LocateFixed, ExternalLink, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SkyInlineButton } from "@/components/sky";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,6 +41,9 @@ export default function CustomerDetail() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
+          <Link href="/customers" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
+            <ChevronLeft className="h-4 w-4" /> Customers
+          </Link>
           <h1 className="text-3xl font-bold tracking-tight">{customer.name}</h1>
           {customer.farmName && <p className="text-xl text-muted-foreground mt-1">{customer.farmName}</p>}
         </div>

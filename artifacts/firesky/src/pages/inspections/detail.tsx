@@ -1,22 +1,53 @@
-import { useGetInspection, getGetInspectionQueryKey } from "@workspace/api-client-react";
+import { useState } from "react";
+import { useGetInspection, useUpdateInspection, getGetInspectionQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { MapPin, Briefcase, FileText, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
+import { MapPin, Briefcase, CheckCircle2, XCircle, ExternalLink, ChevronLeft, Camera, Save } from "lucide-react";
 import { AssignUser } from "@/components/assign-user";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { Separator } from "@/components/ui/separator";
 import { SkyInlineButton } from "@/components/sky";
+import { PhotoPicker } from "@/components/photo-picker";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 export default function InspectionDetail() {
   const params = useParams();
   const id = Number(params.id);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const updateInspection = useUpdateInspection();
+  const [editingPhotos, setEditingPhotos] = useState(false);
+  const [photos, setPhotos] = useState<(string | null)[]>([null, null, null, null]);
   
   const { data: inspection, isLoading, error } = useGetInspection(id, { 
     query: { enabled: !!id, queryKey: getGetInspectionQueryKey(id) } 
   });
+
+  const handleSavePhotos = () => {
+    const photoUrls = photos.filter((p): p is string => p !== null);
+    updateInspection.mutate(
+      { id, data: { photoUrls: photoUrls.length > 0 ? photoUrls : [] as any } },
+      {
+        onSuccess: () => {
+          toast({ title: "Photos saved" });
+          queryClient.invalidateQueries({ queryKey: getGetInspectionQueryKey(id) });
+          setEditingPhotos(false);
+        },
+        onError: () => toast({ title: "Failed to save photos", variant: "destructive" }),
+      }
+    );
+  };
+
+  const startEditingPhotos = () => {
+    const existing = inspection?.photoUrls ?? [];
+    const slots: (string | null)[] = [null, null, null, null];
+    existing.forEach((url, i) => { if (i < 4) slots[i] = url; });
+    setPhotos(slots);
+    setEditingPhotos(true);
+  };
 
   if (isLoading) {
     return <div className="space-y-4 max-w-4xl mx-auto">
@@ -41,39 +72,95 @@ export default function InspectionDetail() {
     </div>
   );
 
+  const hasPhotos = inspection.photoUrls && inspection.photoUrls.length > 0;
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold tracking-tight">Inspection #{inspection.id}</h1>
-            {inspection.siteReadyToQuote && (
-              <Badge className="bg-green-500 hover:bg-green-600 text-white">Ready to Quote</Badge>
-            )}
-          </div>
-          <Link href={`/customers/${inspection.customerId}`}>
-            <p className="text-xl text-primary hover:underline cursor-pointer">
-              {inspection.customerName || `Customer #${inspection.customerId}`}
-              {inspection.farmName ? ` - ${inspection.farmName}` : ''}
+      <div>
+        <Link href="/inspections" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
+          <ChevronLeft className="h-4 w-4" /> Inspections
+        </Link>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold tracking-tight">Inspection #{inspection.id}</h1>
+              {inspection.siteReadyToQuote && (
+                <Badge className="bg-green-500 hover:bg-green-600 text-white">Ready to Quote</Badge>
+              )}
+            </div>
+            <Link href={`/customers/${inspection.customerId}`}>
+              <p className="text-xl text-primary hover:underline cursor-pointer">
+                {inspection.customerName || `Customer #${inspection.customerId}`}
+                {inspection.farmName ? ` - ${inspection.farmName}` : ''}
+              </p>
+            </Link>
+            <p className="text-sm text-muted-foreground mt-1">
+              Inspected: {inspection.inspectedAt ? format(new Date(inspection.inspectedAt), "PPP") : "Unknown"}
             </p>
-          </Link>
-          <p className="text-sm text-muted-foreground mt-1">
-            Inspected: {inspection.inspectedAt ? format(new Date(inspection.inspectedAt), "PPP") : "Unknown"}
-          </p>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto flex-col sm:flex-row">
-          <SkyInlineButton
-            contextType="inspection"
-            contextData={inspection as unknown as Record<string, unknown>}
-            contextLabel={`#${inspection.id}${inspection.farmName ? ` - ${inspection.farmName}` : ''}`}
-            variant="outline"
-            className="w-full sm:w-auto"
-          />
-          <Link href={`/jobs/new?inspectionId=${inspection.id}&customerId=${inspection.customerId}${inspection.enquiryId ? `&enquiryId=${inspection.enquiryId}` : ''}`}>
-            <Button className="w-full sm:w-auto"><Briefcase className="mr-2 h-4 w-4" /> Convert to Job</Button>
-          </Link>
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto flex-col sm:flex-row">
+            <SkyInlineButton
+              contextType="inspection"
+              contextData={inspection as unknown as Record<string, unknown>}
+              contextLabel={`#${inspection.id}${inspection.farmName ? ` - ${inspection.farmName}` : ''}`}
+              variant="outline"
+              className="w-full sm:w-auto"
+            />
+            <Link href={`/jobs/new?inspectionId=${inspection.id}&customerId=${inspection.customerId}${inspection.enquiryId ? `&enquiryId=${inspection.enquiryId}` : ''}`}>
+              <Button className="w-full sm:w-auto"><Briefcase className="mr-2 h-4 w-4" /> Convert to Job</Button>
+            </Link>
+          </div>
         </div>
       </div>
+
+      {/* Site Photos */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Site Photos</CardTitle>
+            {!editingPhotos && (
+              <Button variant="outline" size="sm" onClick={startEditingPhotos}>
+                <Camera className="h-4 w-4 mr-1.5" />
+                {hasPhotos ? "Edit Photos" : "Add Photos"}
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {editingPhotos ? (
+            <div className="space-y-4">
+              <PhotoPicker
+                photos={photos}
+                onChange={setPhotos}
+                disabled={updateInspection.isPending}
+              />
+              <div className="flex gap-2 pt-1">
+                <Button
+                  onClick={handleSavePhotos}
+                  disabled={updateInspection.isPending}
+                  className="flex-1 sm:flex-none"
+                >
+                  <Save className="h-4 w-4 mr-1.5" />
+                  {updateInspection.isPending ? "Saving..." : "Save Photos"}
+                </Button>
+                <Button variant="outline" onClick={() => setEditingPhotos(false)} className="flex-1 sm:flex-none">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : hasPhotos ? (
+            <div className="grid grid-cols-2 gap-3">
+              {inspection.photoUrls!.map((url, i) => (
+                <div key={i} className="aspect-[4/3] rounded-lg overflow-hidden border shadow-sm">
+                  <img src={url} alt={`Site photo ${i + 1}`} className="h-full w-full object-cover" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4 text-center">No photos captured yet. Tap "Add Photos" to capture site photos.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
@@ -204,7 +291,7 @@ export default function InspectionDetail() {
           <AssignUser
             resourceType="inspections"
             resourceId={inspection.id}
-            currentAssignedToId={inspection.assignedToId}
+            currentAssignedToId={(inspection as any).assignedToId}
           />
         </CardContent>
       </Card>

@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { useGetJob, useUpdateJob, getGetJobQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { Briefcase, Calendar, Info, DollarSign, Clock, CheckCircle } from "lucide-react";
+import { Briefcase, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle } from "lucide-react";
 import { AssignUser } from "@/components/assign-user";
 import { Button } from "@/components/ui/button";
 import { SkyInlineButton } from "@/components/sky";
@@ -18,8 +19,11 @@ const STAGES = [
   { id: "quoting", label: "Quoting" },
   { id: "quoted", label: "Quoted" },
   { id: "won", label: "Won" },
-  { id: "lost", label: "Lost" }
+  { id: "lost", label: "Lost" },
+  { id: "closed", label: "Closed" },
 ];
+
+const TERMINAL_STAGES = ["won", "lost", "closed"];
 
 export default function JobDetail() {
   const params = useParams();
@@ -27,6 +31,7 @@ export default function JobDetail() {
   const queryClient = useQueryClient();
   const updateJob = useUpdateJob();
   const { toast } = useToast();
+  const [showCloseOptions, setShowCloseOptions] = useState(false);
   
   const { data: job, isLoading, error } = useGetJob(id, { 
     query: { enabled: !!id, queryKey: getGetJobQueryKey(id) } 
@@ -37,8 +42,13 @@ export default function JobDetail() {
       onSuccess: () => {
         toast({ title: "Job stage updated" });
         queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) });
+        setShowCloseOptions(false);
       }
     });
+  };
+
+  const handleClose = (outcome: "won" | "lost" | "closed") => {
+    handleStageChange(outcome);
   };
 
   if (isLoading) {
@@ -53,42 +63,125 @@ export default function JobDetail() {
     return <div className="text-destructive">Job not found</div>;
   }
 
+  const isTerminal = TERMINAL_STAGES.includes(job.stage);
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold tracking-tight">{job.title}</h1>
-            {job.priority && (
-              <Badge variant={job.priority === "high" ? "destructive" : job.priority === "medium" ? "default" : "outline"} className="uppercase">
-                {job.priority}
-              </Badge>
-            )}
+      <div>
+        <Link href="/jobs" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
+          <ChevronLeft className="h-4 w-4" /> Jobs Pipeline
+        </Link>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold tracking-tight">{job.title}</h1>
+              {job.priority && (
+                <Badge variant={job.priority === "high" ? "destructive" : job.priority === "medium" ? "default" : "outline"} className="uppercase">
+                  {job.priority}
+                </Badge>
+              )}
+            </div>
+            <Link href={`/customers/${job.customerId}`}>
+              <p className="text-xl text-primary hover:underline cursor-pointer">{job.customerName || `Customer #${job.customerId}`}</p>
+            </Link>
           </div>
-          <Link href={`/customers/${job.customerId}`}>
-            <p className="text-xl text-primary hover:underline cursor-pointer">{job.customerName || `Customer #${job.customerId}`}</p>
-          </Link>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto items-center flex-wrap">
-          <SkyInlineButton
-            contextType="job"
-            contextData={job as unknown as Record<string, unknown>}
-            contextLabel={job.title}
-            variant="outline"
-          />
-          <span className="text-sm font-medium mr-2">Stage:</span>
-          <Select value={job.stage} onValueChange={handleStageChange} disabled={updateJob.isPending}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {STAGES.map(s => (
-                <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2 w-full sm:w-auto items-center flex-wrap">
+            <SkyInlineButton
+              contextType="job"
+              contextData={job as unknown as Record<string, unknown>}
+              contextLabel={job.title}
+              variant="outline"
+            />
+            <span className="text-sm font-medium mr-2">Stage:</span>
+            <Select value={job.stage} onValueChange={handleStageChange} disabled={updateJob.isPending}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STAGES.map(s => (
+                  <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
+
+      {/* Close Job Action */}
+      {!isTerminal && (
+        <Card className="border-orange-200 bg-orange-50/50">
+          <CardContent className="pt-4 pb-4">
+            {!showCloseOptions ? (
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <p className="text-sm font-semibold">Close this job</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Mark the outcome at any stage — no need to progress through all steps.</p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCloseOptions(true)}
+                  className="shrink-0 border-orange-300 hover:bg-orange-100"
+                >
+                  Close Job
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm font-semibold">How would you like to close this job?</p>
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    onClick={() => handleClose("won")}
+                    disabled={updateJob.isPending}
+                    className="bg-green-600 hover:bg-green-700 text-white gap-2"
+                  >
+                    <Trophy className="h-4 w-4" /> Won
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => handleClose("lost")}
+                    disabled={updateJob.isPending}
+                    className="gap-2"
+                  >
+                    <XCircle className="h-4 w-4" /> Lost
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleClose("closed")}
+                    disabled={updateJob.isPending}
+                  >
+                    Closed / Cancelled
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowCloseOptions(false)}
+                    disabled={updateJob.isPending}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {isTerminal && (
+        <Card className={job.stage === "won" ? "border-green-200 bg-green-50/50" : "border-red-200 bg-red-50/50"}>
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              {job.stage === "won" ? (
+                <Trophy className="h-5 w-5 text-green-600" />
+              ) : (
+                <XCircle className="h-5 w-5 text-red-500" />
+              )}
+              <div>
+                <p className="text-sm font-semibold capitalize">Job {job.stage}</p>
+                <p className="text-xs text-muted-foreground">Use the stage selector above to reopen this job if needed.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
@@ -179,7 +272,7 @@ export default function JobDetail() {
           <AssignUser
             resourceType="jobs"
             resourceId={job.id}
-            currentAssignedToId={job.assignedToId}
+            currentAssignedToId={(job as any).assignedToId}
             onAssigned={() => queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) })}
           />
         </CardContent>

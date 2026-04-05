@@ -1,15 +1,19 @@
+import { useState } from "react";
 import { useCreateInspection, useListCustomers, useListEnquiries, getListInspectionsQueryKey } from "@workspace/api-client-react";
 import { DynamicForm, FieldConfig } from "@/components/dynamic-form";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { PhotoPicker } from "@/components/photo-picker";
+import { ChevronLeft } from "lucide-react";
 
 export default function NewInspection() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createInspection = useCreateInspection();
-  
+  const [photos, setPhotos] = useState<(string | null)[]>([null, null, null, null]);
+
   const urlParams = new URLSearchParams(window.location.search);
   const customerIdParam = urlParams.get("customerId");
   const enquiryIdParam = urlParams.get("enquiryId");
@@ -60,6 +64,7 @@ export default function NewInspection() {
   ];
 
   const handleSubmit = (data: any) => {
+    const photoUrls = photos.filter((p): p is string => p !== null);
     const payload = {
       ...data,
       customerId: Number(data.customerId),
@@ -68,6 +73,7 @@ export default function NewInspection() {
       pipeLength: data.pipeLength ? Number(data.pipeLength) : undefined,
       distanceFromRoad: data.distanceFromRoad ? Number(data.distanceFromRoad) : undefined,
       distanceFromHouse: data.distanceFromHouse ? Number(data.distanceFromHouse) : undefined,
+      photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
       inspectedAt: new Date().toISOString()
     };
 
@@ -91,10 +97,27 @@ export default function NewInspection() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
+        <Link href="/inspections" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
+          <ChevronLeft className="h-4 w-4" /> Inspections
+        </Link>
         <h1 className="text-3xl font-bold tracking-tight">Site Inspection</h1>
         <p className="text-muted-foreground">Detailed site prep and access check</p>
       </div>
 
+      {/* Site Photos */}
+      <div className="bg-card border rounded-lg p-4 sm:p-6 shadow-sm space-y-3">
+        <div>
+          <h2 className="text-base font-semibold">Site Photos</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Tap a slot to take a photo or pick from your gallery. Up to 4 photos.</p>
+        </div>
+        <PhotoPicker
+          photos={photos}
+          onChange={setPhotos}
+          disabled={createInspection.isPending}
+        />
+      </div>
+
+      {/* Inspection Fields */}
       <div className="bg-card border rounded-lg p-4 sm:p-6 shadow-sm">
         <DynamicForm 
           fields={inspectionFields} 
