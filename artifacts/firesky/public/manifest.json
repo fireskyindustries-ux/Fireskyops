@@ -1,0 +1,24 @@
+{
+  "name": "Firesky Industries Field Ops",
+  "short_name": "Firesky Field Ops",
+  "description": "Field operations management for Firesky Industries",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#f26a0d",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "410x363",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon.png",
+      "sizes": "410x363",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
