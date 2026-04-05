@@ -254,49 +254,41 @@ export function SkyPanel() {
   }, [stopSilenceDetection]);
 
   const stopSpeaking = useCallback(() => {
-    window.speechSynthesis?.cancel();
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current.src = "";
+      audioPlayerRef.current = null;
+    }
     setIsSpeaking(false);
   }, []);
 
-  const playTTS = useCallback((text: string) => {
+  const playTTS = useCallback(async (text: string) => {
     stopSpeaking();
-    if (!window.speechSynthesis) {
-      if (conversationModeRef.current) setTimeout(() => startRecordingRef.current?.(), 400);
-      return;
-    }
     setIsSpeaking(true);
 
     const afterSpeak = () => {
       setIsSpeaking(false);
+      audioPlayerRef.current = null;
       if (conversationModeRef.current) setTimeout(() => startRecordingRef.current?.(), 600);
     };
 
-    const speak = () => {
-      const utterance = new SpeechSynthesisUtterance(text);
-      // Pick the best available English female voice
-      const voices = window.speechSynthesis.getVoices();
-      const preferred = ["Samantha", "Karen", "Moira", "Tessa", "Fiona", "Victoria",
-        "Google UK English Female", "Google US English", "Microsoft Zira"];
-      const pick = preferred.reduce<SpeechSynthesisVoice | null>((found, name) => {
-        return found ?? (voices.find(v => v.name.includes(name) && v.lang.startsWith("en")) ?? null);
-      }, null) ?? voices.find(v => v.lang.startsWith("en-")) ?? null;
-      if (pick) utterance.voice = pick;
-      utterance.rate = 0.92;
-      utterance.pitch = 1.05;
-      utterance.volume = 1;
-      utterance.onend = afterSpeak;
-      utterance.onerror = afterSpeak;
-      window.speechSynthesis.speak(utterance);
-    };
-
-    // Voices load asynchronously on first call
-    if (window.speechSynthesis.getVoices().length > 0) {
-      speak();
-    } else {
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.onvoiceschanged = null;
-        speak();
-      };
+    try {
+      const res = await fetch(skyApiUrl("/api/sky/speak"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error(`TTS ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioPlayerRef.current = audio;
+      audio.onended = () => { URL.revokeObjectURL(url); afterSpeak(); };
+      audio.onerror = () => { URL.revokeObjectURL(url); afterSpeak(); };
+      await audio.play();
+    } catch {
+      afterSpeak();
     }
   }, [stopSpeaking]);
 

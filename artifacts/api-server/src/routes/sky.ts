@@ -822,12 +822,29 @@ router.post("/sky/speak", requireAuth, async (req, res): Promise<void> => {
     const { text } = req.body as { text: string };
     if (!text?.trim()) { res.status(400).json({ error: "text is required" }); return; }
 
-    const audioBuffer = await textToSpeech(text.trim(), "nova");
-    res.set("Content-Type", "audio/mpeg");
+    // Use gpt-4o-audio-preview via chat completions (supported by proxy, unlike /audio/speech)
+    const response = await (openai.chat.completions.create as Function)({
+      model: "gpt-4o-audio-preview",
+      modalities: ["audio"],
+      audio: { voice: "shimmer", format: "wav" },
+      messages: [
+        {
+          role: "system",
+          content: "You are a text-to-speech system. Speak the user's message aloud exactly as written — warm, clear, and natural. Do not add, change, or omit anything.",
+        },
+        { role: "user", content: text.trim() },
+      ],
+    });
+
+    const audioData = (response.choices[0].message as any).audio?.data;
+    if (!audioData) { res.status(500).json({ error: "No audio returned" }); return; }
+
+    const buffer = Buffer.from(audioData, "base64");
+    res.set("Content-Type", "audio/wav");
     res.set("Cache-Control", "no-store");
-    res.send(audioBuffer);
+    res.send(buffer);
   } catch (err: any) {
-    console.error("TTS error:", err);
+    console.error("TTS error:", err?.message ?? err);
     res.status(500).json({ error: err.message || "Text-to-speech failed" });
   }
 });
