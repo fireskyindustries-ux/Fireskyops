@@ -12,6 +12,7 @@ import skyRouter from "./sky";
 import usersRouter from "./users";
 import notificationsRouter from "./notifications";
 import pushRouter from "./push";
+import websiteRouter from "./website";
 
 const router: IRouter = Router();
 
@@ -33,5 +34,6 @@ router.use(skyRouter);
 router.use(usersRouter);
 router.use(notificationsRouter);
 router.use(pushRouter);
+router.use(websiteRouter);
 
 export default router;
