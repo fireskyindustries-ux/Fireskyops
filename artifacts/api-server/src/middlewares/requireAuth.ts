@@ -1,9 +1,34 @@
-import { getAuth } from "@clerk/express";
+import { getAuth, clerkClient } from "@clerk/express";
 import { Request, Response, NextFunction } from "express";
 
+/**
+ * Extract role from session claims — fast path.
+ * Works when the Clerk JWT template includes: { "metadata": "{{user.public_metadata}}" }
+ */
+function roleFromClaims(req: Request): string | null {
+  const claims = (getAuth(req)?.sessionClaims as any) ?? {};
+  return (
+    claims?.metadata?.role ||
+    claims?.public_metadata?.role ||
+    null
+  );
+}
+
+/**
+ * Fetch role from the Clerk backend API — slow but always accurate.
+ * Used as a fallback when no JWT template is configured.
+ */
+async function roleFromClerkApi(userId: string): Promise<string> {
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    return (user.publicMetadata?.role as string) || "guest";
+  } catch {
+    return "guest";
+  }
+}
+
 export function getRole(req: Request): string {
-  const auth = getAuth(req);
-  return (auth?.sessionClaims as any)?.metadata?.role || "guest";
+  return roleFromClaims(req) || "guest";
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -17,17 +42,35 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   const auth = getAuth(req);
   const userId = auth?.userId;
   if (!userId) {
-    return res.status(401).json({ error: "Unauthorized" });
+    res.status(401).json({ error: "Unauthorized" });
+    return;
   }
-  const role = (auth?.sessionClaims as any)?.metadata?.role;
-  if (role !== "admin") {
-    return res.status(403).json({ error: "Forbidden: admin only" });
+
+  // Fast path: role already in JWT claims (no extra network call)
+  const claimRole = roleFromClaims(req);
+  if (claimRole === "admin") {
+    (req as any).userId = userId;
+    (req as any).userRole = "admin";
+    next();
+    return;
   }
-  (req as any).userId = userId;
-  (req as any).userRole = "admin";
-  next();
+
+  // Slow path: claims not set (JWT template not configured) — verify via Clerk API
+  roleFromClerkApi(userId)
+    .then((role) => {
+      if (role !== "admin") {
+        res.status(403).json({ error: "Forbidden: admin only" });
+        return;
+      }
+      (req as any).userId = userId;
+      (req as any).userRole = "admin";
+      next();
+    })
+    .catch(() => {
+      res.status(403).json({ error: "Forbidden" });
+    });
 }

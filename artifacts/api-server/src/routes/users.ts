@@ -85,13 +85,25 @@ router.post("/users/invite", requireAdmin, async (req, res) => {
   try {
     const { email, role = "user" } = req.body;
     if (!email) return res.status(400).json({ error: "Email is required" });
+
+    // Resolve the app URL for the invitation redirect — try several sources
+    const appUrl =
+      process.env.APP_URL ||
+      process.env.VITE_APP_URL ||
+      (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(",")[0].trim()}` : null) ||
+      (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null);
+
+    const inviteBody: Record<string, unknown> = {
+      email_address: email,
+      public_metadata: { role },
+    };
+    if (appUrl) {
+      inviteBody.redirect_url = appUrl;
+    }
+
     const invitation = await clerkFetch("/invitations", {
       method: "POST",
-      body: JSON.stringify({
-        email_address: email,
-        public_metadata: { role },
-        redirect_url: `${process.env.VITE_APP_URL || ""}`,
-      }),
+      body: JSON.stringify(inviteBody),
     });
     res.json({ id: invitation.id, email: invitation.email_address });
   } catch (err: any) {
