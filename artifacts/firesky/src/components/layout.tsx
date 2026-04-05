@@ -46,7 +46,7 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
               Manage Users
             </Button>
           </Link>
-          <a href="https://login.accounting.sage.com/" target="_blank" rel="noopener noreferrer">
+          <a href="https://accounting.sageone.co.za/Landing/Default.aspx" target="_blank" rel="noopener noreferrer">
             <Button variant="ghost" className="w-full justify-start h-10 text-green-700 hover:text-green-800 hover:bg-green-50">
               <ExternalLink className="mr-2 h-4 w-4" />
               Sage Cloud Accounting
