@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, FileText, ClipboardCheck, Briefcase, Plus, Menu, LogOut, Shield, ExternalLink } from "lucide-react";
+import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SkyPanel, SkyFloatingButton } from "./sky";
@@ -13,12 +13,14 @@ const adminNavItems = [
   { href: "/enquiries", label: "Enquiries", icon: FileText },
   { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
 ];
 
 const fieldNavItems = [
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
 ];
 
 const guestNavItems = [
@@ -166,8 +168,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 pb-[80px] md:pb-0">
-        <div className="flex-1 overflow-y-auto p-4 md:p-8">
+      <main className="flex-1 flex flex-col min-w-0 pb-[80px] md:pb-0 overflow-hidden">
+        <div className={`flex-1 overflow-y-auto min-h-0 ${location.startsWith("/calendar") ? "" : "p-4 md:p-8"}`}>
           {children}
         </div>
       </main>
@@ -175,7 +177,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Mobile Bottom Nav — Admin */}
       {isAdmin && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-sidebar border-t border-sidebar-border flex items-center justify-around px-2 z-10 pb-safe">
-          {adminNavItems.slice(0, 2).map((item) => (
+          {[adminNavItems[0], adminNavItems[1]].map((item) => (
             <Link key={item.href} href={item.href} className="flex-1">
               <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, item.href) ? "text-primary" : "text-muted-foreground"}`}>
                 <item.icon className="h-6 w-6" />
@@ -190,7 +192,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Button>
             </Link>
           </div>
-          {adminNavItems.slice(2, 4).map((item) => (
+          {[adminNavItems[4], adminNavItems[5]].map((item) => (
             <Link key={item.href} href={item.href} className="flex-1">
               <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, item.href) ? "text-primary" : "text-muted-foreground"}`}>
                 <item.icon className="h-6 w-6" />
@@ -229,10 +231,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <span className="text-[10px] font-medium">Jobs</span>
             </div>
           </Link>
-          <Link href="/customers/new" className="flex-1">
-            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, "/customers/new") ? "text-primary" : "text-muted-foreground"}`}>
-              <Users className="h-6 w-6" />
-              <span className="text-[10px] font-medium">Add</span>
+          <Link href="/calendar" className="flex-1">
+            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, "/calendar") ? "text-primary" : "text-muted-foreground"}`}>
+              <CalendarDays className="h-6 w-6" />
+              <span className="text-[10px] font-medium">Calendar</span>
             </div>
           </Link>
         </nav>

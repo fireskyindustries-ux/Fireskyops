@@ -5,6 +5,7 @@ import customersRouter from "./customers";
 import enquiriesRouter from "./enquiries";
 import inspectionsRouter from "./inspections";
 import jobsRouter from "./jobs";
+import appointmentsRouter from "./appointments";
 import dashboardRouter from "./dashboard";
 import skyRouter from "./sky";
 import usersRouter from "./users";
@@ -21,6 +22,7 @@ router.use(customersRouter);
 router.use(enquiriesRouter);
 router.use(inspectionsRouter);
 router.use(jobsRouter);
+router.use(appointmentsRouter);
 router.use(skyRouter);
 router.use(usersRouter);
 

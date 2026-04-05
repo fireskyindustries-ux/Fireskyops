@@ -15,6 +15,7 @@ import InspectionDetail from "./pages/inspections/detail";
 import JobsPipeline from "./pages/jobs/pipeline";
 import NewJob from "./pages/jobs/new";
 import JobDetail from "./pages/jobs/detail";
+import CalendarPage from "./pages/calendar/index";
 import AdminUsers from "./pages/admin/users";
 import NotFound from "./pages/not-found";
 
@@ -82,6 +83,11 @@ export function Router() {
         </Route>
         <Route path="/jobs/:id">
           {isGuest ? <Redirect to="/enquiries/new" /> : <JobDetail />}
+        </Route>
+
+        {/* Calendar — admin + field worker */}
+        <Route path="/calendar">
+          {isGuest ? <Redirect to="/enquiries/new" /> : <CalendarPage />}
         </Route>
 
         {/* Admin panel */}

@@ -18,6 +18,8 @@ A mobile-first React web app for Firesky Industries — a field operations tool 
 - **Build**: esbuild (CJS bundle)
 
 ## Features
+- **Calendar**: Week and list views for inspections/deliveries/installations, with travel-buffer conflict detection and double-booking prevention. Schedule button on job detail page. Accessible to admin and field workers.
+
 
 - **Sky AI Assistant** — built-in AI assistant powered by OpenAI (via Replit AI Integrations, billed to Replit credits):
   - Floating "Ask Sky" button on all pages (mobile and desktop)

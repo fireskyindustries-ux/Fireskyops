@@ -1,17 +1,30 @@
 import { useState } from "react";
 import { useGetJob, useUpdateJob, getGetJobQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { Briefcase, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle } from "lucide-react";
+import { Briefcase, CalendarDays, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle, Plus, Clock, User } from "lucide-react";
 import { AssignUser } from "@/components/assign-user";
 import { Button } from "@/components/ui/button";
 import { SkyInlineButton } from "@/components/sky";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { AppointmentForm, type AppointmentFormValues } from "@/components/calendar/AppointmentForm";
+import { useUser } from "@clerk/react";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+function apiFetch(path: string) {
+  return fetch(`${BASE}${path}`, { credentials: "include" }).then((r) => r.json());
+}
+
+const APT_COLORS = {
+  inspection: "bg-blue-100 text-blue-800",
+  delivery: "bg-emerald-100 text-emerald-800",
+  installation: "bg-orange-100 text-orange-800",
+};
 
 const STAGES = [
   { id: "enquiry", label: "Enquiry" },
@@ -31,7 +44,18 @@ export default function JobDetail() {
   const queryClient = useQueryClient();
   const updateJob = useUpdateJob();
   const { toast } = useToast();
+  const { user } = useUser();
+  const role = (user?.publicMetadata?.role as string) || "guest";
+  const canEdit = role === "admin" || role === "user";
   const [showCloseOptions, setShowCloseOptions] = useState(false);
+  const [aptFormOpen, setAptFormOpen] = useState(false);
+  const [aptFormInitial, setAptFormInitial] = useState<Partial<AppointmentFormValues>>({});
+
+  const { data: appointments = [], refetch: refetchApts } = useQuery<any[]>({
+    queryKey: ["/api/appointments", "job", id],
+    queryFn: () => apiFetch(`/api/appointments?jobId=${id}`),
+    enabled: !!id,
+  });
   
   const { data: job, isLoading, error } = useGetJob(id, { 
     query: { enabled: !!id, queryKey: getGetJobQueryKey(id) } 
@@ -277,6 +301,95 @@ export default function JobDetail() {
           />
         </CardContent>
       </Card>
+
+      {/* Appointments */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <CalendarDays className="h-5 w-5" />
+            Appointments
+          </CardTitle>
+          {canEdit && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => {
+                setAptFormInitial({ jobId: id, title: `${job.title}` });
+                setAptFormOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Schedule
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {appointments.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2 text-center">No appointments scheduled.</p>
+          ) : (
+            <div className="space-y-2">
+              {appointments.map((apt: any) => (
+                <button
+                  key={apt.id}
+                  onClick={() => {
+                    const d = parseISO(apt.scheduledAt);
+                    setAptFormInitial({
+                      id: apt.id,
+                      jobId: apt.jobId,
+                      type: apt.type,
+                      title: apt.title,
+                      date: format(d, "yyyy-MM-dd"),
+                      time: format(d, "HH:mm"),
+                      durationMinutes: apt.durationMinutes,
+                      travelBufferMinutes: apt.travelBufferMinutes,
+                      assignedToId: apt.assignedToId || "",
+                      assignedToName: apt.assignedToName || "",
+                      notes: apt.notes || "",
+                      status: apt.status,
+                    });
+                    setAptFormOpen(true);
+                  }}
+                  className="w-full text-left flex items-start gap-3 p-3 rounded-xl border border-border hover:bg-muted/40 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{apt.title}</span>
+                      <Badge className={`text-[10px] px-1.5 py-0 h-4 border-0 ${APT_COLORS[apt.type as keyof typeof APT_COLORS] || ""}`}>
+                        {apt.type}
+                      </Badge>
+                      {apt.status !== "scheduled" && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 capitalize">
+                          {apt.status}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {format(parseISO(apt.scheduledAt), "EEE d MMM, h:mm a")} · {apt.durationMinutes}m
+                      </span>
+                      {apt.assignedToName && (
+                        <span className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {apt.assignedToName}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <AppointmentForm
+        open={aptFormOpen}
+        onClose={() => setAptFormOpen(false)}
+        initial={aptFormInitial}
+        onSaved={() => refetchApts()}
+      />
     </div>
   );
 }
