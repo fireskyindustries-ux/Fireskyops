@@ -1,5 +1,5 @@
-import { useRef, useEffect, useState, useCallback, type KeyboardEvent } from "react";
-import { Sparkles, X, Send, RotateCcw, ChevronRight, Database, RefreshCw, AlertCircle, Mic, MicOff, Volume2, VolumeX, Loader2 } from "lucide-react";
+import { useRef, useEffect, useState, type KeyboardEvent } from "react";
+import { Sparkles, X, Send, RotateCcw, ChevronRight, Database, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -175,257 +175,6 @@ export function SkyPanel() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // ── Voice state ──────────────────────────────────────────────────────────────
-  const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [voiceError, setVoiceError] = useState<string | null>(null);
-  const [conversationMode, setConversationMode] = useState(false);
-
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const wasStreamingRef = useRef(false);
-  // Refs so async callbacks always see latest values without stale closures
-  const conversationModeRef = useRef(false);
-  const startRecordingRef = useRef<() => Promise<void>>();
-  // Silence detection
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const silenceRafRef = useRef<number>();
-
-  const setConvMode = (v: boolean) => {
-    conversationModeRef.current = v;
-    setConversationMode(v);
-  };
-
-  const stopSilenceDetection = useCallback(() => {
-    if (silenceRafRef.current) cancelAnimationFrame(silenceRafRef.current);
-    analyserRef.current?.disconnect();
-    analyserRef.current = null;
-    audioCtxRef.current?.close().catch(() => {});
-    audioCtxRef.current = null;
-  }, []);
-
-  const startSilenceDetection = useCallback((stream: MediaStream, onSilence: () => void) => {
-    try {
-      const audioCtx = new AudioContext();
-      const source = audioCtx.createMediaStreamSource(stream);
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
-      analyserRef.current = analyser;
-      audioCtxRef.current = audioCtx;
-
-      const data = new Uint8Array(analyser.frequencyBinCount);
-      const THRESHOLD = 22;      // 0-255; raised to ignore ambient noise
-      const SILENCE_MS = 2000;   // stop 2s after speech ends
-      const MIN_RECORD_MS = 1500; // don't stop before user has had a chance to speak
-      const startTime = Date.now();
-      let speechDetected = false;
-      let silenceStart: number | null = null;
-
-      const tick = () => {
-        if (!analyserRef.current) return;
-        analyser.getByteFrequencyData(data);
-        const avg = data.reduce((s, v) => s + v, 0) / data.length;
-        const elapsed = Date.now() - startTime;
-        if (avg > THRESHOLD) {
-          speechDetected = true;
-          silenceStart = null;
-        } else if (speechDetected && elapsed > MIN_RECORD_MS) {
-          if (silenceStart === null) silenceStart = Date.now();
-          else if (Date.now() - silenceStart > SILENCE_MS) {
-            stopSilenceDetection();
-            onSilence();
-            return;
-          }
-        }
-        silenceRafRef.current = requestAnimationFrame(tick);
-      };
-      silenceRafRef.current = requestAnimationFrame(tick);
-    } catch {
-      // Web Audio not supported — fallback: 20s max recording timeout
-      const t = setTimeout(onSilence, 20000);
-      return () => clearTimeout(t);
-    }
-  }, [stopSilenceDetection]);
-
-  const stopSpeaking = useCallback(() => {
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.pause();
-      audioPlayerRef.current.src = "";
-      audioPlayerRef.current = null;
-    }
-    setIsSpeaking(false);
-  }, []);
-
-  const playTTS = useCallback(async (text: string) => {
-    stopSpeaking();
-    setIsSpeaking(true);
-
-    const afterSpeak = () => {
-      setIsSpeaking(false);
-      audioPlayerRef.current = null;
-      if (conversationModeRef.current) setTimeout(() => startRecordingRef.current?.(), 600);
-    };
-
-    try {
-      const res = await fetch(skyApiUrl("/api/sky/speak"), {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) throw new Error(`TTS ${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioPlayerRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); afterSpeak(); };
-      audio.onerror = () => { URL.revokeObjectURL(url); afterSpeak(); };
-      await audio.play();
-    } catch {
-      afterSpeak();
-    }
-  }, [stopSpeaking]);
-
-  // Auto-play TTS when Sky finishes streaming
-  useEffect(() => {
-    if (wasStreamingRef.current && !isStreaming && voiceEnabled) {
-      const last = messages[messages.length - 1];
-      if (last?.role === "assistant" && last.content && !last.isThinking) {
-        playTTS(last.content);
-      }
-    }
-    wasStreamingRef.current = isStreaming;
-  }, [isStreaming, messages, voiceEnabled, playTTS]);
-
-  const startRecording = async () => {
-    setVoiceError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const recorder = new MediaRecorder(stream);
-      audioChunksRef.current = [];
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-
-      // Auto-stop when user stops speaking
-      startSilenceDetection(stream, () => {
-        if (mediaRecorderRef.current?.state === "recording") {
-          mediaRecorderRef.current.stop();
-          mediaRecorderRef.current = null;
-          setIsRecording(false);
-        }
-      });
-      recorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-        const blob = new Blob(audioChunksRef.current);
-        audioChunksRef.current = [];
-        setIsTranscribing(true);
-        try {
-          const base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-          const res = await fetch(skyApiUrl("/api/sky/transcribe"), {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ audio: base64 }),
-          });
-          if (!res.ok) throw new Error("Transcription failed");
-          const { text } = await res.json();
-          if (text?.trim()) {
-            setVoiceEnabled(true);
-            sendMessage(text.trim());
-            // Sky will stream → TTS will play → audio.onended restarts recording
-          } else if (conversationModeRef.current) {
-            // Nothing heard — listen again
-            setTimeout(() => startRecordingRef.current?.(), 500);
-          }
-        } catch {
-          setVoiceError("Could not understand. Listening again...");
-          if (conversationModeRef.current) {
-            setTimeout(() => startRecordingRef.current?.(), 1200);
-          }
-        } finally {
-          setIsTranscribing(false);
-        }
-      };
-      recorder.start();
-      mediaRecorderRef.current = recorder;
-      setIsRecording(true);
-    } catch {
-      setVoiceError("Microphone access denied. Please allow microphone in your browser.");
-      setConvMode(false);
-    }
-  };
-  // Keep ref current so playTTS callback always calls the latest version
-  startRecordingRef.current = startRecording;
-
-  const stopRecording = () => {
-    stopSilenceDetection();
-    mediaRecorderRef.current?.stop();
-    mediaRecorderRef.current = null;
-    setIsRecording(false);
-  };
-
-  const enterConversation = async () => {
-    setConvMode(true);
-    setVoiceEnabled(true);
-    await startRecording();
-  };
-
-  const exitConversation = () => {
-    setConvMode(false);
-    stopSpeaking();
-    stopSilenceDetection();
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.onstop = null; // prevent auto-restart
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current = null;
-    }
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    setIsRecording(false);
-    setIsTranscribing(false);
-  };
-
-  // Mic button: in conversation mode tapping stops; otherwise starts one-shot or conversation
-  const handleMicClick = () => {
-    if (conversationMode) {
-      exitConversation();
-    } else if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
-
-  const toggleVoice = () => {
-    if (voiceEnabled && isSpeaking) stopSpeaking();
-    setVoiceEnabled((v) => !v);
-  };
-
-  // Conversation mode status label
-  const convStatus = isRecording
-    ? "Listening..."
-    : isTranscribing
-    ? "Processing..."
-    : isStreaming
-    ? "Sky is thinking..."
-    : isSpeaking
-    ? "Sky is speaking..."
-    : "Ready to listen";
-
-  // ── End voice state ───────────────────────────────────────────────────────────
-
   const suggestedActions = isAdmin
     ? ADMIN_SUGGESTED_ACTIONS
     : FIELD_SUGGESTED_ACTIONS[context.contextType] || FIELD_SUGGESTED_ACTIONS.general;
@@ -480,25 +229,6 @@ export function SkyPanel() {
             </div>
           </div>
           <div className="flex items-center gap-1">
-            {/* Voice speaker toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "h-8 w-8 hover:bg-primary-foreground/20",
-                voiceEnabled ? "text-primary-foreground" : "text-primary-foreground/50"
-              )}
-              onClick={toggleVoice}
-              title={voiceEnabled ? "Voice on — click to mute Sky" : "Voice off — click to hear Sky speak"}
-            >
-              {isSpeaking ? (
-                <Volume2 className="h-4 w-4 animate-pulse" />
-              ) : voiceEnabled ? (
-                <Volume2 className="h-4 w-4" />
-              ) : (
-                <VolumeX className="h-4 w-4" />
-              )}
-            </Button>
             {messages.length > 0 && (
               <Button
                 variant="ghost"
@@ -588,87 +318,33 @@ export function SkyPanel() {
 
         {/* Input */}
         <div className="border-t border-border flex-shrink-0 bg-background">
-          {conversationMode ? (
-            /* ── Conversation mode UI ── */
-            <div className="p-4 flex flex-col items-center gap-3">
-              {/* Animated status */}
-              <div className="flex items-center gap-2">
-                {isRecording && (
-                  <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive" />
-                  </span>
-                )}
-                {isSpeaking && <Volume2 className="h-4 w-4 text-primary animate-pulse" />}
-                {(isTranscribing || isStreaming) && <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />}
-                <span className={cn(
-                  "text-sm font-medium",
-                  isRecording && "text-destructive",
-                  isSpeaking && "text-primary",
-                  (isTranscribing || isStreaming) && "text-muted-foreground",
-                )}>
-                  {convStatus}
-                </span>
-              </div>
-
-              {/* Stop button */}
-              <Button
-                variant="destructive"
-                className="rounded-full px-6 h-10 text-sm font-medium"
-                onClick={exitConversation}
-              >
-                <X className="h-4 w-4 mr-2" />
-                End conversation
-              </Button>
-
-              {voiceError && (
-                <p className="text-[11px] text-destructive text-center">{voiceError}</p>
-              )}
-            </div>
-          ) : (
-            /* ── Normal input UI ── */
-            <div className="p-3">
-              {/* Start voice conversation button */}
-              <Button
-                variant="outline"
-                className="w-full mb-2 rounded-xl h-9 text-sm gap-2 border-primary/30 text-primary hover:bg-primary/5"
-                onClick={enterConversation}
+          <div className="p-3">
+            <div className="flex gap-2 items-end">
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask Sky a question..."
+                className="min-h-[40px] max-h-[100px] resize-none text-sm rounded-xl"
+                rows={1}
                 disabled={isStreaming}
+              />
+              <Button
+                size="icon"
+                className="h-10 w-10 rounded-xl flex-shrink-0"
+                onClick={handleSend}
+                disabled={!input.trim() || isStreaming}
               >
-                <Mic className="h-4 w-4" />
-                Start voice conversation with Sky
+                <Send className="h-4 w-4" />
               </Button>
-
-              <div className="flex gap-2 items-end">
-                <Textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={isAdmin ? "Or type your question..." : "Or type your question..."}
-                  className="min-h-[40px] max-h-[100px] resize-none text-sm rounded-xl"
-                  rows={1}
-                  disabled={isStreaming}
-                />
-                <Button
-                  size="icon"
-                  className="h-10 w-10 rounded-xl flex-shrink-0"
-                  onClick={handleSend}
-                  disabled={!input.trim() || isStreaming}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
-              {voiceError && (
-                <p className="text-[11px] text-destructive mt-1.5 px-1">{voiceError}</p>
-              )}
-              <p className="text-[10px] text-muted-foreground text-center mt-2">
-                {isAdmin
-                  ? "Sky reads live system data and provides business intelligence"
-                  : "Sky reads the current record and provides field guidance"}
-              </p>
             </div>
-          )}
+            <p className="text-[10px] text-muted-foreground text-center mt-2">
+              {isAdmin
+                ? "Sky reads live system data and provides business intelligence"
+                : "Sky reads the current record and provides field guidance"}
+            </p>
+          </div>
         </div>
       </div>
     </>

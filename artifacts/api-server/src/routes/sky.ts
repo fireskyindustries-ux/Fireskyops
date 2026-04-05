@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq, desc } from "drizzle-orm";
-import { openai, transcribeAudio, textToSpeech } from "@workspace/integrations-openai-ai-server";
+import { openai } from "@workspace/integrations-openai-ai-server";
 import {
   db,
   customersTable,
@@ -798,54 +798,6 @@ router.post("/sky/chat", async (req, res) => {
     sseWrite({ error: "Sky is unavailable right now. Please try again." });
     sseWrite({ done: true });
     res.end();
-  }
-});
-
-// ─── Voice: Speech-to-Text ────────────────────────────────────────────────────
-router.post("/sky/transcribe", requireAuth, async (req, res): Promise<void> => {
-  try {
-    const { audio } = req.body as { audio: string };
-    if (!audio) { res.status(400).json({ error: "audio is required" }); return; }
-
-    const rawBuffer = Buffer.from(audio, "base64");
-    const text = await transcribeAudio(rawBuffer);
-    res.json({ text });
-  } catch (err: any) {
-    console.error("Transcription error:", err);
-    res.status(500).json({ error: err.message || "Transcription failed" });
-  }
-});
-
-// ─── Voice: Text-to-Speech ────────────────────────────────────────────────────
-router.post("/sky/speak", requireAuth, async (req, res): Promise<void> => {
-  try {
-    const { text } = req.body as { text: string };
-    if (!text?.trim()) { res.status(400).json({ error: "text is required" }); return; }
-
-    // Use gpt-4o-audio-preview via chat completions (supported by proxy, unlike /audio/speech)
-    const response = await (openai.chat.completions.create as Function)({
-      model: "gpt-4o-audio-preview",
-      modalities: ["audio"],
-      audio: { voice: "shimmer", format: "wav" },
-      messages: [
-        {
-          role: "system",
-          content: "You are a text-to-speech system. Speak the user's message aloud exactly as written — warm, clear, and natural. Do not add, change, or omit anything.",
-        },
-        { role: "user", content: text.trim() },
-      ],
-    });
-
-    const audioData = (response.choices[0].message as any).audio?.data;
-    if (!audioData) { res.status(500).json({ error: "No audio returned" }); return; }
-
-    const buffer = Buffer.from(audioData, "base64");
-    res.set("Content-Type", "audio/wav");
-    res.set("Cache-Control", "no-store");
-    res.send(buffer);
-  } catch (err: any) {
-    console.error("TTS error:", err?.message ?? err);
-    res.status(500).json({ error: err.message || "Text-to-speech failed" });
   }
 });
 
