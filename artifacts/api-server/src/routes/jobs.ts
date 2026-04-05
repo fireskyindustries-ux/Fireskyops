@@ -3,13 +3,10 @@ import { eq } from "drizzle-orm";
 import { db, jobsTable, customersTable } from "@workspace/db";
 import {
   ListJobsQueryParams,
-  ListJobsResponse,
   CreateJobBody,
   GetJobParams,
-  GetJobResponse,
   UpdateJobParams,
   UpdateJobBody,
-  UpdateJobResponse,
   DeleteJobParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -74,7 +71,7 @@ router.get("/jobs", requireAuth, async (req, res): Promise<void> => {
     rows = rows.filter((r) => r.customerId === query.data.customerId);
   }
 
-  res.json(ListJobsResponse.parse(rows.map(normalize)));
+  res.json(rows.map(normalize));
 });
 
 router.post("/jobs", requireAuth, async (req, res): Promise<void> => {
@@ -91,9 +88,7 @@ router.post("/jobs", requireAuth, async (req, res): Promise<void> => {
     .from(customersTable)
     .where(eq(customersTable.id, job.customerId));
 
-  res.status(201).json(
-    GetJobResponse.parse(normalize({ ...job, customerName: customer?.name })),
-  );
+  res.status(201).json(normalize({ ...job, customerName: customer?.name }));
 });
 
 router.get("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
@@ -122,7 +117,7 @@ router.get("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(GetJobResponse.parse(normalize(row)));
+  res.json(normalize(row));
 });
 
 router.put("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
@@ -154,9 +149,7 @@ router.put("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
     .from(customersTable)
     .where(eq(customersTable.id, job.customerId));
 
-  res.json(
-    UpdateJobResponse.parse(normalize({ ...job, customerName: customer?.name })),
-  );
+  res.json(normalize({ ...job, customerName: customer?.name }));
 });
 
 router.patch("/jobs/:id/assign", requireAuth, async (req, res): Promise<void> => {
