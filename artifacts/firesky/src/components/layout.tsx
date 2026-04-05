@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SkyPanel, SkyFloatingButton } from "./sky";
 import { useUser, useClerk } from "@clerk/react";
+import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -32,6 +33,24 @@ function isActive(location: string, href: string) {
   return location.startsWith(href);
 }
 
+function NavItem({ item, location, onClick }: { item: { href: string; label: string; icon: React.ElementType }; location: string; onClick?: () => void }) {
+  const active = isActive(location, item.href);
+  return (
+    <Link href={item.href} onClick={onClick}>
+      <div className={cn(
+        "flex items-center gap-3 h-11 px-3 rounded-xl text-sm font-medium transition-all cursor-pointer select-none",
+        active
+          ? "bg-primary/10 text-primary"
+          : "text-foreground/65 hover:bg-muted hover:text-foreground"
+      )}>
+        <item.icon className={cn("h-5 w-5 flex-shrink-0", active && "text-primary")} />
+        <span>{item.label}</span>
+        {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
+      </div>
+    </Link>
+  );
+}
+
 function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
   const { user } = useUser();
   const { signOut } = useClerk();
@@ -41,23 +60,23 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="border-t border-sidebar-border">
       {role === "admin" && (
-        <div className="px-4 pt-3 space-y-1">
+        <div className="px-3 pt-3 space-y-1">
           <Link href="/admin/users" onClick={onNavigate}>
-            <Button variant="ghost" className="w-full justify-start h-10 text-primary">
-              <Shield className="mr-2 h-4 w-4" />
+            <div className="flex items-center gap-3 h-10 px-3 rounded-xl text-sm font-medium text-primary hover:bg-primary/5 transition-colors cursor-pointer">
+              <Shield className="h-4 w-4" />
               Manage Users
-            </Button>
+            </div>
           </Link>
           <a href="https://accounting.sageone.co.za/Landing/Default.aspx" target="_blank" rel="noopener noreferrer">
-            <Button variant="ghost" className="w-full justify-start h-10 text-green-700 hover:text-green-800 hover:bg-green-50">
-              <ExternalLink className="mr-2 h-4 w-4" />
+            <div className="flex items-center gap-3 h-10 px-3 rounded-xl text-sm font-medium text-green-700 hover:bg-green-50 transition-colors cursor-pointer">
+              <ExternalLink className="h-4 w-4" />
               Sage Cloud Accounting
-            </Button>
+            </div>
           </a>
         </div>
       )}
       <div className="p-4 flex items-center gap-3">
-        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden ring-2 ring-primary/20">
           {user?.imageUrl ? (
             <img src={user.imageUrl} alt="" className="h-full w-full object-cover" />
           ) : (
@@ -67,7 +86,7 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium truncate">
+          <p className="text-xs font-semibold truncate">
             {user?.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : user?.emailAddresses?.[0]?.emailAddress}
           </p>
           <p className="text-[10px] text-muted-foreground capitalize">{role}</p>
@@ -83,6 +102,21 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
         </Button>
       </div>
     </div>
+  );
+}
+
+function BottomNavItem({ item, location }: { item: { href: string; label: string; icon: React.ElementType }; location: string }) {
+  const active = isActive(location, item.href);
+  return (
+    <Link href={item.href} className="flex-1">
+      <div className="flex flex-col items-center justify-center h-full gap-1">
+        <item.icon className={cn("h-5 w-5 transition-colors", active ? "text-primary" : "text-muted-foreground")} />
+        <span className={cn("text-[10px] font-medium transition-colors", active ? "text-primary" : "text-muted-foreground")}>
+          {item.label}
+        </span>
+        <div className={cn("h-0.5 w-5 rounded-full transition-all", active ? "bg-primary" : "bg-transparent")} />
+      </div>
+    </Link>
   );
 }
 
@@ -102,27 +136,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] flex flex-col md:flex-row bg-muted/30">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-72 flex-col bg-sidebar border-r border-sidebar-border pb-8">
-        <div className="flex flex-col items-center px-4 pt-6 pb-5 border-b border-sidebar-border bg-white">
-          <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-24 w-auto object-contain" />
+      <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border pb-8">
+        <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-white">
+          <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-20 w-auto object-contain" />
         </div>
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto pt-4">
           {navItems.map((item) => (
-            <Link key={item.href} href={item.href}>
-              <Button
-                variant={isActive(location, item.href) ? "secondary" : "ghost"}
-                className="w-full justify-start h-12"
-              >
-                <item.icon className="mr-2 h-5 w-5" />
-                {item.label}
-              </Button>
-            </Link>
+            <NavItem key={item.href} item={item} location={location} />
           ))}
         </nav>
-        <div className="px-4 pb-3 pt-2">
+        <div className="px-3 pb-3 pt-2">
           <Link href={ctaLink}>
-            <Button className="w-full h-12 hex-clip px-8 font-semibold tracking-wide">
-              <Plus className="mr-2 h-5 w-5" /> {ctaLabel}
+            <Button className="w-full h-11 hex-clip px-6 font-semibold tracking-wide text-sm">
+              <Plus className="mr-2 h-4 w-4" /> {ctaLabel}
             </Button>
           </Link>
         </div>
@@ -130,35 +156,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden flex items-center justify-between px-4 py-3 bg-sidebar border-b border-sidebar-border sticky top-0 z-10">
-        <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-14 w-auto object-contain" />
+      <header className="md:hidden flex items-center justify-between px-4 py-2 bg-white border-b border-sidebar-border sticky top-0 z-10 shadow-sm">
+        <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-12 w-auto object-contain" />
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Menu className="h-6 w-6" />
+            <Button variant="ghost" size="icon" className="h-9 w-9">
+              <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0 flex flex-col">
-            <div className="flex flex-col items-center px-4 pt-6 pb-5 border-b border-sidebar-border">
-              <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-20 w-auto object-contain" />
+          <SheetContent side="left" className="w-64 p-0 flex flex-col bg-sidebar">
+            <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-white">
+              <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-16 w-auto object-contain" />
             </div>
-            <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
+            <nav className="p-3 space-y-1 flex-1 overflow-y-auto pt-4">
               {navItems.map((item) => (
-                <Link key={item.href} href={item.href}>
-                  <Button
-                    variant={isActive(location, item.href) ? "secondary" : "ghost"}
-                    className="w-full justify-start h-12"
-                  >
-                    <item.icon className="mr-2 h-5 w-5" />
-                    {item.label}
-                  </Button>
-                </Link>
+                <NavItem key={item.href} item={item} location={location} />
               ))}
             </nav>
-            <div className="px-4 pb-3 pt-2">
+            <div className="px-3 pb-3 pt-2">
               <Link href={ctaLink}>
-                <Button className="w-full h-12 hex-clip px-8 font-semibold">
-                  <Plus className="mr-2 h-5 w-5" /> {ctaLabel}
+                <Button className="w-full h-11 hex-clip px-6 font-semibold text-sm">
+                  <Plus className="mr-2 h-4 w-4" /> {ctaLabel}
                 </Button>
               </Link>
             </div>
@@ -176,77 +194,47 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Bottom Nav — Admin */}
       {isAdmin && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-sidebar border-t border-sidebar-border flex items-center justify-around px-2 z-10 pb-safe">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[72px] bg-white border-t border-sidebar-border flex items-stretch justify-around px-1 z-10">
           {[adminNavItems[0], adminNavItems[1]].map((item) => (
-            <Link key={item.href} href={item.href} className="flex-1">
-              <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, item.href) ? "text-primary" : "text-muted-foreground"}`}>
-                <item.icon className="h-6 w-6" />
-                <span className="text-[10px] font-medium">{item.label}</span>
-              </div>
-            </Link>
+            <BottomNavItem key={item.href} item={item} location={location} />
           ))}
-          <div className="flex-1 flex justify-center -mt-6">
+          <div className="flex-1 flex justify-center items-center -mt-5">
             <Link href="/enquiries/new">
-              <Button size="icon" className="h-14 w-14 rounded-full shadow-lg shadow-primary/25">
-                <Plus className="h-8 w-8" />
+              <Button size="icon" className="h-13 w-13 h-[52px] w-[52px] rounded-full shadow-lg shadow-primary/30 ring-4 ring-white">
+                <Plus className="h-6 w-6" />
               </Button>
             </Link>
           </div>
           {[adminNavItems[4], adminNavItems[5]].map((item) => (
-            <Link key={item.href} href={item.href} className="flex-1">
-              <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, item.href) ? "text-primary" : "text-muted-foreground"}`}>
-                <item.icon className="h-6 w-6" />
-                <span className="text-[10px] font-medium">{item.label}</span>
-              </div>
-            </Link>
+            <BottomNavItem key={item.href} item={item} location={location} />
           ))}
         </nav>
       )}
 
       {/* Mobile Bottom Nav — Field Worker */}
       {isFieldWorker && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-sidebar border-t border-sidebar-border flex items-center justify-around px-2 z-10 pb-safe">
-          <Link href="/customers" className="flex-1">
-            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, "/customers") ? "text-primary" : "text-muted-foreground"}`}>
-              <Users className="h-6 w-6" />
-              <span className="text-[10px] font-medium">Customers</span>
-            </div>
-          </Link>
-          <Link href="/inspections" className="flex-1">
-            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, "/inspections") ? "text-primary" : "text-muted-foreground"}`}>
-              <ClipboardCheck className="h-6 w-6" />
-              <span className="text-[10px] font-medium">Inspections</span>
-            </div>
-          </Link>
-          <div className="flex-1 flex justify-center -mt-6">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[72px] bg-white border-t border-sidebar-border flex items-stretch justify-around px-1 z-10">
+          <BottomNavItem item={fieldNavItems[0]} location={location} />
+          <BottomNavItem item={fieldNavItems[1]} location={location} />
+          <div className="flex-1 flex justify-center items-center -mt-5">
             <Link href="/inspections/new">
-              <Button size="icon" className="h-14 w-14 rounded-full shadow-lg shadow-primary/25">
-                <Plus className="h-8 w-8" />
+              <Button size="icon" className="h-[52px] w-[52px] rounded-full shadow-lg shadow-primary/30 ring-4 ring-white">
+                <Plus className="h-6 w-6" />
               </Button>
             </Link>
           </div>
-          <Link href="/jobs" className="flex-1">
-            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, "/jobs") ? "text-primary" : "text-muted-foreground"}`}>
-              <Briefcase className="h-6 w-6" />
-              <span className="text-[10px] font-medium">Jobs</span>
-            </div>
-          </Link>
-          <Link href="/calendar" className="flex-1">
-            <div className={`flex flex-col items-center justify-center h-full space-y-1 ${isActive(location, "/calendar") ? "text-primary" : "text-muted-foreground"}`}>
-              <CalendarDays className="h-6 w-6" />
-              <span className="text-[10px] font-medium">Calendar</span>
-            </div>
-          </Link>
+          <BottomNavItem item={fieldNavItems[2]} location={location} />
+          <BottomNavItem item={fieldNavItems[3]} location={location} />
         </nav>
       )}
 
       {/* Mobile Bottom Nav — Guest */}
       {isGuest && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-sidebar border-t border-sidebar-border flex items-center justify-around px-2 z-10 pb-safe">
-          <div className="flex-1 flex justify-center -mt-6">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[72px] bg-white border-t border-sidebar-border flex items-center justify-around px-2 z-10">
+          <div className="flex-1 flex justify-center -mt-5">
             <Link href="/enquiries/new">
-              <Button size="icon" className="h-14 w-14 rounded-full shadow-lg shadow-primary/25">
-                <Plus className="h-8 w-8" />
+              <Button size="icon" className="h-[52px] w-[52px] rounded-full shadow-lg shadow-primary/30 ring-4 ring-white">
+                <Plus className="h-6 w-6" />
               </Button>
             </Link>
           </div>
@@ -256,8 +244,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <SkyFloatingButton />
       <SkyPanel />
 
-      {/* Footer */}
-      <div className="hidden md:block fixed bottom-0 left-0 w-72 text-center py-2 border-t border-sidebar-border bg-sidebar">
+      {/* Desktop Footer */}
+      <div className="hidden md:block fixed bottom-0 left-0 w-64 text-center py-2 border-t border-sidebar-border bg-sidebar">
         <p className="text-[10px] text-muted-foreground">
           Designed &amp; implemented by Leon Mouton &mdash; Firesky Industries
         </p>

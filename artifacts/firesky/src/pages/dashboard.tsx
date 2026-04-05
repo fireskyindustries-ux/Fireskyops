@@ -1,12 +1,61 @@
 import { useGetDashboardSummary } from "@workspace/api-client-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Users, FileText, Briefcase, Plus, ArrowRight } from "lucide-react";
+import { Users, FileText, Briefcase, Plus, ArrowRight, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { SkyInlineButton } from "@/components/sky";
+import { cn } from "@/lib/utils";
+
+const ENQUIRY_STATUS_STYLES: Record<string, { dot: string; badge: string; label: string }> = {
+  new:              { dot: "bg-blue-500",   badge: "bg-blue-50 text-blue-700 border-blue-200",    label: "New" },
+  in_progress:      { dot: "bg-amber-500",  badge: "bg-amber-50 text-amber-700 border-amber-200",  label: "In Progress" },
+  inspection_done:  { dot: "bg-violet-500", badge: "bg-violet-50 text-violet-700 border-violet-200", label: "Inspection Done" },
+  quoted:           { dot: "bg-cyan-600",   badge: "bg-cyan-50 text-cyan-700 border-cyan-200",     label: "Quoted" },
+  won:              { dot: "bg-green-600",  badge: "bg-green-50 text-green-700 border-green-200",   label: "Won" },
+  lost:             { dot: "bg-red-500",    badge: "bg-red-50 text-red-700 border-red-200",         label: "Lost" },
+};
+
+const JOB_STAGE_STYLES: Record<string, { dot: string; badge: string }> = {
+  enquiry:   { dot: "bg-blue-400",   badge: "bg-blue-50 text-blue-700 border-blue-200" },
+  inspection:{ dot: "bg-violet-400", badge: "bg-violet-50 text-violet-700 border-violet-200" },
+  quoting:   { dot: "bg-amber-400",  badge: "bg-amber-50 text-amber-700 border-amber-200" },
+  quoted:    { dot: "bg-cyan-500",   badge: "bg-cyan-50 text-cyan-700 border-cyan-200" },
+  won:       { dot: "bg-green-500",  badge: "bg-green-50 text-green-700 border-green-200" },
+  lost:      { dot: "bg-red-400",    badge: "bg-red-50 text-red-700 border-red-200" },
+  closed:    { dot: "bg-gray-400",   badge: "bg-gray-50 text-gray-600 border-gray-200" },
+};
+
+const PIPELINE_STAGE_BAR: Record<string, string> = {
+  enquiry:    "bg-blue-400",
+  inspection: "bg-violet-400",
+  quoting:    "bg-amber-400",
+  quoted:     "bg-cyan-500",
+  won:        "bg-green-500",
+  lost:       "bg-red-400",
+  closed:     "bg-gray-400",
+};
+
+function StatCard({ label, value, icon: Icon, iconBg, iconColor, sub }: {
+  label: string; value: number; icon: React.ElementType;
+  iconBg: string; iconColor: string; sub?: string;
+}) {
+  return (
+    <Card className="border shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-5 px-5">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
+        <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center", iconBg)}>
+          <Icon className={cn("h-5 w-5", iconColor)} />
+        </div>
+      </CardHeader>
+      <CardContent className="px-5 pb-5">
+        <div className="text-3xl font-bold tracking-tight">{value}</div>
+        {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Dashboard() {
   const { data: summary, isLoading, error } = useGetDashboardSummary();
@@ -14,44 +63,29 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <div className="grid gap-4 md:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <Skeleton className="h-4 w-[100px]" />
-                <Skeleton className="h-4 w-4" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-[60px]" />
-              </CardContent>
-            </Card>
-          ))}
+        <Skeleton className="h-9 w-48" />
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-28 w-full rounded-2xl" />)}
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader><Skeleton className="h-6 w-[150px]" /></CardHeader>
-            <CardContent><Skeleton className="h-[200px] w-full" /></CardContent>
-          </Card>
-          <Card>
-            <CardHeader><Skeleton className="h-6 w-[150px]" /></CardHeader>
-            <CardContent><Skeleton className="h-[200px] w-full" /></CardContent>
-          </Card>
+          <Skeleton className="h-64 w-full rounded-2xl" />
+          <Skeleton className="h-64 w-full rounded-2xl" />
         </div>
+        <Skeleton className="h-36 w-full rounded-2xl" />
       </div>
     );
   }
 
   if (error || !summary) {
-    return <div className="text-destructive">Failed to load dashboard data</div>;
+    return <div className="text-destructive py-8 text-center">Failed to load dashboard data</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Overview of current field operations</p>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Field operations overview</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
           <SkyInlineButton
@@ -62,133 +96,145 @@ export default function Dashboard() {
             className="flex-1 sm:flex-none"
           />
           <Link href="/enquiries/new">
-            <Button size="lg" className="w-full sm:w-auto h-12 px-8 hex-clip font-semibold tracking-wide">
-              <Plus className="mr-2 h-5 w-5" /> Start New Enquiry
+            <Button size="lg" className="w-full sm:w-auto h-10 px-6 hex-clip font-semibold tracking-wide">
+              <Plus className="mr-2 h-4 w-4" /> New Enquiry
             </Button>
           </Link>
         </div>
       </div>
 
+      {/* Stat cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.totalCustomers}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Enquiries</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.totalEnquiries}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Jobs</CardTitle>
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.totalJobs}</div>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Total Customers"
+          value={summary.totalCustomers}
+          icon={Users}
+          iconBg="bg-blue-50"
+          iconColor="text-blue-600"
+          sub="Registered accounts"
+        />
+        <StatCard
+          label="Active Enquiries"
+          value={summary.totalEnquiries}
+          icon={FileText}
+          iconBg="bg-amber-50"
+          iconColor="text-amber-600"
+          sub="Open requests"
+        />
+        <StatCard
+          label="Active Jobs"
+          value={summary.totalJobs}
+          icon={Briefcase}
+          iconBg="bg-primary/10"
+          iconColor="text-primary"
+          sub="In pipeline"
+        />
       </div>
 
+      {/* Recent cards */}
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+        {/* Recent Enquiries */}
+        <Card className="shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div>
-              <CardTitle>Recent Enquiries</CardTitle>
-              <CardDescription>Latest inbound requests</CardDescription>
+              <CardTitle className="text-base">Recent Enquiries</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Latest inbound requests</p>
             </div>
             <Link href="/enquiries">
-              <Button variant="ghost" size="sm">View All <ArrowRight className="ml-2 h-4 w-4" /></Button>
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 text-primary">
+                View all <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
             </Link>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pb-4 space-y-2">
             {summary.recentEnquiries.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No recent enquiries</p>
+              <p className="text-sm text-muted-foreground py-6 text-center">No recent enquiries</p>
             ) : (
-              <div className="space-y-4">
-                {summary.recentEnquiries.map((enquiry) => (
+              summary.recentEnquiries.map((enquiry) => {
+                const s = ENQUIRY_STATUS_STYLES[enquiry.status] ?? ENQUIRY_STATUS_STYLES.new;
+                return (
                   <Link key={enquiry.id} href={`/enquiries/${enquiry.id}`}>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors gap-2">
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium leading-none">{enquiry.customerName || `Customer #${enquiry.customerId}`}</p>
-                        <p className="text-sm text-muted-foreground">{enquiry.title}</p>
+                    <div className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-muted/40 transition-colors group cursor-pointer">
+                      <div className={cn("w-1 self-stretch rounded-full flex-shrink-0", s.dot)} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold leading-tight line-clamp-1">{enquiry.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{enquiry.customerName || `Customer #${enquiry.customerId}`}</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={enquiry.status === "new" ? "default" : "secondary"}>
-                          {enquiry.status.replace("_", " ")}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {format(new Date(enquiry.createdAt), "MMM d")}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full border", s.badge)}>
+                          {s.label}
                         </span>
+                        <span className="text-[10px] text-muted-foreground">{format(new Date(enquiry.createdAt), "MMM d")}</span>
                       </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors flex-shrink-0" />
                     </div>
                   </Link>
-                ))}
-              </div>
+                );
+              })
             )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+        {/* Recent Jobs */}
+        <Card className="shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div>
-              <CardTitle>Recent Jobs</CardTitle>
-              <CardDescription>Active pipeline updates</CardDescription>
+              <CardTitle className="text-base">Recent Jobs</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Active pipeline updates</p>
             </div>
             <Link href="/jobs">
-              <Button variant="ghost" size="sm">Pipeline <ArrowRight className="ml-2 h-4 w-4" /></Button>
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 text-primary">
+                Pipeline <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
             </Link>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pb-4 space-y-2">
             {summary.recentJobs.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No recent jobs</p>
+              <p className="text-sm text-muted-foreground py-6 text-center">No recent jobs</p>
             ) : (
-              <div className="space-y-4">
-                {summary.recentJobs.map((job) => (
+              summary.recentJobs.map((job) => {
+                const s = JOB_STAGE_STYLES[job.stage] ?? JOB_STAGE_STYLES.enquiry;
+                return (
                   <Link key={job.id} href={`/jobs/${job.id}`}>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors gap-2">
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium leading-none">{job.customerName || `Customer #${job.customerId}`}</p>
-                        <p className="text-sm text-muted-foreground">{job.title}</p>
+                    <div className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-muted/40 transition-colors group cursor-pointer">
+                      <div className={cn("w-1 self-stretch rounded-full flex-shrink-0", s.dot)} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold leading-tight line-clamp-1">{job.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{job.customerName || `Customer #${job.customerId}`}</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="capitalize">
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full border capitalize", s.badge)}>
                           {job.stage}
-                        </Badge>
-                        {job.priority && (
-                          <Badge variant={job.priority === "high" ? "destructive" : job.priority === "medium" ? "default" : "secondary"}>
-                            {job.priority}
-                          </Badge>
+                        </span>
+                        {job.priority === "high" && (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border bg-red-50 text-red-700 border-red-200 uppercase">
+                            High
+                          </span>
                         )}
                       </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors flex-shrink-0" />
                     </div>
                   </Link>
-                ))}
-              </div>
+                );
+              })
             )}
           </CardContent>
         </Card>
       </div>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Pipeline Breakdown</CardTitle>
+
+      {/* Pipeline breakdown */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Pipeline Breakdown</CardTitle>
+          <p className="text-xs text-muted-foreground">Jobs by current stage</p>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {Object.entries(summary.jobsByStage).map(([stage, count]) => (
-              <div key={stage} className="flex-1 min-w-[120px] p-4 rounded-lg border bg-card text-card-foreground flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold">{count}</span>
-                <span className="text-xs text-muted-foreground uppercase tracking-wider mt-1">{stage.replace("_", " ")}</span>
+              <div key={stage} className="flex flex-col rounded-xl border bg-card p-3 gap-2">
+                <div className={cn("h-1 w-full rounded-full", PIPELINE_STAGE_BAR[stage] ?? "bg-muted")} />
+                <span className="text-2xl font-bold leading-none">{count as number}</span>
+                <span className="text-xs text-muted-foreground capitalize leading-tight">{stage.replace("_", " ")}</span>
               </div>
             ))}
           </div>

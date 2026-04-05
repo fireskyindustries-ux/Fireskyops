@@ -1,18 +1,32 @@
 import { useListEnquiries } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { Plus, Search, Filter } from "lucide-react";
+import { Plus, Filter, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
+
+const STATUS_STYLES: Record<string, { dot: string; badge: string; label: string }> = {
+  new:             { dot: "bg-blue-500",   badge: "bg-blue-50 text-blue-700 border-blue-200",      label: "New" },
+  in_progress:     { dot: "bg-amber-500",  badge: "bg-amber-50 text-amber-700 border-amber-200",    label: "In Progress" },
+  inspection_done: { dot: "bg-violet-500", badge: "bg-violet-50 text-violet-700 border-violet-200", label: "Inspection Done" },
+  quoted:          { dot: "bg-cyan-600",   badge: "bg-cyan-50 text-cyan-700 border-cyan-200",       label: "Quoted" },
+  won:             { dot: "bg-green-600",  badge: "bg-green-50 text-green-700 border-green-200",    label: "Won" },
+  lost:            { dot: "bg-red-500",    badge: "bg-red-50 text-red-700 border-red-200",          label: "Lost" },
+};
+
+const PRIORITY_STYLES: Record<string, string> = {
+  high:   "bg-red-50 text-red-700 border-red-200",
+  medium: "bg-amber-50 text-amber-700 border-amber-200",
+  low:    "bg-gray-50 text-gray-600 border-gray-200",
+};
 
 export default function EnquiriesList() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  
+
   const { data: enquiries, isLoading, error } = useListEnquiries({
     status: statusFilter !== "all" ? statusFilter : undefined
   });
@@ -21,79 +35,82 @@ export default function EnquiriesList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Enquiries</h1>
-          <p className="text-muted-foreground">Manage inbound requests and leads</p>
+          <h1 className="text-2xl font-bold tracking-tight">Enquiries</h1>
+          <p className="text-sm text-muted-foreground">Manage inbound requests and leads</p>
         </div>
         <Link href="/enquiries/new">
-          <Button size="lg" className="w-full sm:w-auto">
-            <Plus className="mr-2 h-5 w-5" /> New Enquiry
+          <Button size="lg" className="w-full sm:w-auto h-10 px-6 hex-clip font-semibold">
+            <Plus className="mr-2 h-4 w-4" /> New Enquiry
           </Button>
         </Link>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="w-full sm:w-[200px]">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger>
-              <Filter className="mr-2 h-4 w-4" />
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="new">New</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="inspection_done">Inspection Done</SelectItem>
-              <SelectItem value="quoted">Quoted</SelectItem>
-              <SelectItem value="won">Won</SelectItem>
-              <SelectItem value="lost">Lost</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="flex items-center gap-3">
+        <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[200px] h-9 text-sm">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="new">New</SelectItem>
+            <SelectItem value="in_progress">In Progress</SelectItem>
+            <SelectItem value="inspection_done">Inspection Done</SelectItem>
+            <SelectItem value="quoted">Quoted</SelectItem>
+            <SelectItem value="won">Won</SelectItem>
+            <SelectItem value="lost">Lost</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
         <div className="space-y-3">
-          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 w-full" />)}
+          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
         </div>
       ) : error ? (
-        <div className="text-destructive">Failed to load enquiries</div>
+        <div className="text-destructive py-8 text-center">Failed to load enquiries</div>
       ) : enquiries?.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground border rounded-lg bg-card">
-          <p>No enquiries found.</p>
+        <div className="text-center py-16 text-muted-foreground border rounded-xl bg-card">
+          <p className="font-medium">No enquiries found</p>
+          {statusFilter !== "all" && <p className="text-sm mt-1">Try clearing the status filter</p>}
         </div>
       ) : (
-        <div className="space-y-3">
-          {enquiries?.map((enquiry) => (
-            <Link key={enquiry.id} href={`/enquiries/${enquiry.id}`}>
-              <Card className="hover:border-primary/50 transition-colors cursor-pointer">
-                <CardContent className="p-4 flex flex-col sm:flex-row gap-4 justify-between sm:items-center">
-                  <div className="space-y-1">
-                    <h3 className="font-semibold text-lg">{enquiry.title}</h3>
-                    <p className="text-sm text-muted-foreground">{enquiry.customerName || `Customer #${enquiry.customerId}`}</p>
-                    {enquiry.tankSize && (
-                      <p className="text-xs text-muted-foreground">
-                        {enquiry.tankQuantity || 1}x {enquiry.tankSize}
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    {enquiry.priority && (
-                      <Badge variant={enquiry.priority === "high" ? "destructive" : enquiry.priority === "medium" ? "default" : "secondary"} className="uppercase">
-                        {enquiry.priority}
-                      </Badge>
-                    )}
-                    <Badge variant={enquiry.status === "new" ? "default" : "secondary"}>
-                      {enquiry.status.replace("_", " ")}
-                    </Badge>
-                    <div className="text-xs text-muted-foreground w-20 text-right">
-                      {format(new Date(enquiry.createdAt), "MMM d, yyyy")}
+        <div className="space-y-2">
+          {enquiries?.map((enquiry) => {
+            const s = STATUS_STYLES[enquiry.status] ?? STATUS_STYLES.new;
+            return (
+              <Link key={enquiry.id} href={`/enquiries/${enquiry.id}`}>
+                <Card className="cursor-pointer hover:shadow-md transition-all hover:border-primary/30 group">
+                  <CardContent className="p-0">
+                    <div className="flex items-center gap-0">
+                      <div className={cn("w-1 self-stretch rounded-l-xl flex-shrink-0", s.dot)} />
+                      <div className="flex-1 flex items-center gap-4 p-4 min-w-0">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-base leading-tight line-clamp-1">{enquiry.title}</h3>
+                          <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
+                            {enquiry.customerName || `Customer #${enquiry.customerId}`}
+                            {enquiry.tankSize && <span className="ml-2 text-xs">· {enquiry.tankQuantity || 1}× {enquiry.tankSize}</span>}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          <span className={cn("text-[11px] font-medium px-2.5 py-0.5 rounded-full border", s.badge)}>
+                            {s.label}
+                          </span>
+                          {enquiry.priority && (
+                            <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full border uppercase", PRIORITY_STYLES[enquiry.priority] ?? "")}>
+                              {enquiry.priority}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-muted-foreground">{format(new Date(enquiry.createdAt), "MMM d, yyyy")}</span>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors flex-shrink-0" />
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
