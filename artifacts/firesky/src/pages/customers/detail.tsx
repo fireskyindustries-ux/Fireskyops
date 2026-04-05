@@ -1,6 +1,6 @@
 import { useGetCustomer, getGetCustomerQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { MapPin, Phone, Mail, Map, Navigation, AlignLeft, Info, Plus, LocateFixed, ExternalLink, ChevronLeft } from "lucide-react";
+import { MapPin, Phone, Mail, Map, Navigation, AlignLeft, Info, Plus, LocateFixed, ExternalLink, ChevronLeft, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SkyInlineButton } from "@/components/sky";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -80,9 +80,20 @@ export default function CustomerDetail() {
             {customer.phone && (
               <div className="flex items-start gap-3">
                 <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
+                <div className="flex-1">
                   <p className="text-sm font-medium">Phone</p>
-                  <a href={`tel:${customer.phone}`} className="text-sm text-primary hover:underline">{customer.phone}</a>
+                  <div className="flex items-center gap-3 flex-wrap mt-0.5">
+                    <a href={`tel:${customer.phone}`} className="text-sm text-primary hover:underline">{customer.phone}</a>
+                    <a
+                      href={`https://wa.me/${customer.phone.replace(/\D/g, "").replace(/^0/, "27")}?text=${encodeURIComponent(`Hi, this is Firesky Industries reaching out regarding your account.`)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full hover:bg-green-100 transition-colors"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      WhatsApp
+                    </a>
+                  </div>
                 </div>
               </div>
             )}

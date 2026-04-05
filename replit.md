@@ -17,7 +17,20 @@ A mobile-first React web app for Firesky Industries — a field operations tool 
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
+## Environment Variables Required
+- `RESEND_API_KEY` — Resend API key for sending customer notification emails (get from resend.com)
+- `TRACKING_BASE_URL` — Base URL for customer tracking links in emails (e.g. `https://fireskyindustries.co.za/firesky` or `https://{REPLIT_DEV_DOMAIN}/firesky`)
+- `SESSION_SECRET` — Already configured via Replit secrets
+
 ## Features
+- **Customer Notification System** — Automatic emails via Resend on job stage changes:
+  - Email fires automatically when stage changes (enquiry → inspection → quoting → quoted → won)
+  - Per-job toggle to enable/disable notifications (on by default if customer has email)
+  - Customer tracking page at `/track/{token}` — public, no login required, shows job progress timeline
+  - Copy tracking link from job detail page to share manually
+  - WhatsApp tap-to-message button on job and customer records
+  - Sender: `info@fireskyindustries.co.za` via Resend (domain must be verified in Resend)
+
 - **Calendar**: Week and list views for inspections/deliveries/installations, with travel-buffer conflict detection and double-booking prevention. Schedule button on job detail page. Accessible to admin and field workers.
 
 

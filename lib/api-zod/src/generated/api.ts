@@ -597,10 +597,10 @@ export const UpdateJobParams = zod.object({
 });
 
 export const UpdateJobBody = zod.object({
-  customerId: zod.number(),
+  customerId: zod.number().optional(),
   enquiryId: zod.number().nullish(),
   inspectionId: zod.number().nullish(),
-  title: zod.string(),
+  title: zod.string().optional(),
   stage: zod.enum([
     "enquiry",
     "inspection",
@@ -608,13 +608,15 @@ export const UpdateJobBody = zod.object({
     "quoted",
     "won",
     "lost",
-  ]),
+    "closed",
+  ]).optional(),
   priority: zod.enum(["low", "medium", "high"]).nullish(),
   tankSize: zod.string().nullish(),
   tankQuantity: zod.number().nullish(),
   estimatedValue: zod.number().nullish(),
   assignedToId: zod.string().nullish(),
   notes: zod.string().nullish(),
+  notificationsEnabled: zod.boolean().optional(),
 });
 
 export const UpdateJobResponse = zod.object({

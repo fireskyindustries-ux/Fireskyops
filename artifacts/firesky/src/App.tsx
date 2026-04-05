@@ -8,6 +8,7 @@ import { SkyProvider } from "./components/sky";
 import { useSkyActions } from "./components/sky/SkyContext";
 import { Router } from "./AppRouter";
 import { ErrorBoundary } from "./components/error-boundary";
+import TrackPage from "./pages/track";
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
@@ -162,6 +163,7 @@ function AppRoutes() {
               <Switch>
                 <Route path="/sign-in/*?" component={SignInPage} />
                 <Route path="/sign-up/*?" component={SignUpPage} />
+                <Route path="/track/:token" component={TrackPage} />
                 <Route>
                   <AuthGate />
                 </Route>

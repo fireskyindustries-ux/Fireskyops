@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useGetJob, useUpdateJob, getGetJobQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { Briefcase, CalendarDays, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle, Plus, Clock, User } from "lucide-react";
+import { Briefcase, CalendarDays, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle, Plus, Clock, User, MessageCircle, Bell, BellOff, Copy, Mail } from "lucide-react";
 import { AssignUser } from "@/components/assign-user";
 import { Button } from "@/components/ui/button";
 import { SkyInlineButton } from "@/components/sky";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format, parseISO } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { AppointmentForm, type AppointmentFormValues } from "@/components/calendar/AppointmentForm";
@@ -276,6 +277,118 @@ export default function JobDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Customer Updates Card */}
+      {(() => {
+        const j = job as any;
+        const hasEmail = !!j.customerEmail;
+        const hasPhone = !!j.customerPhone;
+        const token = j.customerToken;
+        const notifEnabled = j.notificationsEnabled ?? true;
+        const trackingUrl = token
+          ? `${window.location.origin}${BASE}/track/${token}`
+          : null;
+
+        const handleToggleNotifications = () => {
+          updateJob.mutate(
+            { id, data: { notificationsEnabled: !notifEnabled } as any },
+            {
+              onSuccess: () => {
+                toast({ title: notifEnabled ? "Notifications turned off" : "Notifications turned on" });
+                queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) });
+              },
+            }
+          );
+        };
+
+        const handleCopyLink = () => {
+          if (trackingUrl) {
+            navigator.clipboard.writeText(trackingUrl);
+            toast({ title: "Tracking link copied" });
+          }
+        };
+
+        const whatsappUrl = hasPhone
+          ? `https://wa.me/${j.customerPhone.replace(/\D/g, "").replace(/^0/, "27")}?text=${encodeURIComponent(`Hi, this is Firesky Industries reaching out regarding your job: ${job.title}.`)}`
+          : null;
+
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Customer Updates</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* Notifications toggle */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  {notifEnabled ? (
+                    <Bell className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                  ) : (
+                    <BellOff className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                  )}
+                  <div>
+                    <p className="text-sm font-medium">Email notifications</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {hasEmail
+                        ? notifEnabled
+                          ? `Automatic updates sent to ${j.customerEmail}`
+                          : "Notifications are off for this job"
+                        : "No customer email on record — add one to enable updates"}
+                    </p>
+                  </div>
+                </div>
+                {hasEmail && canEdit && (
+                  <Switch
+                    checked={notifEnabled}
+                    onCheckedChange={handleToggleNotifications}
+                    disabled={updateJob.isPending}
+                  />
+                )}
+              </div>
+
+              {/* Tracking link */}
+              {hasEmail && trackingUrl && (
+                <div className="flex items-start gap-3">
+                  <Mail className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">Customer tracking link</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{trackingUrl}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyLink}
+                      className="mt-2 gap-1.5 h-7 text-xs"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      Copy link
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* WhatsApp */}
+              {hasPhone && whatsappUrl && (
+                <div className="flex items-start gap-3">
+                  <MessageCircle className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">WhatsApp</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{j.customerPhone}</p>
+                    <a
+                      href={whatsappUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 mt-2 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-full hover:bg-green-100 transition-colors"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      Message on WhatsApp
+                    </a>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {job.notes && (
         <Card>

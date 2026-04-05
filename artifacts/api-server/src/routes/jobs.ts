@@ -10,6 +10,7 @@ import {
   DeleteJobParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
+import { sendJobStageEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -17,6 +18,8 @@ const SELECT_FIELDS = {
   id: jobsTable.id,
   customerId: jobsTable.customerId,
   customerName: customersTable.name,
+  customerEmail: customersTable.email,
+  customerPhone: customersTable.phone,
   enquiryId: jobsTable.enquiryId,
   inspectionId: jobsTable.inspectionId,
   title: jobsTable.title,
@@ -27,6 +30,8 @@ const SELECT_FIELDS = {
   estimatedValue: jobsTable.estimatedValue,
   assignedToId: jobsTable.assignedToId,
   notes: jobsTable.notes,
+  customerToken: jobsTable.customerToken,
+  notificationsEnabled: jobsTable.notificationsEnabled,
   createdAt: jobsTable.createdAt,
   updatedAt: jobsTable.updatedAt,
 };
@@ -35,6 +40,8 @@ function normalize(r: any) {
   return {
     ...r,
     customerName: r.customerName ?? undefined,
+    customerEmail: r.customerEmail ?? undefined,
+    customerPhone: r.customerPhone ?? undefined,
     enquiryId: r.enquiryId ?? undefined,
     inspectionId: r.inspectionId ?? undefined,
     tankSize: r.tankSize ?? undefined,
@@ -42,6 +49,7 @@ function normalize(r: any) {
     estimatedValue: r.estimatedValue ?? undefined,
     assignedToId: r.assignedToId ?? undefined,
     notes: r.notes ?? undefined,
+    customerToken: r.customerToken ?? undefined,
   };
 }
 
@@ -88,7 +96,18 @@ router.post("/jobs", requireAuth, async (req, res): Promise<void> => {
     .from(customersTable)
     .where(eq(customersTable.id, job.customerId));
 
-  res.status(201).json(normalize({ ...job, customerName: customer?.name }));
+  // Send initial enquiry email if customer has an email
+  if (customer?.email && job.notificationsEnabled) {
+    sendJobStageEmail({
+      customerName: customer.contactName || customer.name,
+      customerEmail: customer.email,
+      jobTitle: job.title,
+      stage: job.stage,
+      customerToken: job.customerToken ?? null,
+    });
+  }
+
+  res.status(201).json(normalize({ ...job, customerName: customer?.name, customerEmail: customer?.email, customerPhone: customer?.phone }));
 });
 
 router.get("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
@@ -133,6 +152,12 @@ router.put("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  // Fetch the current job to detect stage changes
+  const [existing] = await db
+    .select({ stage: jobsTable.stage, notificationsEnabled: jobsTable.notificationsEnabled, customerToken: jobsTable.customerToken })
+    .from(jobsTable)
+    .where(eq(jobsTable.id, params.data.id));
+
   const [job] = await db
     .update(jobsTable)
     .set({ ...parsed.data, updatedAt: new Date() })
@@ -149,7 +174,19 @@ router.put("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
     .from(customersTable)
     .where(eq(customersTable.id, job.customerId));
 
-  res.json(normalize({ ...job, customerName: customer?.name }));
+  // Fire email if stage changed and notifications are on
+  const stageChanged = existing && parsed.data.stage && existing.stage !== parsed.data.stage;
+  if (stageChanged && job.notificationsEnabled && customer?.email) {
+    sendJobStageEmail({
+      customerName: customer.contactName || customer.name,
+      customerEmail: customer.email,
+      jobTitle: job.title,
+      stage: job.stage,
+      customerToken: job.customerToken ?? null,
+    });
+  }
+
+  res.json(normalize({ ...job, customerName: customer?.name, customerEmail: customer?.email, customerPhone: customer?.phone }));
 });
 
 router.patch("/jobs/:id/assign", requireAuth, async (req, res): Promise<void> => {
