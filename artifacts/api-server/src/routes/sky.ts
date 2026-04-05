@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq, desc } from "drizzle-orm";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { openai, speechToText, textToSpeech, ensureCompatibleFormat } from "@workspace/integrations-openai-ai-server";
 import {
   db,
   customersTable,
@@ -8,7 +8,7 @@ import {
   jobsTable,
   inspectionsTable,
 } from "@workspace/db";
-import { requireAdmin } from "../middlewares/requireAuth";
+import { requireAdmin, requireAuth } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -798,6 +798,38 @@ router.post("/sky/chat", async (req, res) => {
     sseWrite({ error: "Sky is unavailable right now. Please try again." });
     sseWrite({ done: true });
     res.end();
+  }
+});
+
+// ─── Voice: Speech-to-Text ────────────────────────────────────────────────────
+router.post("/sky/transcribe", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const { audio, mimeType } = req.body as { audio: string; mimeType?: string };
+    if (!audio) { res.status(400).json({ error: "audio is required" }); return; }
+
+    const rawBuffer = Buffer.from(audio, "base64");
+    const { buffer, format } = await ensureCompatibleFormat(rawBuffer);
+    const text = await speechToText(buffer, format);
+    res.json({ text });
+  } catch (err: any) {
+    console.error("Transcription error:", err);
+    res.status(500).json({ error: err.message || "Transcription failed" });
+  }
+});
+
+// ─── Voice: Text-to-Speech ────────────────────────────────────────────────────
+router.post("/sky/speak", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const { text } = req.body as { text: string };
+    if (!text?.trim()) { res.status(400).json({ error: "text is required" }); return; }
+
+    const audioBuffer = await textToSpeech(text.trim(), "nova");
+    res.set("Content-Type", "audio/mpeg");
+    res.set("Cache-Control", "no-store");
+    res.send(audioBuffer);
+  } catch (err: any) {
+    console.error("TTS error:", err);
+    res.status(500).json({ error: err.message || "Text-to-speech failed" });
   }
 });
 

@@ -1,5 +1,5 @@
-import { useRef, useEffect, useState, type KeyboardEvent } from "react";
-import { Sparkles, X, Send, RotateCcw, ChevronRight, Database, RefreshCw, AlertCircle } from "lucide-react";
+import { useRef, useEffect, useState, useCallback, type KeyboardEvent } from "react";
+import { Sparkles, X, Send, RotateCcw, ChevronRight, Database, RefreshCw, AlertCircle, Mic, MicOff, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { useSkyState, useSkyActions, type SkyContextType } from "./SkyContext";
 import { useUser } from "@clerk/react";
 import { cn } from "@/lib/utils";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+function skyApiUrl(path: string) { return `${BASE}${path}`; }
 
 const ADMIN_SUGGESTED_ACTIONS = [
   { label: "What needs my attention today?", message: "Looking at the live system data, what are the most important things I should focus on today? Prioritise by urgency." },
@@ -172,6 +175,126 @@ export function SkyPanel() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // ── Voice state ──────────────────────────────────────────────────────────────
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const wasStreamingRef = useRef(false);
+
+  const stopSpeaking = useCallback(() => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current.src = "";
+      audioPlayerRef.current = null;
+    }
+    setIsSpeaking(false);
+  }, []);
+
+  const playTTS = useCallback(async (text: string) => {
+    stopSpeaking();
+    setIsSpeaking(true);
+    try {
+      const res = await fetch(skyApiUrl("/api/sky/speak"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error("TTS failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioPlayerRef.current = audio;
+      audio.onended = () => { URL.revokeObjectURL(url); setIsSpeaking(false); audioPlayerRef.current = null; };
+      audio.onerror = () => { URL.revokeObjectURL(url); setIsSpeaking(false); audioPlayerRef.current = null; };
+      await audio.play();
+    } catch {
+      setIsSpeaking(false);
+    }
+  }, [stopSpeaking]);
+
+  // Auto-play TTS when Sky finishes streaming
+  useEffect(() => {
+    if (wasStreamingRef.current && !isStreaming && voiceEnabled) {
+      const last = messages[messages.length - 1];
+      if (last?.role === "assistant" && last.content && !last.isThinking) {
+        playTTS(last.content);
+      }
+    }
+    wasStreamingRef.current = isStreaming;
+  }, [isStreaming, messages, voiceEnabled, playTTS]);
+
+  const startRecording = async () => {
+    setVoiceError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        const blob = new Blob(audioChunksRef.current);
+        audioChunksRef.current = [];
+        setIsTranscribing(true);
+        try {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          const res = await fetch(skyApiUrl("/api/sky/transcribe"), {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audio: base64 }),
+          });
+          if (!res.ok) throw new Error("Transcription failed");
+          const { text } = await res.json();
+          if (text?.trim()) {
+            setVoiceEnabled(true);
+            sendMessage(text.trim());
+          }
+        } catch {
+          setVoiceError("Could not understand audio. Please try again.");
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+    } catch {
+      setVoiceError("Microphone access denied. Please allow microphone in your browser.");
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    mediaRecorderRef.current = null;
+    setIsRecording(false);
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) stopRecording();
+    else startRecording();
+  };
+
+  const toggleVoice = () => {
+    if (voiceEnabled && isSpeaking) stopSpeaking();
+    setVoiceEnabled((v) => !v);
+  };
+
+  // ── End voice state ───────────────────────────────────────────────────────────
+
   const suggestedActions = isAdmin
     ? ADMIN_SUGGESTED_ACTIONS
     : FIELD_SUGGESTED_ACTIONS[context.contextType] || FIELD_SUGGESTED_ACTIONS.general;
@@ -226,6 +349,25 @@ export function SkyPanel() {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {/* Voice speaker toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-8 w-8 hover:bg-primary-foreground/20",
+                voiceEnabled ? "text-primary-foreground" : "text-primary-foreground/50"
+              )}
+              onClick={toggleVoice}
+              title={voiceEnabled ? "Voice on — click to mute Sky" : "Voice off — click to hear Sky speak"}
+            >
+              {isSpeaking ? (
+                <Volume2 className="h-4 w-4 animate-pulse" />
+              ) : voiceEnabled ? (
+                <Volume2 className="h-4 w-4" />
+              ) : (
+                <VolumeX className="h-4 w-4" />
+              )}
+            </Button>
             {messages.length > 0 && (
               <Button
                 variant="ghost"
@@ -321,22 +463,47 @@ export function SkyPanel() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isAdmin ? "Ask Sky anything about the business..." : "Ask Sky anything..."}
+              placeholder={isRecording ? "Listening..." : isTranscribing ? "Transcribing..." : isAdmin ? "Ask Sky anything about the business..." : "Ask Sky anything..."}
               className="min-h-[44px] max-h-[120px] resize-none text-sm rounded-xl"
               rows={1}
-              disabled={isStreaming}
+              disabled={isStreaming || isRecording || isTranscribing}
             />
+            {/* Mic button */}
+            <Button
+              size="icon"
+              variant={isRecording ? "destructive" : "outline"}
+              className={cn(
+                "h-11 w-11 rounded-xl flex-shrink-0 transition-all",
+                isRecording && "animate-pulse ring-2 ring-destructive ring-offset-2"
+              )}
+              onClick={toggleRecording}
+              disabled={isStreaming || isTranscribing}
+              title={isRecording ? "Tap to stop recording" : "Tap to speak to Sky"}
+            >
+              {isTranscribing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isRecording ? (
+                <MicOff className="h-4 w-4" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+            </Button>
             <Button
               size="icon"
               className="h-11 w-11 rounded-xl flex-shrink-0"
               onClick={handleSend}
-              disabled={!input.trim() || isStreaming}
+              disabled={!input.trim() || isStreaming || isRecording || isTranscribing}
             >
               <Send className="h-4 w-4" />
             </Button>
           </div>
+          {voiceError && (
+            <p className="text-[11px] text-destructive mt-1.5 px-1">{voiceError}</p>
+          )}
           <p className="text-[10px] text-muted-foreground text-center mt-2">
-            {isAdmin
+            {isRecording
+              ? "Recording — tap the mic to send"
+              : isAdmin
               ? "Sky reads live system data and provides business intelligence"
               : "Sky reads the current record and provides field guidance"}
           </p>
