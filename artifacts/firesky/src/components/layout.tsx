@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, FileText, ClipboardCheck, Briefcase, Plus, Menu, LogOut, Shield } from "lucide-react";
+import { Home, Users, FileText, ClipboardCheck, Briefcase, Plus, Menu, LogOut, Shield, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SkyPanel, SkyFloatingButton } from "./sky";
@@ -39,13 +39,19 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="border-t border-sidebar-border">
       {role === "admin" && (
-        <div className="px-4 pt-3">
+        <div className="px-4 pt-3 space-y-1">
           <Link href="/admin/users" onClick={onNavigate}>
             <Button variant="ghost" className="w-full justify-start h-10 text-primary">
               <Shield className="mr-2 h-4 w-4" />
               Manage Users
             </Button>
           </Link>
+          <a href="https://login.accounting.sage.com/" target="_blank" rel="noopener noreferrer">
+            <Button variant="ghost" className="w-full justify-start h-10 text-green-700 hover:text-green-800 hover:bg-green-50">
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Sage Cloud Accounting
+            </Button>
+          </a>
         </div>
       )}
       <div className="p-4 flex items-center gap-3">
