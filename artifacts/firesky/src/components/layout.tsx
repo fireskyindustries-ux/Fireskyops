@@ -20,6 +20,7 @@ const fieldNavItems = [
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
 ];
 
 const guestNavItems = [
