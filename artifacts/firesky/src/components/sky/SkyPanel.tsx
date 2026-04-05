@@ -1,12 +1,23 @@
 import { useRef, useEffect, useState, type KeyboardEvent } from "react";
-import { Sparkles, X, Send, RotateCcw, ChevronRight } from "lucide-react";
+import { Sparkles, X, Send, RotateCcw, ChevronRight, Database, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { useSkyState, useSkyActions, type SkyContextType } from "./SkyContext";
+import { useUser } from "@clerk/react";
 import { cn } from "@/lib/utils";
 
-const SUGGESTED_ACTIONS: Record<SkyContextType, { label: string; message: string }[]> = {
+const ADMIN_SUGGESTED_ACTIONS = [
+  { label: "What needs my attention today?", message: "Looking at the live system data, what are the most important things I should focus on today? Prioritise by urgency." },
+  { label: "Pipeline briefing", message: "Give me a full pipeline briefing — how many jobs are in each stage, which ones are stalled, and what the overall health of the pipeline looks like." },
+  { label: "Which quotes are overdue?", message: "Which jobs have been in the quoting or quoted stage for too long? List them by name with how many days they have been waiting, and recommend a specific next action for each." },
+  { label: "Enquiries awaiting response", message: "Are there any new enquiries that have not been responded to or progressed? List them by name and how long they have been waiting." },
+  { label: "Inspections ready to convert", message: "Which site inspections are marked ready to quote but have not yet been converted to a job? Give me the details so I can follow up." },
+  { label: "Summarise the week", message: "Give me a brief summary of where the business stands right now — customers, pipeline, any urgent items that need action." },
+];
+
+const FIELD_SUGGESTED_ACTIONS: Record<SkyContextType, { label: string; message: string }[]> = {
   inspection: [
     { label: "Review this inspection", message: "Review this inspection record and tell me if anything looks incomplete or unusual." },
     { label: "Is this ready to quote?", message: "Based on the captured data, is this site ready for a formal quotation? What is missing if not?" },
@@ -34,8 +45,8 @@ const SUGGESTED_ACTIONS: Record<SkyContextType, { label: string; message: string
   dashboard: [
     { label: "What needs attention?", message: "Looking at the current dashboard data, what needs the most immediate attention?" },
     { label: "Jobs ready to quote", message: "Which jobs or inspections look ready for quotation based on the current data?" },
-    { label: "Check incomplete inspections", message: "Are there any inspections that appear incomplete or not ready to proceed?" },
     { label: "Pipeline summary", message: "Give me a quick summary of where the pipeline stands and any bottlenecks." },
+    { label: "Check incomplete inspections", message: "Are there any inspections that appear incomplete or not ready to proceed?" },
   ],
   general: [
     { label: "How do I choose a tank size?", message: "How do I choose the right tank size for a residential or farm application?" },
@@ -65,7 +76,7 @@ function MessageBubble({ role, content }: { role: "user" | "assistant"; content:
       )}
       <div
         className={cn(
-          "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+          "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
           isUser
             ? "bg-primary text-primary-foreground rounded-tr-sm"
             : "bg-muted text-foreground rounded-tl-sm"
@@ -83,19 +94,67 @@ function MessageBubble({ role, content }: { role: "user" | "assistant"; content:
   );
 }
 
+function AdminStatusBar({ snapshot, loading, onRefresh }: {
+  snapshot: Record<string, unknown> | null;
+  loading: boolean;
+  onRefresh: () => void;
+}) {
+  const s = snapshot as any;
+  const stalledCount = s?.jobs?.stalledJobs?.length ?? 0;
+  const newEnqCount = s?.enquiries?.byStatus?.new ?? 0;
+  const readyCount = s?.inspections?.readyToQuote?.length ?? 0;
+  const alertCount = stalledCount + newEnqCount + readyCount;
+
+  return (
+    <div className="px-3 py-2 border-b border-border bg-muted/30 flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className={cn("flex items-center gap-1.5 text-xs font-medium", snapshot ? "text-green-700" : "text-muted-foreground")}>
+          <Database className="h-3 w-3" />
+          {loading ? "Syncing..." : snapshot ? "System connected" : "Connecting..."}
+        </div>
+        {snapshot && alertCount > 0 && (
+          <Badge variant="destructive" className="h-5 text-[10px] px-1.5 gap-1">
+            <AlertCircle className="h-2.5 w-2.5" />
+            {alertCount} item{alertCount !== 1 ? "s" : ""} need attention
+          </Badge>
+        )}
+        {snapshot && alertCount === 0 && (
+          <Badge variant="secondary" className="h-5 text-[10px] px-1.5 text-green-700 bg-green-50 border-green-200">
+            Pipeline healthy
+          </Badge>
+        )}
+      </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+        onClick={onRefresh}
+        disabled={loading}
+        title="Refresh system data"
+      >
+        <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
+      </Button>
+    </div>
+  );
+}
+
 export function SkyPanel() {
-  const { isOpen, context, messages, isStreaming } = useSkyState();
-  const { closeSky, sendMessage, clearMessages } = useSkyActions();
+  const { isOpen, context, messages, isStreaming, systemSnapshot, snapshotLoading } = useSkyState();
+  const { closeSky, sendMessage, clearMessages, refreshSnapshot } = useSkyActions();
+  const { user } = useUser();
+  const role = (user?.publicMetadata?.role as string) || "guest";
+  const isAdmin = role === "admin";
+
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const suggestedActions = SUGGESTED_ACTIONS[context.contextType] || SUGGESTED_ACTIONS.general;
+  const suggestedActions = isAdmin
+    ? ADMIN_SUGGESTED_ACTIONS
+    : FIELD_SUGGESTED_ACTIONS[context.contextType] || FIELD_SUGGESTED_ACTIONS.general;
 
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => textareaRef.current?.focus(), 100);
-    }
+    if (isOpen) setTimeout(() => textareaRef.current?.focus(), 100);
   }, [isOpen]);
 
   useEffect(() => {
@@ -116,28 +175,22 @@ export function SkyPanel() {
     }
   };
 
-  const handleAction = (message: string) => {
-    sendMessage(message);
-  };
-
   if (!isOpen) return null;
 
-  const contextLabel = context.contextLabel
+  const contextLabel = isAdmin
+    ? "System Brain"
+    : context.contextLabel
     ? `${CONTEXT_LABELS[context.contextType]}: ${context.contextLabel}`
     : CONTEXT_LABELS[context.contextType];
 
   return (
     <>
-      <div
-        className="fixed inset-0 bg-black/30 z-40 md:hidden"
-        onClick={closeSky}
-      />
-      <div
-        className={cn(
-          "fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-background shadow-2xl border-l border-border",
-          "w-full sm:w-[420px]"
-        )}
-      >
+      <div className="fixed inset-0 bg-black/30 z-40 md:hidden" onClick={closeSky} />
+      <div className={cn(
+        "fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-background shadow-2xl border-l border-border",
+        "w-full sm:w-[440px]"
+      )}>
+        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-primary text-primary-foreground flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <Sparkles className="h-5 w-5" />
@@ -172,26 +225,51 @@ export function SkyPanel() {
           </div>
         </div>
 
+        {/* Admin status bar */}
+        {isAdmin && (
+          <AdminStatusBar
+            snapshot={systemSnapshot}
+            loading={snapshotLoading}
+            onRefresh={refreshSnapshot}
+          />
+        )}
+
+        {/* Chat area */}
         <ScrollArea className="flex-1 min-h-0">
           <div className="p-4 space-y-4">
             {messages.length === 0 ? (
               <div className="space-y-4">
-                <div className="text-center py-6">
+                <div className="text-center py-5">
                   <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
                     <Sparkles className="h-7 w-7 text-primary" />
                   </div>
-                  <p className="font-semibold text-foreground">Sky is ready</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Ask anything about this {CONTEXT_LABELS[context.contextType].toLowerCase()}, or choose a suggested action below.
-                  </p>
+                  {isAdmin ? (
+                    <>
+                      <p className="font-semibold text-foreground">
+                        Hi{user?.firstName ? `, ${user.firstName}` : ""}. Sky is ready.
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
+                        I have live access to your entire business — customers, pipeline, quotes, inspections. Ask me anything.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-semibold text-foreground">Sky is ready</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Ask anything about this {CONTEXT_LABELS[context.contextType].toLowerCase()}, or choose a suggested action below.
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Suggested actions</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
+                    {isAdmin ? "Quick insights" : "Suggested actions"}
+                  </p>
                   {suggestedActions.map((action) => (
                     <button
                       key={action.label}
-                      onClick={() => handleAction(action.message)}
+                      onClick={() => sendMessage(action.message)}
                       disabled={isStreaming}
                       className="w-full text-left px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted/60 transition-colors text-sm font-medium flex items-center justify-between gap-2 group"
                     >
@@ -212,6 +290,7 @@ export function SkyPanel() {
           </div>
         </ScrollArea>
 
+        {/* Input */}
         <div className="border-t border-border p-3 flex-shrink-0 bg-background">
           <div className="flex gap-2 items-end">
             <Textarea
@@ -219,7 +298,7 @@ export function SkyPanel() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask Sky anything..."
+              placeholder={isAdmin ? "Ask Sky anything about the business..." : "Ask Sky anything..."}
               className="min-h-[44px] max-h-[120px] resize-none text-sm rounded-xl"
               rows={1}
               disabled={isStreaming}
@@ -234,7 +313,9 @@ export function SkyPanel() {
             </Button>
           </div>
           <p className="text-[10px] text-muted-foreground text-center mt-2">
-            Sky reads the current record and provides field guidance
+            {isAdmin
+              ? "Sky reads live system data and provides business intelligence"
+              : "Sky reads the current record and provides field guidance"}
           </p>
         </div>
       </div>

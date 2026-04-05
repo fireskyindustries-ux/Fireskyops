@@ -19,6 +19,8 @@ interface SkyState {
   context: SkyContextData;
   messages: SkyChatMessage[];
   isStreaming: boolean;
+  systemSnapshot: Record<string, unknown> | null;
+  snapshotLoading: boolean;
 }
 
 interface SkyActions {
@@ -27,6 +29,7 @@ interface SkyActions {
   setContext: (context: Partial<SkyContextData>) => void;
   sendMessage: (message: string) => Promise<void>;
   clearMessages: () => void;
+  refreshSnapshot: () => void;
 }
 
 const SkyStateContext = createContext<SkyState | null>(null);
@@ -45,6 +48,16 @@ function adminStorageKey(userId: string) {
   return `sky-conversation-${userId}`;
 }
 
+async function fetchSystemSnapshot(): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetch(getApiUrl("/api/sky/context"), { credentials: "include" });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 export function SkyProvider({ children }: { children: ReactNode }) {
   const { user } = useUser();
   const role = ((user?.publicMetadata?.role as string) || "guest") as "admin" | "user" | "guest";
@@ -55,10 +68,12 @@ export function SkyProvider({ children }: { children: ReactNode }) {
   const [context, setContextState] = useState<SkyContextData>({ contextType: "general" });
   const [messages, setMessages] = useState<SkyChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [systemSnapshot, setSystemSnapshot] = useState<Record<string, unknown> | null>(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
 
   const userName = user?.firstName || user?.fullName || user?.primaryEmailAddress?.emailAddress || undefined;
 
-  // Load persisted conversation for admin after mount — not during render
+  // Load persisted conversation for admin after mount
   const loadedRef = useRef(false);
   useEffect(() => {
     if (!isAdmin || !userId || loadedRef.current) return;
@@ -94,10 +109,35 @@ export function SkyProvider({ children }: { children: ReactNode }) {
     }
   }, [messages, isAdmin, userId]);
 
+  // Fetch system snapshot for admins
+  const refreshSnapshot = useCallback(() => {
+    if (!isAdmin) return;
+    setSnapshotLoading(true);
+    fetchSystemSnapshot()
+      .then((snap) => {
+        if (snap) setSystemSnapshot(snap);
+      })
+      .finally(() => setSnapshotLoading(false));
+  }, [isAdmin]);
+
+  // Fetch on mount (admin only), and refresh every 5 minutes
+  useEffect(() => {
+    if (!isAdmin) return;
+    refreshSnapshot();
+    const interval = setInterval(refreshSnapshot, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [isAdmin, refreshSnapshot]);
+
+  // Also refresh snapshot when Sky is opened
+  useEffect(() => {
+    if (isOpen && isAdmin) {
+      refreshSnapshot();
+    }
+  }, [isOpen, isAdmin, refreshSnapshot]);
+
   const openSky = useCallback((ctx?: Partial<SkyContextData>) => {
     if (ctx) {
       setContextState((prev) => ({ ...prev, ...ctx }));
-      // Clear messages separately — never call setState inside another setState updater
       setMessages([]);
     }
     setIsOpen(true);
@@ -142,6 +182,8 @@ export function SkyProvider({ children }: { children: ReactNode }) {
             history: messages.slice(-MAX_HISTORY_SENT),
             userName,
             userRole: role,
+            // For admins, pass the live system snapshot
+            systemSnapshot: isAdmin ? systemSnapshot : undefined,
           }),
         });
 
@@ -170,10 +212,7 @@ export function SkyProvider({ children }: { children: ReactNode }) {
                   const updated = [...prev];
                   const last = updated[updated.length - 1];
                   if (last.role === "assistant") {
-                    updated[updated.length - 1] = {
-                      ...last,
-                      content: last.content + parsed.content,
-                    };
+                    updated[updated.length - 1] = { ...last, content: last.content + parsed.content };
                   }
                   return updated;
                 });
@@ -181,10 +220,7 @@ export function SkyProvider({ children }: { children: ReactNode }) {
               if (parsed.error) {
                 setMessages((prev) => {
                   const updated = [...prev];
-                  updated[updated.length - 1] = {
-                    ...updated[updated.length - 1],
-                    content: parsed.error,
-                  };
+                  updated[updated.length - 1] = { ...updated[updated.length - 1], content: parsed.error };
                   return updated;
                 });
               }
@@ -206,11 +242,11 @@ export function SkyProvider({ children }: { children: ReactNode }) {
         setIsStreaming(false);
       }
     },
-    [context, isStreaming, messages, userName, role]
+    [context, isStreaming, messages, userName, role, isAdmin, systemSnapshot]
   );
 
-  const state: SkyState = { isOpen, context, messages, isStreaming };
-  const actions: SkyActions = { openSky, closeSky, setContext, sendMessage, clearMessages };
+  const state: SkyState = { isOpen, context, messages, isStreaming, systemSnapshot, snapshotLoading };
+  const actions: SkyActions = { openSky, closeSky, setContext, sendMessage, clearMessages, refreshSnapshot };
 
   return (
     <SkyStateContext.Provider value={state}>
