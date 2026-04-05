@@ -102,7 +102,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] flex flex-col md:flex-row bg-muted/30">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-72 flex-col bg-sidebar border-r border-sidebar-border">
+      <aside className="hidden md:flex w-72 flex-col bg-sidebar border-r border-sidebar-border pb-8">
         <div className="flex flex-col items-center px-4 pt-6 pb-5 border-b border-sidebar-border bg-white">
           <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-24 w-auto object-contain" />
         </div>
@@ -255,6 +255,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <SkyFloatingButton />
       <SkyPanel />
+
+      {/* Footer */}
+      <div className="hidden md:block fixed bottom-0 left-0 w-72 text-center py-2 border-t border-sidebar-border bg-sidebar">
+        <p className="text-[10px] text-muted-foreground">
+          Designed &amp; implemented by Leon Mouton &mdash; Firesky Industries
+        </p>
+      </div>
     </div>
   );
 }
