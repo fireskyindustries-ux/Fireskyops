@@ -1,10 +1,11 @@
 import { useEffect, useRef } from "react";
 import { Router as WouterRouter, Switch, Route, Redirect, useLocation } from "wouter";
-import { ClerkProvider, SignIn, SignUp, useAuth, useClerk } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, useAuth, useClerk, useUser } from "@clerk/react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SkyProvider } from "./components/sky";
+import { useSkyActions } from "./components/sky/SkyContext";
 import { Router } from "./AppRouter";
 import { ErrorBoundary } from "./components/error-boundary";
 
@@ -107,6 +108,20 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+function SkyPageTracker() {
+  const [location] = useLocation();
+  const { user } = useUser();
+  const { setCurrentPage } = useSkyActions();
+  const role = (user?.publicMetadata?.role as string) || "guest";
+
+  useEffect(() => {
+    if (role !== "admin") return;
+    setCurrentPage(location);
+  }, [location, role, setCurrentPage]);
+
+  return null;
+}
+
 function AuthGate() {
   const { isLoaded, isSignedIn } = useAuth();
 
@@ -143,6 +158,7 @@ function AppRoutes() {
         <TooltipProvider>
           <ErrorBoundary>
             <SkyProvider>
+              <SkyPageTracker />
               <Switch>
                 <Route path="/sign-in/*?" component={SignInPage} />
                 <Route path="/sign-up/*?" component={SignUpPage} />

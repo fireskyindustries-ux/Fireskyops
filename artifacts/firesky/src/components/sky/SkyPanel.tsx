@@ -65,13 +65,32 @@ const CONTEXT_LABELS: Record<SkyContextType, string> = {
   general: "General",
 };
 
-function MessageBubble({ role, content }: { role: "user" | "assistant"; content: string }) {
+function MessageBubble({
+  role,
+  content,
+  isThinking,
+}: {
+  role: "user" | "assistant";
+  content: string;
+  isThinking?: boolean;
+}) {
   const isUser = role === "user";
+  const isEmpty = !content;
+
   return (
     <div className={cn("flex gap-3", isUser && "flex-row-reverse")}>
       {!isUser && (
-        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary flex items-center justify-center mt-1">
-          <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+        <div
+          className={cn(
+            "flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-1",
+            isThinking ? "bg-amber-500" : "bg-primary"
+          )}
+        >
+          {isThinking ? (
+            <RefreshCw className="h-3.5 w-3.5 text-white animate-spin" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+          )}
         </div>
       )}
       <div
@@ -79,15 +98,19 @@ function MessageBubble({ role, content }: { role: "user" | "assistant"; content:
           "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
           isUser
             ? "bg-primary text-primary-foreground rounded-tr-sm"
+            : isThinking
+            ? "bg-amber-50 text-amber-800 border border-amber-200 rounded-tl-sm italic"
             : "bg-muted text-foreground rounded-tl-sm"
         )}
       >
-        {content || (
+        {isEmpty ? (
           <span className="flex gap-1 items-center text-muted-foreground">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-bounce" />
           </span>
+        ) : (
+          content
         )}
       </div>
     </div>
@@ -282,7 +305,7 @@ export function SkyPanel() {
             ) : (
               <div className="space-y-4">
                 {messages.map((msg, i) => (
-                  <MessageBubble key={i} role={msg.role} content={msg.content} />
+                  <MessageBubble key={i} role={msg.role} content={msg.content} isThinking={msg.isThinking} />
                 ))}
               </div>
             )}

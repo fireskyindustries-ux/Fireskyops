@@ -1,5 +1,14 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from "react";
 import { useUser } from "@clerk/react";
+import { useQueryClient } from "@tanstack/react-query";
 
 export type SkyContextType = "dashboard" | "customer" | "enquiry" | "inspection" | "job" | "general";
 
@@ -12,6 +21,7 @@ export interface SkyContextData {
 export interface SkyChatMessage {
   role: "user" | "assistant";
   content: string;
+  isThinking?: boolean;
 }
 
 interface SkyState {
@@ -21,6 +31,7 @@ interface SkyState {
   isStreaming: boolean;
   systemSnapshot: Record<string, unknown> | null;
   snapshotLoading: boolean;
+  currentPage: string;
 }
 
 interface SkyActions {
@@ -30,6 +41,7 @@ interface SkyActions {
   sendMessage: (message: string) => Promise<void>;
   clearMessages: () => void;
   refreshSnapshot: () => void;
+  setCurrentPage: (page: string) => void;
 }
 
 const SkyStateContext = createContext<SkyState | null>(null);
@@ -58,8 +70,25 @@ async function fetchSystemSnapshot(): Promise<Record<string, unknown> | null> {
   }
 }
 
+// Invalidate queries based on the affected resource
+function invalidateByResource(
+  queryClient: ReturnType<typeof useQueryClient>,
+  resource: string,
+  id?: number
+) {
+  // List queries (always invalidate)
+  queryClient.invalidateQueries({ queryKey: [`/api/${resource}`] });
+  // Detail queries
+  if (id) {
+    queryClient.invalidateQueries({ queryKey: [`/api/${resource}/${id}`] });
+  }
+  // Dashboard summary
+  queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+}
+
 export function SkyProvider({ children }: { children: ReactNode }) {
   const { user } = useUser();
+  const queryClient = useQueryClient();
   const role = ((user?.publicMetadata?.role as string) || "guest") as "admin" | "user" | "guest";
   const isAdmin = role === "admin";
   const userId = user?.id ?? null;
@@ -70,8 +99,10 @@ export function SkyProvider({ children }: { children: ReactNode }) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [systemSnapshot, setSystemSnapshot] = useState<Record<string, unknown> | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [currentPage, setCurrentPageState] = useState("/");
 
-  const userName = user?.firstName || user?.fullName || user?.primaryEmailAddress?.emailAddress || undefined;
+  const userName =
+    user?.firstName || user?.fullName || user?.primaryEmailAddress?.emailAddress || undefined;
 
   // Load persisted conversation for admin after mount
   const loadedRef = useRef(false);
@@ -91,7 +122,7 @@ export function SkyProvider({ children }: { children: ReactNode }) {
     }
   }, [isAdmin, userId]);
 
-  // Persist conversation to localStorage whenever messages change (admin only)
+  // Persist conversation to localStorage (admin only)
   const isInitialMountRef = useRef(true);
   useEffect(() => {
     if (isInitialMountRef.current) {
@@ -100,9 +131,12 @@ export function SkyProvider({ children }: { children: ReactNode }) {
     }
     if (!isAdmin || !userId) return;
     try {
+      const persisted = messages
+        .filter((m) => !m.isThinking)
+        .slice(-MAX_STORED_MESSAGES);
       localStorage.setItem(
         adminStorageKey(userId),
-        JSON.stringify({ messages: messages.slice(-MAX_STORED_MESSAGES), savedAt: new Date().toISOString() })
+        JSON.stringify({ messages: persisted, savedAt: new Date().toISOString() })
       );
     } catch {
       // ignore storage quota errors
@@ -114,13 +148,11 @@ export function SkyProvider({ children }: { children: ReactNode }) {
     if (!isAdmin) return;
     setSnapshotLoading(true);
     fetchSystemSnapshot()
-      .then((snap) => {
-        if (snap) setSystemSnapshot(snap);
-      })
+      .then((snap) => { if (snap) setSystemSnapshot(snap); })
       .finally(() => setSnapshotLoading(false));
   }, [isAdmin]);
 
-  // Fetch on mount (admin only), and refresh every 5 minutes
+  // Fetch on mount (admin only), refresh every 5 minutes
   useEffect(() => {
     if (!isAdmin) return;
     refreshSnapshot();
@@ -128,12 +160,14 @@ export function SkyProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [isAdmin, refreshSnapshot]);
 
-  // Also refresh snapshot when Sky is opened
+  // Refresh snapshot when panel is opened
   useEffect(() => {
-    if (isOpen && isAdmin) {
-      refreshSnapshot();
-    }
+    if (isOpen && isAdmin) refreshSnapshot();
   }, [isOpen, isAdmin, refreshSnapshot]);
+
+  const setCurrentPage = useCallback((page: string) => {
+    setCurrentPageState(page);
+  }, []);
 
   const openSky = useCallback((ctx?: Partial<SkyContextData>) => {
     if (ctx) {
@@ -143,9 +177,7 @@ export function SkyProvider({ children }: { children: ReactNode }) {
     setIsOpen(true);
   }, []);
 
-  const closeSky = useCallback(() => {
-    setIsOpen(false);
-  }, []);
+  const closeSky = useCallback(() => setIsOpen(false), []);
 
   const setContext = useCallback((ctx: Partial<SkyContextData>) => {
     setContextState((prev) => ({ ...prev, ...ctx }));
@@ -154,9 +186,7 @@ export function SkyProvider({ children }: { children: ReactNode }) {
   const clearMessages = useCallback(() => {
     setMessages([]);
     if (isAdmin && userId) {
-      try {
-        localStorage.removeItem(adminStorageKey(userId));
-      } catch {}
+      try { localStorage.removeItem(adminStorageKey(userId)); } catch { /* */ }
     }
   }, [isAdmin, userId]);
 
@@ -168,6 +198,7 @@ export function SkyProvider({ children }: { children: ReactNode }) {
       setMessages((prev) => [...prev, userMsg]);
       setIsStreaming(true);
 
+      // Add empty assistant message that we'll fill
       const assistantMsg: SkyChatMessage = { role: "assistant", content: "" };
       setMessages((prev) => [...prev, assistantMsg]);
 
@@ -179,17 +210,15 @@ export function SkyProvider({ children }: { children: ReactNode }) {
             message,
             contextType: context.contextType,
             contextData: context.contextData,
-            history: messages.slice(-MAX_HISTORY_SENT),
+            history: messages.filter((m) => !m.isThinking).slice(-MAX_HISTORY_SENT),
             userName,
             userRole: role,
-            // For admins, pass the live system snapshot
             systemSnapshot: isAdmin ? systemSnapshot : undefined,
+            currentPage: isAdmin ? currentPage : undefined,
           }),
         });
 
-        if (!response.ok || !response.body) {
-          throw new Error("Sky is unavailable");
-        }
+        if (!response.ok || !response.body) throw new Error("Sky is unavailable");
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -207,20 +236,57 @@ export function SkyProvider({ children }: { children: ReactNode }) {
             if (!line.startsWith("data: ")) continue;
             try {
               const parsed = JSON.parse(line.slice(6));
-              if (parsed.content) {
+
+              if (parsed.thinking) {
+                // Sky is working — show thinking state in the assistant bubble
                 setMessages((prev) => {
                   const updated = [...prev];
                   const last = updated[updated.length - 1];
                   if (last.role === "assistant") {
-                    updated[updated.length - 1] = { ...last, content: last.content + parsed.content };
+                    updated[updated.length - 1] = {
+                      ...last,
+                      content: parsed.thinking,
+                      isThinking: true,
+                    };
                   }
                   return updated;
                 });
               }
+
+              if (parsed.content) {
+                // Final content — replace thinking state
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  if (last.role === "assistant") {
+                    updated[updated.length - 1] = {
+                      ...last,
+                      content: last.isThinking ? parsed.content : last.content + parsed.content,
+                      isThinking: false,
+                    };
+                  }
+                  return updated;
+                });
+              }
+
+              if (parsed.action) {
+                // Sky took an action — invalidate relevant queries so UI refreshes
+                const { resource, id } = parsed.action;
+                if (resource) {
+                  invalidateByResource(queryClient, resource, id);
+                  // Also refresh the system snapshot to reflect updated data
+                  if (isAdmin) refreshSnapshot();
+                }
+              }
+
               if (parsed.error) {
                 setMessages((prev) => {
                   const updated = [...prev];
-                  updated[updated.length - 1] = { ...updated[updated.length - 1], content: parsed.error };
+                  updated[updated.length - 1] = {
+                    ...updated[updated.length - 1],
+                    content: parsed.error,
+                    isThinking: false,
+                  };
                   return updated;
                 });
               }
@@ -235,6 +301,7 @@ export function SkyProvider({ children }: { children: ReactNode }) {
           updated[updated.length - 1] = {
             ...updated[updated.length - 1],
             content: "Sky is unavailable right now. Please try again.",
+            isThinking: false,
           };
           return updated;
         });
@@ -242,11 +309,28 @@ export function SkyProvider({ children }: { children: ReactNode }) {
         setIsStreaming(false);
       }
     },
-    [context, isStreaming, messages, userName, role, isAdmin, systemSnapshot]
+    [context, isStreaming, messages, userName, role, isAdmin, systemSnapshot, currentPage, queryClient, refreshSnapshot]
   );
 
-  const state: SkyState = { isOpen, context, messages, isStreaming, systemSnapshot, snapshotLoading };
-  const actions: SkyActions = { openSky, closeSky, setContext, sendMessage, clearMessages, refreshSnapshot };
+  const state: SkyState = {
+    isOpen,
+    context,
+    messages,
+    isStreaming,
+    systemSnapshot,
+    snapshotLoading,
+    currentPage,
+  };
+
+  const actions: SkyActions = {
+    openSky,
+    closeSky,
+    setContext,
+    sendMessage,
+    clearMessages,
+    refreshSnapshot,
+    setCurrentPage,
+  };
 
   return (
     <SkyStateContext.Provider value={state}>
