@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
 import { desc } from "drizzle-orm";
 import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable } from "@workspace/db";
-import { GetDashboardSummaryResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
@@ -39,16 +38,14 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     enquiryId: j.enquiryId ?? undefined,
   }));
 
-  res.json(
-    GetDashboardSummaryResponse.parse({
-      totalCustomers: customers.length,
-      totalEnquiries: enquiries.length,
-      totalJobs: jobs.length,
-      jobsByStage,
-      recentEnquiries,
-      recentJobs,
-    }),
-  );
+  res.json({
+    totalCustomers: customers.length,
+    totalEnquiries: enquiries.length,
+    totalJobs: jobs.length,
+    jobsByStage,
+    recentEnquiries,
+    recentJobs,
+  });
 });
 
 export default router;

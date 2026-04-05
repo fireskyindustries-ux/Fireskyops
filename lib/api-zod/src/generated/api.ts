@@ -38,6 +38,7 @@ export const GetDashboardSummaryResponse = zod.object({
         "quoted",
         "won",
         "lost",
+        "closed",
       ]),
       priority: zod.enum(["low", "medium", "high"]).nullish(),
       notes: zod.string().nullish(),
@@ -60,6 +61,7 @@ export const GetDashboardSummaryResponse = zod.object({
         "quoted",
         "won",
         "lost",
+        "closed",
       ]),
       priority: zod.enum(["low", "medium", "high"]).nullish(),
       tankSize: zod.string().nullish(),
@@ -211,6 +213,7 @@ export const ListEnquiriesResponseItem = zod.object({
     "quoted",
     "won",
     "lost",
+    "closed",
   ]),
   priority: zod.enum(["low", "medium", "high"]).nullish(),
   notes: zod.string().nullish(),
@@ -229,7 +232,7 @@ export const CreateEnquiryBody = zod.object({
   tankSize: zod.string().nullish(),
   tankQuantity: zod.number().nullish(),
   status: zod
-    .enum(["new", "in_progress", "inspection_done", "quoted", "won", "lost"])
+    .enum(["new", "in_progress", "inspection_done", "quoted", "won", "lost", "closed"])
     .nullish(),
   priority: zod.enum(["low", "medium", "high"]).nullish(),
   notes: zod.string().nullish(),
@@ -257,6 +260,7 @@ export const GetEnquiryResponse = zod.object({
     "quoted",
     "won",
     "lost",
+    "closed",
   ]),
   priority: zod.enum(["low", "medium", "high"]).nullish(),
   notes: zod.string().nullish(),
@@ -278,7 +282,7 @@ export const UpdateEnquiryBody = zod.object({
   tankSize: zod.string().nullish(),
   tankQuantity: zod.number().nullish(),
   status: zod
-    .enum(["new", "in_progress", "inspection_done", "quoted", "won", "lost"])
+    .enum(["new", "in_progress", "inspection_done", "quoted", "won", "lost", "closed"])
     .nullish(),
   priority: zod.enum(["low", "medium", "high"]).nullish(),
   notes: zod.string().nullish(),
@@ -299,6 +303,7 @@ export const UpdateEnquiryResponse = zod.object({
     "quoted",
     "won",
     "lost",
+    "closed",
   ]),
   priority: zod.enum(["low", "medium", "high"]).nullish(),
   notes: zod.string().nullish(),
