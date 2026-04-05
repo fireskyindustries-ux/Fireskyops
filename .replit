@@ -27,3 +27,10 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+VAPID_PUBLIC_KEY = "BJSsTi9AaD4sIg7Spgl2xPoMO-SPp5_ukaQdicEgVbfnE1pcr80yz9-0KTdxVHIT2qKIbJgstY00xxj76QVvZ0k"
+VAPID_PRIVATE_KEY = "_u4hJ6KFm9JOuMVG9i-pJRke79fG4cElTIt6lyGhams"
+VAPID_EMAIL = "info@fireskyindustries.co.za"

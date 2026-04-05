@@ -11,6 +11,7 @@ import dashboardRouter from "./dashboard";
 import skyRouter from "./sky";
 import usersRouter from "./users";
 import notificationsRouter from "./notifications";
+import pushRouter from "./push";
 
 const router: IRouter = Router();
 
@@ -31,5 +32,6 @@ router.use(appointmentsRouter);
 router.use(skyRouter);
 router.use(usersRouter);
 router.use(notificationsRouter);
+router.use(pushRouter);
 
 export default router;

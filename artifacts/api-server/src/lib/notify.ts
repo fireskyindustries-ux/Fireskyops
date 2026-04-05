@@ -1,6 +1,7 @@
 import { db, notificationsTable } from "@workspace/db";
 import { clerkClient } from "@clerk/express";
 import { logger } from "./logger";
+import { sendPushToUsers } from "./push";
 
 export async function getAdminUserIds(): Promise<string[]> {
   try {
@@ -25,6 +26,8 @@ export async function notifyUsers(
     await db.insert(notificationsTable).values(
       userIds.map((userId) => ({ userId, title, body, link }))
     );
+    // Also fire browser push notifications (fire-and-forget)
+    sendPushToUsers(userIds, { title, body: body ?? undefined, url: link ?? undefined });
   } catch (err) {
     logger.error({ err }, "Failed to create notifications");
   }

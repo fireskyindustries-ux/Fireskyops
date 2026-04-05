@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { Bell } from "lucide-react";
+import { Bell, BellRing, BellOff, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -25,6 +26,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [, setLocation] = useLocation();
   const panelRef = useRef<HTMLDivElement>(null);
+  const push = usePushNotifications();
 
   const unread = notifications.filter((n) => !n.read).length;
 
@@ -139,6 +141,47 @@ export function NotificationBell() {
               ))
             )}
           </div>
+
+          {/* Push notification toggle */}
+          {push.supported && push.permission !== "denied" && (
+            <div className="border-t border-border px-4 py-3 shrink-0">
+              {push.subscribed ? (
+                <button
+                  onClick={push.unsubscribe}
+                  disabled={push.loading}
+                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+                >
+                  {push.loading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <BellRing className="h-3.5 w-3.5 text-primary" />
+                  )}
+                  <span>Browser alerts on — tap to turn off</span>
+                </button>
+              ) : (
+                <button
+                  onClick={push.subscribe}
+                  disabled={push.loading}
+                  className="flex items-center gap-2 text-xs text-primary hover:text-primary/80 font-medium transition-colors w-full"
+                >
+                  {push.loading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <BellOff className="h-3.5 w-3.5" />
+                  )}
+                  <span>Enable browser alerts</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {push.permission === "denied" && (
+            <div className="border-t border-border px-4 py-3 shrink-0">
+              <p className="text-[11px] text-muted-foreground">
+                Browser alerts blocked — enable in your browser settings.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
