@@ -191,11 +191,64 @@ export function SkyPanel() {
   // Refs so async callbacks always see latest values without stale closures
   const conversationModeRef = useRef(false);
   const startRecordingRef = useRef<() => Promise<void>>();
+  // Silence detection
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const silenceRafRef = useRef<number>();
 
   const setConvMode = (v: boolean) => {
     conversationModeRef.current = v;
     setConversationMode(v);
   };
+
+  const stopSilenceDetection = useCallback(() => {
+    if (silenceRafRef.current) cancelAnimationFrame(silenceRafRef.current);
+    analyserRef.current?.disconnect();
+    analyserRef.current = null;
+    audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
+  }, []);
+
+  const startSilenceDetection = useCallback((stream: MediaStream, onSilence: () => void) => {
+    try {
+      const audioCtx = new AudioContext();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+      audioCtxRef.current = audioCtx;
+
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const THRESHOLD = 10;      // 0-255 amplitude; below = silence
+      const SILENCE_MS = 1800;   // stop after 1.8s of silence post-speech
+      let speechDetected = false;
+      let silenceStart: number | null = null;
+
+      const tick = () => {
+        if (!analyserRef.current) return;
+        analyser.getByteFrequencyData(data);
+        const avg = data.reduce((s, v) => s + v, 0) / data.length;
+        if (avg > THRESHOLD) {
+          speechDetected = true;
+          silenceStart = null;
+        } else if (speechDetected) {
+          if (silenceStart === null) silenceStart = Date.now();
+          else if (Date.now() - silenceStart > SILENCE_MS) {
+            stopSilenceDetection();
+            onSilence();
+            return;
+          }
+        }
+        silenceRafRef.current = requestAnimationFrame(tick);
+      };
+      silenceRafRef.current = requestAnimationFrame(tick);
+    } catch {
+      // Web Audio not supported — fallback: 15s max recording timeout
+      const t = setTimeout(onSilence, 15000);
+      return () => clearTimeout(t);
+    }
+  }, [stopSilenceDetection]);
 
   const stopSpeaking = useCallback(() => {
     if (audioPlayerRef.current) {
@@ -256,6 +309,15 @@ export function SkyPanel() {
       const recorder = new MediaRecorder(stream);
       audioChunksRef.current = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+
+      // Auto-stop when user stops speaking
+      startSilenceDetection(stream, () => {
+        if (mediaRecorderRef.current?.state === "recording") {
+          mediaRecorderRef.current.stop();
+          mediaRecorderRef.current = null;
+          setIsRecording(false);
+        }
+      });
       recorder.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -306,6 +368,7 @@ export function SkyPanel() {
   startRecordingRef.current = startRecording;
 
   const stopRecording = () => {
+    stopSilenceDetection();
     mediaRecorderRef.current?.stop();
     mediaRecorderRef.current = null;
     setIsRecording(false);
@@ -320,6 +383,7 @@ export function SkyPanel() {
   const exitConversation = () => {
     setConvMode(false);
     stopSpeaking();
+    stopSilenceDetection();
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.onstop = null; // prevent auto-restart
       mediaRecorderRef.current.stop();
