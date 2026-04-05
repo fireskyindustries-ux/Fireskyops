@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq, desc } from "drizzle-orm";
-import { openai, speechToText, textToSpeech, ensureCompatibleFormat } from "@workspace/integrations-openai-ai-server";
+import { openai, transcribeAudio, textToSpeech } from "@workspace/integrations-openai-ai-server";
 import {
   db,
   customersTable,
@@ -804,12 +804,11 @@ router.post("/sky/chat", async (req, res) => {
 // ─── Voice: Speech-to-Text ────────────────────────────────────────────────────
 router.post("/sky/transcribe", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { audio, mimeType } = req.body as { audio: string; mimeType?: string };
+    const { audio } = req.body as { audio: string };
     if (!audio) { res.status(400).json({ error: "audio is required" }); return; }
 
     const rawBuffer = Buffer.from(audio, "base64");
-    const { buffer, format } = await ensureCompatibleFormat(rawBuffer);
-    const text = await speechToText(buffer, format);
+    const text = await transcribeAudio(rawBuffer);
     res.json({ text });
   } catch (err: any) {
     console.error("Transcription error:", err);

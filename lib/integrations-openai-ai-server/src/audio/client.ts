@@ -170,23 +170,19 @@ export async function voiceChatStream(
   })();
 }
 
-/** Text-to-Speech using gpt-audio. */
+/** Text-to-Speech using tts-1 (standard TTS API). Returns mp3 buffer. */
 export async function textToSpeech(
   text: string,
   voice: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer" = "alloy",
-  format: "wav" | "mp3" | "flac" | "opus" | "pcm16" = "wav"
+  _format: "wav" | "mp3" | "flac" | "opus" | "pcm16" = "mp3"
 ): Promise<Buffer> {
-  const response = await openai.chat.completions.create({
-    model: "gpt-audio",
-    modalities: ["text", "audio"],
-    audio: { voice, format },
-    messages: [
-      { role: "system", content: "You are an assistant that performs text-to-speech." },
-      { role: "user", content: `Repeat the following text verbatim: ${text}` },
-    ],
+  const response = await openai.audio.speech.create({
+    model: "tts-1",
+    voice,
+    input: text,
+    response_format: "mp3",
   });
-  const audioData = (response.choices[0]?.message as any)?.audio?.data ?? "";
-  return Buffer.from(audioData, "base64");
+  return Buffer.from(await response.arrayBuffer());
 }
 
 /** Streaming Text-to-Speech. */
@@ -222,6 +218,23 @@ export async function speechToText(
   format: "wav" | "mp3" | "webm" = "wav"
 ): Promise<string> {
   const file = await toFile(audioBuffer, `audio.${format}`);
+  const response = await openai.audio.transcriptions.create({
+    file,
+    model: "gpt-4o-mini-transcribe",
+  });
+  return response.text;
+}
+
+/**
+ * Transcribe audio without ffmpeg.
+ * Detects format from magic bytes and sends raw buffer directly to OpenAI.
+ * OpenAI natively accepts: wav, mp3, webm (Chrome/Firefox), mp4 (Safari/iOS), ogg.
+ */
+export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
+  const detected = detectAudioFormat(audioBuffer);
+  // Map detected format to file extension OpenAI accepts
+  const ext = detected === "unknown" ? "webm" : detected;
+  const file = await toFile(audioBuffer, `audio.${ext}`);
   const response = await openai.audio.transcriptions.create({
     file,
     model: "gpt-4o-mini-transcribe",

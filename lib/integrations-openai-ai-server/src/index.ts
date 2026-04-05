@@ -4,5 +4,5 @@ export { batchProcess, batchProcessWithSSE, isRateLimitError, type BatchOptions 
 export {
   speechToText,
   textToSpeech,
-  ensureCompatibleFormat,
+  transcribeAudio,
 } from "./audio";
