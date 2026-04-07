@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, inspectionsTable, customersTable } from "@workspace/db";
+import { db, inspectionsTable, customersTable, enquiriesTable } from "@workspace/db";
 import {
   ListInspectionsQueryParams,
   ListInspectionsResponse,
@@ -125,6 +125,20 @@ router.post("/inspections", requireAuth, async (req, res): Promise<void> => {
     .select()
     .from(customersTable)
     .where(eq(customersTable.id, inspection.customerId));
+
+  // Auto-advance enquiry status to inspection_done if linked
+  if (inspection.enquiryId) {
+    const [enquiry] = await db
+      .select()
+      .from(enquiriesTable)
+      .where(eq(enquiriesTable.id, inspection.enquiryId));
+    if (enquiry && (enquiry.status === "new" || enquiry.status === "in_progress")) {
+      await db
+        .update(enquiriesTable)
+        .set({ status: "inspection_done", updatedAt: new Date() })
+        .where(eq(enquiriesTable.id, inspection.enquiryId));
+    }
+  }
 
   const { notifyAdmins } = await import("../lib/notify");
   notifyAdmins(

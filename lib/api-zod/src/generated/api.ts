@@ -44,6 +44,8 @@ export const GetDashboardSummaryResponse = zod.object({
       notes: zod.string().nullish(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
+      inspectionId: zod.number().nullish(),
+      jobId: zod.number().nullish(),
     }),
   ),
   recentJobs: zod.array(
@@ -266,6 +268,8 @@ export const GetEnquiryResponse = zod.object({
   notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  inspectionId: zod.number().nullish(),
+  jobId: zod.number().nullish(),
 });
 
 /**

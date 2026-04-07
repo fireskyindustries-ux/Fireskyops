@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, enquiriesTable, customersTable } from "@workspace/db";
+import { db, enquiriesTable, customersTable, inspectionsTable, jobsTable } from "@workspace/db";
 import {
   ListEnquiriesQueryParams,
   ListEnquiriesResponse,
@@ -115,6 +115,17 @@ router.get("/enquiries/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const [linkedInspection, linkedJob] = await Promise.all([
+    db.select({ id: inspectionsTable.id })
+      .from(inspectionsTable)
+      .where(eq(inspectionsTable.enquiryId, params.data.id))
+      .limit(1),
+    db.select({ id: jobsTable.id })
+      .from(jobsTable)
+      .where(eq(jobsTable.enquiryId, params.data.id))
+      .limit(1),
+  ]);
+
   res.json(GetEnquiryResponse.parse({
     ...row,
     customerName: row.customerName ?? undefined,
@@ -122,6 +133,8 @@ router.get("/enquiries/:id", async (req, res): Promise<void> => {
     tankSize: row.tankSize ?? undefined,
     tankQuantity: row.tankQuantity ?? undefined,
     notes: row.notes ?? undefined,
+    inspectionId: linkedInspection[0]?.id ?? undefined,
+    jobId: linkedJob[0]?.id ?? undefined,
   }));
 });
 

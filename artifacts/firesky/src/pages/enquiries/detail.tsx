@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useGetEnquiry, useUpdateEnquiry, getGetEnquiryQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { ClipboardCheck, Briefcase, AlignLeft, Info, Calendar, ChevronLeft, Pencil, Save, X } from "lucide-react";
+import { ClipboardCheck, Briefcase, AlignLeft, Info, Calendar, ChevronLeft, Pencil, Save, X, CheckCircle2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,20 +26,32 @@ const STATUS_STYLES: Record<string, { badge: string; label: string }> = {
   closed:          { badge: "bg-gray-50 text-gray-600 border-gray-200",       label: "Closed" },
 };
 
-const PIPELINE_STAGES = [
-  { key: "new",             step: 0, label: "Enquiry" },
-  { key: "in_progress",     step: 0, label: "Enquiry" },
-  { key: "inspection_done", step: 1, label: "Inspection" },
-  { key: "quoted",          step: 2, label: "Quote" },
-  { key: "won",             step: 3, label: "Job" },
-];
+const PIPELINE_MAP: Record<string, number> = {
+  new: 0, in_progress: 0, inspection_done: 1, quoted: 2, won: 3,
+};
 const PIPELINE_LABELS = ["Enquiry", "Inspection", "Quote", "Job"];
 
-function PipelineTracker({ status }: { status: string }) {
-  const match = PIPELINE_STAGES.find(s => s.key === status);
-  const currentStep = match ? match.step : 0;
+function PipelineTracker({
+  status,
+  enquiryId,
+  inspectionId,
+  jobId,
+}: {
+  status: string;
+  enquiryId: number;
+  inspectionId?: number | null;
+  jobId?: number | null;
+}) {
+  const currentStep = PIPELINE_MAP[status] ?? 0;
   const isDone = status === "won";
   const isLost = status === "lost" || status === "closed";
+
+  const getHref = (i: number) => {
+    if (i === 0) return `/enquiries/${enquiryId}`;
+    if (i === 1 && inspectionId) return `/inspections/${inspectionId}`;
+    if (i === 3 && jobId) return `/jobs/${jobId}`;
+    return null;
+  };
 
   if (isLost) {
     return (
@@ -52,18 +64,28 @@ function PipelineTracker({ status }: { status: string }) {
   return (
     <div className="flex items-center gap-1">
       {PIPELINE_LABELS.map((label, i) => {
-        const active = i === currentStep;
+        const active = i === currentStep && !isDone;
         const done = i < currentStep || isDone;
+        const href = getHref(i);
+        const pill = (
+          <div className={cn(
+            "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all",
+            done
+              ? "bg-green-500 text-white border-green-500"
+              : active
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-muted text-muted-foreground border-muted-foreground/20",
+            href && "cursor-pointer hover:opacity-80",
+          )}>
+            {done && <CheckCircle2 className="h-2.5 w-2.5" />}
+            {label}
+            {href && done && <ExternalLink className="h-2 w-2 opacity-70" />}
+          </div>
+        );
+
         return (
           <div key={label} className="flex items-center gap-1">
-            <div className={cn(
-              "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all",
-              done ? "bg-green-500 text-white border-green-500" :
-              active ? "bg-primary text-primary-foreground border-primary" :
-              "bg-muted text-muted-foreground border-muted-foreground/20"
-            )}>
-              {label}
-            </div>
+            {href ? <Link href={href}>{pill}</Link> : pill}
             {i < PIPELINE_LABELS.length - 1 && (
               <div className={cn("w-3 h-px", done ? "bg-green-500" : "bg-muted-foreground/30")} />
             )}
@@ -138,6 +160,8 @@ export default function EnquiryDetail() {
   }
 
   const statusStyle = STATUS_STYLES[enquiry.status] ?? STATUS_STYLES.new;
+  const hasInspection = !!enquiry.inspectionId;
+  const hasJob = !!enquiry.jobId;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -161,7 +185,12 @@ export default function EnquiryDetail() {
             <p className="text-xl text-primary hover:underline cursor-pointer">{enquiry.customerName || `Customer #${enquiry.customerId}`}</p>
           </Link>
           <div className="mt-2">
-            <PipelineTracker status={enquiry.status} />
+            <PipelineTracker
+              status={enquiry.status}
+              enquiryId={enquiry.id}
+              inspectionId={enquiry.inspectionId}
+              jobId={enquiry.jobId}
+            />
           </div>
         </div>
         <div className="flex gap-2 w-full sm:w-auto flex-col sm:flex-row">
@@ -177,12 +206,36 @@ export default function EnquiryDetail() {
               <Pencil className="h-4 w-4" /> Edit
             </Button>
           )}
-          <Link href={`/inspections/new?enquiryId=${enquiry.id}&customerId=${enquiry.customerId}`}>
-            <Button variant="outline" className="w-full sm:w-auto"><ClipboardCheck className="mr-2 h-4 w-4" /> Do Inspection</Button>
-          </Link>
-          <Link href={`/jobs/new?enquiryId=${enquiry.id}&customerId=${enquiry.customerId}`}>
-            <Button className="w-full sm:w-auto"><Briefcase className="mr-2 h-4 w-4" /> Convert to Job</Button>
-          </Link>
+
+          {/* Inspection button — done state links to existing inspection */}
+          {hasInspection ? (
+            <Link href={`/inspections/${enquiry.inspectionId}`}>
+              <Button variant="outline" className="w-full sm:w-auto gap-2 border-green-300 text-green-700 bg-green-50 hover:bg-green-100">
+                <CheckCircle2 className="h-4 w-4" /> Inspection Done
+              </Button>
+            </Link>
+          ) : (
+            <Link href={`/inspections/new?enquiryId=${enquiry.id}&customerId=${enquiry.customerId}`}>
+              <Button variant="outline" className="w-full sm:w-auto">
+                <ClipboardCheck className="mr-2 h-4 w-4" /> Do Inspection
+              </Button>
+            </Link>
+          )}
+
+          {/* Job button — done state links to existing job */}
+          {hasJob ? (
+            <Link href={`/jobs/${enquiry.jobId}`}>
+              <Button className="w-full sm:w-auto gap-2">
+                <Briefcase className="h-4 w-4" /> View Job
+              </Button>
+            </Link>
+          ) : (
+            <Link href={`/jobs/new?enquiryId=${enquiry.id}&customerId=${enquiry.customerId}`}>
+              <Button className="w-full sm:w-auto">
+                <Briefcase className="mr-2 h-4 w-4" /> Convert to Job
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
