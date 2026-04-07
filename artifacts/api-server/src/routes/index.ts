@@ -17,6 +17,7 @@ import usersRouter from "./users";
 import notificationsRouter from "./notifications";
 import pushRouter from "./push";
 import websiteRouter from "./website";
+import emailLogsRouter from "./email_logs";
 
 const router: IRouter = Router();
 
@@ -43,5 +44,6 @@ router.use(usersRouter);
 router.use(notificationsRouter);
 router.use(pushRouter);
 router.use(websiteRouter);
+router.use(emailLogsRouter);
 
 export default router;

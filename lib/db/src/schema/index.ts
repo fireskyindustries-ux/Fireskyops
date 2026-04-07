@@ -9,3 +9,4 @@ export * from "./conversations";
 export * from "./messages";
 export * from "./notifications";
 export * from "./push_subscriptions";
+export * from "./email_logs";

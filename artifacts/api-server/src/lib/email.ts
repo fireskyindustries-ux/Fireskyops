@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { logger } from "./logger";
+import { db, emailLogsTable } from "@workspace/db";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -198,21 +199,25 @@ export async function sendQuoteEmail(params: {
   const quoteUrl = `${quoteBase}/quote/${quoteToken}`;
   const html = buildQuoteEmail(customerName, jobTitle, quoteUrl, notes);
 
+  const subject = "Your Firesky quote is ready — please review and respond";
   try {
     const result = await resend.emails.send({
       from: FROM,
       to: customerEmail,
-      subject: "Your Firesky quote is ready — please review and respond",
+      subject,
       html,
     });
 
     if (result.error) {
       logger.error({ err: result.error }, "Resend quote email error");
+      await db.insert(emailLogsTable).values({ to: customerEmail, subject, type: "quote", status: "failed", error: JSON.stringify(result.error) });
     } else {
       logger.info({ to: customerEmail, quoteToken }, "Quote email sent");
+      await db.insert(emailLogsTable).values({ to: customerEmail, subject, type: "quote", status: "sent", resendId: result.data?.id ?? null });
     }
-  } catch (err) {
+  } catch (err: any) {
     logger.error({ err }, "Failed to send quote email");
+    await db.insert(emailLogsTable).values({ to: customerEmail, subject, type: "quote", status: "failed", error: err?.message ?? "Unknown error" }).catch(() => {});
   }
 }
 
@@ -254,10 +259,13 @@ export async function sendJobStageEmail(params: {
 
     if (result.error) {
       logger.error({ err: result.error }, "Resend email error");
+      await db.insert(emailLogsTable).values({ to: customerEmail, subject: config.subject, type: "job_stage", status: "failed", error: JSON.stringify(result.error) });
     } else {
       logger.info({ to: customerEmail, stage, jobTitle }, "Job stage email sent");
+      await db.insert(emailLogsTable).values({ to: customerEmail, subject: config.subject, type: "job_stage", status: "sent", resendId: result.data?.id ?? null });
     }
-  } catch (err) {
+  } catch (err: any) {
     logger.error({ err }, "Failed to send job stage email");
+    await db.insert(emailLogsTable).values({ to: customerEmail, subject: config.subject, type: "job_stage", status: "failed", error: err?.message ?? "Unknown error" }).catch(() => {});
   }
 }

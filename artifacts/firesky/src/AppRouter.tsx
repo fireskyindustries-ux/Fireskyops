@@ -17,6 +17,7 @@ import NewJob from "./pages/jobs/new";
 import JobDetail from "./pages/jobs/detail";
 import CalendarPage from "./pages/calendar/index";
 import AdminUsers from "./pages/admin/users";
+import EmailLog from "./pages/admin/email-log";
 import NotFound from "./pages/not-found";
 
 function useRole() {
@@ -93,6 +94,9 @@ export function Router() {
         {/* Admin panel */}
         <Route path="/admin/users">
           <AdminRoute component={AdminUsers} />
+        </Route>
+        <Route path="/admin/email-log">
+          <AdminRoute component={EmailLog} />
         </Route>
 
         <Route component={NotFound} />
