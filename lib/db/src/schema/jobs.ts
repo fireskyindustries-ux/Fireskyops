@@ -18,6 +18,7 @@ export const jobsTable = pgTable("jobs", {
   tankQuantity: integer("tank_quantity"),
   estimatedValue: real("estimated_value"),
   assignedToId: text("assigned_to_id"),
+  jobType: text("job_type").notNull().default("full_install"),
   notes: text("notes"),
   customerToken: text("customer_token").default(sql`gen_random_uuid()`),
   notificationsEnabled: boolean("notifications_enabled").notNull().default(true),

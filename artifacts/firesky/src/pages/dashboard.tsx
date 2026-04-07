@@ -37,6 +37,41 @@ const PIPELINE_STAGE_BAR: Record<string, string> = {
   closed:     "bg-gray-400",
 };
 
+const ENQUIRY_PIPELINE_MAP: Record<string, number> = {
+  new: 0, in_progress: 0, inspection_done: 1, quoted: 2, won: 3,
+};
+const ENQUIRY_PIPELINE_LABELS = ["Enquiry", "Inspection", "Quote", "Job"];
+
+function EnquiryPipelineTracker({ status }: { status: string }) {
+  const currentStep = ENQUIRY_PIPELINE_MAP[status] ?? 0;
+  const isLost = status === "lost" || status === "closed";
+  const isDone = status === "won";
+  if (isLost) return null;
+  return (
+    <div className="flex items-center gap-0.5 mt-1">
+      {ENQUIRY_PIPELINE_LABELS.map((label, i) => {
+        const active = i === currentStep;
+        const done = i < currentStep || isDone;
+        return (
+          <div key={label} className="flex items-center gap-0.5">
+            <div className={cn(
+              "text-[8px] font-semibold px-1 py-0.5 rounded-full border leading-none",
+              done ? "bg-green-500 text-white border-green-500" :
+              active ? "bg-primary text-primary-foreground border-primary" :
+              "bg-muted/60 text-muted-foreground/60 border-muted-foreground/15"
+            )}>
+              {label}
+            </div>
+            {i < ENQUIRY_PIPELINE_LABELS.length - 1 && (
+              <div className={cn("w-1.5 h-px shrink-0", done ? "bg-green-400" : "bg-muted-foreground/20")} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function StatCard({ label, value, icon: Icon, iconBg, iconColor, sub }: {
   label: string; value: number; icon: React.ElementType;
   iconBg: string; iconColor: string; sub?: string;
@@ -159,6 +194,7 @@ export default function Dashboard() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold leading-tight line-clamp-1">{enquiry.title}</p>
                         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{enquiry.customerName || `Customer #${enquiry.customerId}`}</p>
+                        <EnquiryPipelineTracker status={enquiry.status} />
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full border", s.badge)}>

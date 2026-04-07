@@ -1,17 +1,21 @@
 import { useState } from "react";
 import { useGetInspection, useUpdateInspection, getGetInspectionQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { MapPin, Briefcase, CheckCircle2, XCircle, ExternalLink, ChevronLeft, Camera, Save } from "lucide-react";
+import { MapPin, Briefcase, CheckCircle2, XCircle, ExternalLink, ChevronLeft, Camera, Save, Pencil, X } from "lucide-react";
 import { AssignUser } from "@/components/assign-user";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { SkyInlineButton } from "@/components/sky";
 import { PhotoPicker } from "@/components/photo-picker";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@clerk/react";
 
 export default function InspectionDetail() {
   const params = useParams();
@@ -19,12 +23,56 @@ export default function InspectionDetail() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const updateInspection = useUpdateInspection();
+  const { user } = useUser();
+  const role = (user?.publicMetadata?.role as string) || "guest";
+  const canEdit = role === "admin" || role === "user";
   const [editingPhotos, setEditingPhotos] = useState(false);
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null, null]);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, any>>({});
   
   const { data: inspection, isLoading, error } = useGetInspection(id, { 
     query: { enabled: !!id, queryKey: getGetInspectionQueryKey(id) } 
   });
+
+  const startEdit = () => {
+    if (!inspection) return;
+    setEditForm({
+      tankSize: inspection.tankSize ?? "",
+      tankQuantity: inspection.tankQuantity ?? "",
+      requiresStand: inspection.requiresStand ?? false,
+      requiresPlinth: inspection.requiresPlinth ?? false,
+      truckAccess: inspection.truckAccess ?? false,
+      trailerAccess: inspection.trailerAccess ?? false,
+      siteReadyToQuote: inspection.siteReadyToQuote ?? false,
+      notes: inspection.notes ?? "",
+      offloadingConstraints: inspection.offloadingConstraints ?? "",
+    });
+    setEditing(true);
+  };
+
+  const handleSaveEdit = () => {
+    const payload: any = {
+      siteReadyToQuote: editForm.siteReadyToQuote,
+      requiresStand: editForm.requiresStand,
+      requiresPlinth: editForm.requiresPlinth,
+      truckAccess: editForm.truckAccess,
+      trailerAccess: editForm.trailerAccess,
+    };
+    if (editForm.tankSize) payload.tankSize = editForm.tankSize;
+    if (editForm.tankQuantity) payload.tankQuantity = Number(editForm.tankQuantity);
+    if (editForm.notes) payload.notes = editForm.notes;
+    if (editForm.offloadingConstraints) payload.offloadingConstraints = editForm.offloadingConstraints;
+
+    updateInspection.mutate({ id, data: payload }, {
+      onSuccess: () => {
+        toast({ title: "Inspection updated" });
+        queryClient.invalidateQueries({ queryKey: getGetInspectionQueryKey(id) });
+        setEditing(false);
+      },
+      onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+    });
+  };
 
   const handleSavePhotos = () => {
     const photoUrls = photos.filter((p): p is string => p !== null);
@@ -106,12 +154,97 @@ export default function InspectionDetail() {
               variant="outline"
               className="w-full sm:w-auto"
             />
+            {canEdit && !editing && (
+              <Button variant="outline" className="w-full sm:w-auto gap-2" onClick={startEdit}>
+                <Pencil className="h-4 w-4" /> Edit
+              </Button>
+            )}
             <Link href={`/jobs/new?inspectionId=${inspection.id}&customerId=${inspection.customerId}${inspection.enquiryId ? `&enquiryId=${inspection.enquiryId}` : ''}`}>
               <Button className="w-full sm:w-auto"><Briefcase className="mr-2 h-4 w-4" /> Convert to Job</Button>
             </Link>
           </div>
         </div>
       </div>
+
+      {/* Inline Edit Form */}
+      {editing && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Edit Inspection</CardTitle>
+              <Button variant="ghost" size="icon" onClick={() => setEditing(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Tank Size</label>
+                <Input
+                  value={editForm.tankSize}
+                  onChange={e => setEditForm(f => ({ ...f, tankSize: e.target.value }))}
+                  placeholder="e.g. 10000L"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Quantity</label>
+                <Input
+                  type="number"
+                  value={editForm.tankQuantity}
+                  onChange={e => setEditForm(f => ({ ...f, tankQuantity: e.target.value }))}
+                  placeholder="1"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { key: "siteReadyToQuote", label: "Site ready to quote" },
+                { key: "requiresStand", label: "Requires stand" },
+                { key: "requiresPlinth", label: "Requires plinth" },
+                { key: "truckAccess", label: "Truck access" },
+                { key: "trailerAccess", label: "Trailer access" },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center justify-between">
+                  <span className="text-sm">{label}</span>
+                  <Switch
+                    checked={!!editForm[key]}
+                    onCheckedChange={v => setEditForm(f => ({ ...f, [key]: v }))}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Offloading constraints</label>
+              <Input
+                value={editForm.offloadingConstraints}
+                onChange={e => setEditForm(f => ({ ...f, offloadingConstraints: e.target.value }))}
+                placeholder="e.g. Narrow gate, soft ground"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Notes</label>
+              <Textarea
+                value={editForm.notes}
+                onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                rows={3}
+                placeholder="Any additional site notes..."
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <Button onClick={handleSaveEdit} disabled={updateInspection.isPending} className="flex-1">
+                <Save className="mr-2 h-4 w-4" />
+                {updateInspection.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+              <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Site Photos */}
       <Card>

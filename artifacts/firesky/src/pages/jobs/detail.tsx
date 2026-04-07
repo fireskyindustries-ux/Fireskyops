@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useGetJob, useUpdateJob, getGetJobQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { Briefcase, CalendarDays, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle, Plus, Clock, User, MessageCircle, Bell, BellOff, Copy, Mail } from "lucide-react";
+import { Briefcase, CalendarDays, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle, Plus, Clock, User, MessageCircle, Bell, BellOff, Copy, Mail, Truck, Wrench } from "lucide-react";
 import { AssignUser } from "@/components/assign-user";
 import { Button } from "@/components/ui/button";
 import { SkyInlineButton } from "@/components/sky";
@@ -214,6 +214,58 @@ export default function JobDetail() {
             <CardTitle className="text-lg">Job Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Job Type toggle */}
+            {canEdit ? (
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium">Job Type</p>
+                <div className="flex rounded-xl border border-border overflow-hidden bg-muted/30 p-1 gap-1">
+                  {[
+                    { value: "full_install", label: "Full Install", icon: Wrench },
+                    { value: "delivery_only", label: "Delivery Only", icon: Truck },
+                  ].map(({ value, label, icon: Icon }) => {
+                    const current = (job as any).jobType || "full_install";
+                    const active = current === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        disabled={updateJob.isPending}
+                        onClick={() => updateJob.mutate({ id, data: { jobType: value } as any }, {
+                          onSuccess: () => {
+                            toast({ title: `Job type updated to ${label}` });
+                            queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) });
+                          }
+                        })}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
+                          active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {((job as any).jobType || "full_install") === "full_install"
+                    ? "Includes delivery, placement, stand or plinth, and full pipe connection."
+                    : "Tank delivered to site only. Customer handles placement and connection."}
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3">
+                {((job as any).jobType || "full_install") === "full_install"
+                  ? <Wrench className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  : <Truck className="h-5 w-5 text-muted-foreground mt-0.5" />}
+                <div>
+                  <p className="text-sm font-medium">Job Type</p>
+                  <p className="text-sm text-muted-foreground">
+                    {((job as any).jobType || "full_install") === "full_install" ? "Full Install" : "Delivery Only"}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {(job.tankSize || job.tankQuantity) && (
               <div className="flex items-start gap-3">
                 <Briefcase className="h-5 w-5 text-muted-foreground mt-0.5" />

@@ -16,6 +16,7 @@ const STATUS_STYLES: Record<string, { dot: string; badge: string; label: string 
   quoted:          { dot: "bg-cyan-600",   badge: "bg-cyan-50 text-cyan-700 border-cyan-200",       label: "Quoted" },
   won:             { dot: "bg-green-600",  badge: "bg-green-50 text-green-700 border-green-200",    label: "Won" },
   lost:            { dot: "bg-red-500",    badge: "bg-red-50 text-red-700 border-red-200",          label: "Lost" },
+  closed:          { dot: "bg-gray-400",   badge: "bg-gray-50 text-gray-600 border-gray-200",       label: "Closed" },
 };
 
 const PRIORITY_STYLES: Record<string, string> = {
@@ -23,6 +24,43 @@ const PRIORITY_STYLES: Record<string, string> = {
   medium: "bg-amber-50 text-amber-700 border-amber-200",
   low:    "bg-gray-50 text-gray-600 border-gray-200",
 };
+
+const PIPELINE_MAP: Record<string, number> = {
+  new: 0, in_progress: 0, inspection_done: 1, quoted: 2, won: 3,
+};
+const PIPELINE_LABELS = ["Enquiry", "Inspection", "Quote", "Job"];
+
+function PipelineTracker({ status }: { status: string }) {
+  const currentStep = PIPELINE_MAP[status] ?? 0;
+  const isLost = status === "lost" || status === "closed";
+  const isDone = status === "won";
+
+  if (isLost) return null;
+
+  return (
+    <div className="flex items-center gap-0.5 mt-1.5">
+      {PIPELINE_LABELS.map((label, i) => {
+        const active = i === currentStep;
+        const done = i < currentStep || isDone;
+        return (
+          <div key={label} className="flex items-center gap-0.5">
+            <div className={cn(
+              "text-[9px] font-semibold px-1.5 py-0.5 rounded-full border leading-none",
+              done ? "bg-green-500 text-white border-green-500" :
+              active ? "bg-primary text-primary-foreground border-primary" :
+              "bg-muted/60 text-muted-foreground border-muted-foreground/20"
+            )}>
+              {label}
+            </div>
+            {i < PIPELINE_LABELS.length - 1 && (
+              <div className={cn("w-2 h-px shrink-0", done ? "bg-green-400" : "bg-muted-foreground/20")} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function EnquiriesList() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -65,7 +103,7 @@ export default function EnquiriesList() {
 
       {isLoading ? (
         <div className="space-y-3">
-          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
+          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
         </div>
       ) : error ? (
         <div className="text-destructive py-8 text-center">Failed to load enquiries</div>
@@ -91,6 +129,7 @@ export default function EnquiriesList() {
                             {enquiry.customerName || `Customer #${enquiry.customerId}`}
                             {enquiry.tankSize && <span className="ml-2 text-xs">· {enquiry.tankQuantity || 1}× {enquiry.tankSize}</span>}
                           </p>
+                          <PipelineTracker status={enquiry.status} />
                         </div>
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
                           <span className={cn("text-[11px] font-medium px-2.5 py-0.5 rounded-full border", s.badge)}>

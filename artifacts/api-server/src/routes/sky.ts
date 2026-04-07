@@ -219,6 +219,162 @@ const ADMIN_TOOLS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "create_customer",
+      description: "Create a new customer record in the database.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Full name or business name" },
+          phone: { type: "string", description: "Phone number" },
+          email: { type: "string", description: "Email address" },
+          farmName: { type: "string", description: "Farm or property name" },
+          nearestTown: { type: "string", description: "Nearest town or city" },
+          province: { type: "string", description: "Province" },
+          notes: { type: "string", description: "Any additional notes" },
+        },
+        required: ["name"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "update_customer",
+      description: "Update fields on an existing customer record.",
+      parameters: {
+        type: "object",
+        properties: {
+          customer_id: { type: "integer" },
+          name: { type: "string" },
+          phone: { type: "string" },
+          email: { type: "string" },
+          farmName: { type: "string" },
+          nearestTown: { type: "string" },
+          province: { type: "string" },
+          notes: { type: "string" },
+          contactName: { type: "string" },
+          accessNotes: { type: "string" },
+        },
+        required: ["customer_id"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "create_enquiry",
+      description: "Create a new enquiry for an existing customer.",
+      parameters: {
+        type: "object",
+        properties: {
+          customerId: { type: "integer", description: "The customer ID to link this enquiry to" },
+          title: { type: "string", description: "Short descriptive title" },
+          description: { type: "string" },
+          tankSize: { type: "string", description: "e.g. 10000L" },
+          tankQuantity: { type: "integer" },
+          priority: { type: "string", enum: ["low", "medium", "high"] },
+          notes: { type: "string" },
+        },
+        required: ["customerId", "title"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "update_enquiry_full",
+      description: "Update any field on an existing enquiry record — title, status, priority, description, tank size, or notes.",
+      parameters: {
+        type: "object",
+        properties: {
+          enquiry_id: { type: "integer" },
+          title: { type: "string" },
+          description: { type: "string" },
+          status: { type: "string", enum: ["new", "in_progress", "inspection_done", "quoted", "won", "lost", "closed"] },
+          priority: { type: "string", enum: ["low", "medium", "high"] },
+          tankSize: { type: "string" },
+          tankQuantity: { type: "integer" },
+          notes: { type: "string" },
+        },
+        required: ["enquiry_id"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "create_job",
+      description: "Create a new job record in the pipeline.",
+      parameters: {
+        type: "object",
+        properties: {
+          customerId: { type: "integer" },
+          title: { type: "string" },
+          stage: { type: "string", enum: ["enquiry", "inspection", "quoting", "quoted", "won", "lost", "closed"] },
+          priority: { type: "string", enum: ["low", "medium", "high"] },
+          enquiryId: { type: "integer" },
+          inspectionId: { type: "integer" },
+          tankSize: { type: "string" },
+          tankQuantity: { type: "integer" },
+          estimatedValue: { type: "number" },
+          jobType: { type: "string", enum: ["full_install", "delivery_only"] },
+          notes: { type: "string" },
+        },
+        required: ["customerId", "title"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "update_job_full",
+      description: "Update any field on an existing job record — title, stage, priority, job type, tank details, value, or notes.",
+      parameters: {
+        type: "object",
+        properties: {
+          job_id: { type: "integer" },
+          title: { type: "string" },
+          stage: { type: "string", enum: ["enquiry", "inspection", "quoting", "quoted", "won", "lost", "closed"] },
+          priority: { type: "string", enum: ["low", "medium", "high"] },
+          jobType: { type: "string", enum: ["full_install", "delivery_only"] },
+          tankSize: { type: "string" },
+          tankQuantity: { type: "integer" },
+          estimatedValue: { type: "number" },
+          notes: { type: "string" },
+        },
+        required: ["job_id"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "update_inspection_full",
+      description: "Update fields on a site inspection record — readiness, tank details, access, stand/plinth, or notes.",
+      parameters: {
+        type: "object",
+        properties: {
+          inspection_id: { type: "integer" },
+          siteReadyToQuote: { type: "boolean" },
+          tankSize: { type: "string" },
+          tankQuantity: { type: "integer" },
+          requiresStand: { type: "boolean" },
+          requiresPlinth: { type: "boolean" },
+          standHeight: { type: "string" },
+          truckAccess: { type: "boolean" },
+          trailerAccess: { type: "boolean" },
+          groundCondition: { type: "string" },
+          pipeLength: { type: "number" },
+          offloadingConstraints: { type: "string" },
+          notes: { type: "string" },
+        },
+        required: ["inspection_id"],
+      },
+    },
+  },
 ] as const;
 
 // ─── Tool execution ──────────────────────────────────────────────────────────
@@ -398,6 +554,105 @@ async function executeTool(name: string, args: Record<string, any>): Promise<Too
         return { result: JSON.stringify(rows, null, 2) };
       }
 
+      case "create_customer": {
+        const { name, phone, email, farmName, nearestTown, province, notes } = args;
+        const rows = await db.insert(customersTable).values({ name, phone, email, farmName, nearestTown, province, notes }).returning({ id: customersTable.id, name: customersTable.name });
+        return {
+          result: `Customer "${rows[0].name}" created with ID #${rows[0].id}.`,
+          action: { resource: "customers", id: rows[0].id },
+        };
+      }
+
+      case "update_customer": {
+        const { customer_id, ...fields } = args;
+        const updates: Record<string, any> = { updatedAt: new Date() };
+        for (const key of ["name", "phone", "email", "farmName", "nearestTown", "province", "notes", "contactName", "accessNotes"]) {
+          if (fields[key] !== undefined) updates[key] = fields[key];
+        }
+        const rows = await db.update(customersTable).set(updates).where(eq(customersTable.id, customer_id)).returning({ id: customersTable.id, name: customersTable.name });
+        if (!rows.length) return { result: `Customer #${customer_id} not found.` };
+        return {
+          result: `Customer #${customer_id} ("${rows[0].name}") updated.`,
+          action: { resource: "customers", id: customer_id },
+        };
+      }
+
+      case "create_enquiry": {
+        const { customerId, title, description, tankSize, tankQuantity, priority, notes } = args;
+        const rows = await db.insert(enquiriesTable).values({ customerId, title, description, tankSize, tankQuantity: tankQuantity ? Number(tankQuantity) : undefined, priority: priority || "medium", notes }).returning({ id: enquiriesTable.id, title: enquiriesTable.title });
+        return {
+          result: `Enquiry "${rows[0].title}" created with ID #${rows[0].id}.`,
+          action: { resource: "enquiries", id: rows[0].id },
+        };
+      }
+
+      case "update_enquiry_full": {
+        const { enquiry_id, ...fields } = args;
+        const updates: Record<string, any> = { updatedAt: new Date() };
+        for (const key of ["title", "description", "status", "priority", "tankSize", "notes"]) {
+          if (fields[key] !== undefined) updates[key] = fields[key];
+        }
+        if (fields.tankQuantity !== undefined) updates.tankQuantity = Number(fields.tankQuantity);
+        const rows = await db.update(enquiriesTable).set(updates).where(eq(enquiriesTable.id, enquiry_id)).returning({ id: enquiriesTable.id, title: enquiriesTable.title });
+        if (!rows.length) return { result: `Enquiry #${enquiry_id} not found.` };
+        return {
+          result: `Enquiry #${enquiry_id} ("${rows[0].title}") updated.`,
+          action: { resource: "enquiries", id: enquiry_id },
+        };
+      }
+
+      case "create_job": {
+        const { customerId, title, stage, priority, enquiryId, inspectionId, tankSize, tankQuantity, estimatedValue, jobType, notes } = args;
+        const rows = await db.insert(jobsTable).values({
+          customerId: Number(customerId),
+          title,
+          stage: stage || "enquiry",
+          priority: priority || "medium",
+          enquiryId: enquiryId ? Number(enquiryId) : undefined,
+          inspectionId: inspectionId ? Number(inspectionId) : undefined,
+          tankSize,
+          tankQuantity: tankQuantity ? Number(tankQuantity) : undefined,
+          estimatedValue: estimatedValue ? Number(estimatedValue) : undefined,
+          jobType: jobType || "full_install",
+          notes,
+        }).returning({ id: jobsTable.id, title: jobsTable.title });
+        return {
+          result: `Job "${rows[0].title}" created with ID #${rows[0].id}.`,
+          action: { resource: "jobs", id: rows[0].id },
+        };
+      }
+
+      case "update_job_full": {
+        const { job_id, ...fields } = args;
+        const updates: Record<string, any> = { updatedAt: new Date() };
+        for (const key of ["title", "stage", "priority", "jobType", "tankSize", "notes"]) {
+          if (fields[key] !== undefined) updates[key] = fields[key];
+        }
+        if (fields.tankQuantity !== undefined) updates.tankQuantity = Number(fields.tankQuantity);
+        if (fields.estimatedValue !== undefined) updates.estimatedValue = Number(fields.estimatedValue);
+        const rows = await db.update(jobsTable).set(updates).where(eq(jobsTable.id, job_id)).returning({ id: jobsTable.id, title: jobsTable.title });
+        if (!rows.length) return { result: `Job #${job_id} not found.` };
+        return {
+          result: `Job #${job_id} ("${rows[0].title}") updated.`,
+          action: { resource: "jobs", id: job_id },
+        };
+      }
+
+      case "update_inspection_full": {
+        const { inspection_id, ...fields } = args;
+        const updates: Record<string, any> = { updatedAt: new Date() };
+        for (const key of ["siteReadyToQuote", "tankSize", "requiresStand", "requiresPlinth", "standHeight", "truckAccess", "trailerAccess", "groundCondition", "pipeLength", "offloadingConstraints", "notes"]) {
+          if (fields[key] !== undefined) updates[key] = fields[key];
+        }
+        if (fields.tankQuantity !== undefined) updates.tankQuantity = Number(fields.tankQuantity);
+        const rows = await db.update(inspectionsTable).set(updates).where(eq(inspectionsTable.id, inspection_id)).returning({ id: inspectionsTable.id, farmName: inspectionsTable.farmName });
+        if (!rows.length) return { result: `Inspection #${inspection_id} not found.` };
+        return {
+          result: `Inspection #${inspection_id} (${rows[0].farmName || "unnamed"}) updated.`,
+          action: { resource: "inspections", id: inspection_id },
+        };
+      }
+
       default:
         return { result: `Unknown tool: ${name}` };
     }
@@ -418,6 +673,13 @@ function getThinkingMessage(name: string, args: Record<string, any>): string {
     case "add_inspection_notes": return `Saving notes on Inspection #${args.inspection_id}...`;
     case "get_record": return `Fetching ${args.record_type} #${args.id}...`;
     case "list_records": return `Loading ${args.filter ? args.filter + " " : ""}${args.record_type}...`;
+    case "create_customer": return `Creating customer "${args.name}"...`;
+    case "update_customer": return `Updating Customer #${args.customer_id}...`;
+    case "create_enquiry": return `Creating enquiry "${args.title}"...`;
+    case "update_enquiry_full": return `Updating Enquiry #${args.enquiry_id}...`;
+    case "create_job": return `Creating job "${args.title}"...`;
+    case "update_job_full": return `Updating Job #${args.job_id}...`;
+    case "update_inspection_full": return `Updating Inspection #${args.inspection_id}...`;
     default: return `Working on it...`;
   }
 }
