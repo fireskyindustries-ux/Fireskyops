@@ -56,7 +56,7 @@ function EnquiryPipelineTracker({
   };
   const statusReached = statusStep[status] ?? 0;
 
-  const stepDone = (i: number) => {
+  const stepReached = (i: number) => {
     if (i === 0) return true;
     if (i === 1) return !!inspectionId || statusReached >= 1;
     if (i === 2) return statusReached >= 2;
@@ -64,23 +64,33 @@ function EnquiryPipelineTracker({
     return false;
   };
 
+  const currentStep = ENQUIRY_PIPELINE_LABELS.reduce(
+    (acc, _, i) => (stepReached(i) ? i : acc),
+    0,
+  );
+
   return (
     <div className="flex items-center gap-0.5 mt-1">
       {ENQUIRY_PIPELINE_LABELS.map((label, i) => {
-        const done = stepDone(i);
-        const nextDone = stepDone(i + 1);
+        const past = i < currentStep;
+        const active = i === currentStep;
         return (
           <div key={label} className="flex items-center gap-0.5">
             <div className={cn(
               "text-[8px] font-semibold px-1 py-0.5 rounded-full border leading-none",
-              done
+              past
+                ? "bg-green-500 text-white border-green-500"
+                : active
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-muted/60 text-muted-foreground/60 border-muted-foreground/15"
             )}>
               {label}
             </div>
             {i < ENQUIRY_PIPELINE_LABELS.length - 1 && (
-              <div className={cn("w-1.5 h-px shrink-0", done && nextDone ? "bg-primary/60" : "bg-muted-foreground/20")} />
+              <div className={cn(
+                "w-1.5 h-px shrink-0",
+                past ? "bg-green-400" : "bg-muted-foreground/20",
+              )} />
             )}
           </div>
         );
