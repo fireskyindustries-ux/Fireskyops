@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, jobsTable, customersTable } from "@workspace/db";
+import { eq, asc } from "drizzle-orm";
+import { db, jobsTable, customersTable, jobLoadsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -53,6 +53,21 @@ router.get("/track/:token", async (req, res): Promise<void> => {
     current: row.stage === s,
   }));
 
+  // Fetch delivery loads if any
+  const loads = await db
+    .select({
+      id: jobLoadsTable.id,
+      loadNumber: jobLoadsTable.loadNumber,
+      status: jobLoadsTable.status,
+      scheduledDate: jobLoadsTable.scheduledDate,
+      deliveredAt: jobLoadsTable.deliveredAt,
+      tankSize: jobLoadsTable.tankSize,
+      tankQuantity: jobLoadsTable.tankQuantity,
+    })
+    .from(jobLoadsTable)
+    .where(eq(jobLoadsTable.jobId, row.id))
+    .orderBy(asc(jobLoadsTable.loadNumber));
+
   res.json({
     jobTitle: row.title,
     customerName: row.customerContactName || row.customerName,
@@ -63,6 +78,7 @@ router.get("/track/:token", async (req, res): Promise<void> => {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     timeline,
+    loads,
     isClosed: ["won", "lost", "closed"].includes(row.stage),
   });
 });
