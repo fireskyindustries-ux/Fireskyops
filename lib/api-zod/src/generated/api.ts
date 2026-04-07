@@ -151,7 +151,7 @@ export const UpdateCustomerParams = zod.object({
 });
 
 export const UpdateCustomerBody = zod.object({
-  name: zod.string(),
+  name: zod.string().optional(),
   contactName: zod.string().nullish(),
   phone: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -276,8 +276,8 @@ export const UpdateEnquiryParams = zod.object({
 });
 
 export const UpdateEnquiryBody = zod.object({
-  customerId: zod.number(),
-  title: zod.string(),
+  customerId: zod.number().optional(),
+  title: zod.string().optional(),
   description: zod.string().nullish(),
   tankSize: zod.string().nullish(),
   tankQuantity: zod.number().nullish(),
@@ -437,7 +437,7 @@ export const UpdateInspectionParams = zod.object({
 
 export const UpdateInspectionBody = zod.object({
   enquiryId: zod.number().nullish(),
-  customerId: zod.number(),
+  customerId: zod.number().optional(),
   farmName: zod.string().nullish(),
   nearestTown: zod.string().nullish(),
   manualDirections: zod.string().nullish(),
