@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "wouter";
-import { CheckCircle2, XCircle, FileText, Clock, ThumbsUp, ThumbsDown } from "lucide-react";
+import { CheckCircle2, XCircle, FileText, Clock, ThumbsUp, ThumbsDown, Upload, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,12 +13,140 @@ interface QuoteData {
   notes: string | null;
   sentAt: string;
   respondedAt: string | null;
+  paymentProofUrl: string | null;
   customerName: string | null;
   enquiryId: number | null;
   jobId: number | null;
 }
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+
+function PageHeader() {
+  return (
+    <div className="bg-orange-500 text-white px-4 py-5">
+      <div className="max-w-2xl mx-auto">
+        <p className="text-lg font-bold tracking-tight">Firesky Industries</p>
+        <p className="text-sm text-orange-100">Your Custom Quote</p>
+      </div>
+    </div>
+  );
+}
+
+function PaymentProofSection({ token, alreadyUploaded }: { token: string; alreadyUploaded: boolean }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploaded, setUploaded] = useState(alreadyUploaded);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+    setUploading(true);
+    setError(null);
+    try {
+      // Step 1: Request presigned URL
+      const urlRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: selectedFile.name,
+          size: selectedFile.size,
+          contentType: selectedFile.type || "application/pdf",
+        }),
+      });
+      if (!urlRes.ok) throw new Error("Could not prepare upload");
+      const { uploadURL, objectPath } = await urlRes.json();
+
+      // Step 2: Upload file to storage
+      const uploadRes = await fetch(uploadURL, {
+        method: "PUT",
+        body: selectedFile,
+        headers: { "Content-Type": selectedFile.type || "application/pdf" },
+      });
+      if (!uploadRes.ok) throw new Error("File upload failed");
+
+      // Step 3: Save proof of payment reference
+      const proofRes = await fetch(`${BASE}/api/quote/${token}/payment-proof`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileUrl: objectPath }),
+      });
+      if (!proofRes.ok) {
+        const j = await proofRes.json();
+        throw new Error(j.error || "Failed to save proof");
+      }
+
+      setUploaded(true);
+    } catch (e: any) {
+      setError(e.message || "Something went wrong. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (uploaded) {
+    return (
+      <Card className="border-green-200 bg-green-50">
+        <CardContent className="pt-5 pb-5">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-6 w-6 text-green-500 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-green-800">Proof of payment received</p>
+              <p className="text-xs text-green-700 mt-0.5">Our team has been notified and will confirm your payment.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Receipt className="h-4 w-4 text-orange-500" />
+          Proof of Payment
+          <span className="text-xs font-normal text-gray-400 ml-1">(optional)</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-gray-600">
+          You can upload your proof of payment here so our team can verify and confirm your order without delay. This step is optional — you can also email it to us directly.
+        </p>
+        <div
+          className="border-2 border-dashed border-gray-200 rounded-lg p-5 text-center cursor-pointer hover:border-orange-300 hover:bg-orange-50 transition-colors"
+          onClick={() => fileRef.current?.click()}
+        >
+          <Upload className="h-6 w-6 mx-auto mb-2 text-gray-400" />
+          {selectedFile ? (
+            <p className="text-sm font-medium text-gray-800">{selectedFile.name}</p>
+          ) : (
+            <>
+              <p className="text-sm text-gray-500">Click to select a file</p>
+              <p className="text-xs text-gray-400 mt-1">PDF, JPG, or PNG accepted</p>
+            </>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/pdf,.pdf,image/jpeg,image/jpg,image/png"
+            className="hidden"
+            onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
+          />
+        </div>
+        {error && <p className="text-xs text-red-600">{error}</p>}
+        <Button
+          className="w-full gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+          onClick={handleUpload}
+          disabled={uploading || !selectedFile}
+        >
+          <Upload className="h-4 w-4" />
+          {uploading ? "Uploading..." : "Submit Proof of Payment"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function QuoteAcceptPage() {
   const params = useParams<{ token: string }>();
@@ -28,9 +156,10 @@ export default function QuoteAcceptPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [responding, setResponding] = useState(false);
-  const [done, setDone] = useState<"accepted" | "rejected" | null>(null);
+  const [justAccepted, setJustAccepted] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectForm, setShowRejectForm] = useState(false);
+  const [declined, setDeclined] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -65,7 +194,12 @@ export default function QuoteAcceptPage() {
         const j = await res.json();
         throw new Error(j.error || "Failed");
       }
-      setDone(action === "accept" ? "accepted" : "rejected");
+      if (action === "accept") {
+        setJustAccepted(true);
+        setQuote(q => q ? { ...q, status: "accepted" } : q);
+      } else {
+        setDeclined(true);
+      }
     } catch (e: any) {
       setError(e.message || "Something went wrong");
     } finally {
@@ -73,6 +207,7 @@ export default function QuoteAcceptPage() {
     }
   };
 
+  // ── Loading state ──
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -84,7 +219,8 @@ export default function QuoteAcceptPage() {
     );
   }
 
-  if (error) {
+  // ── Error state ──
+  if (error && !quote) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <Card className="max-w-md w-full">
@@ -98,51 +234,34 @@ export default function QuoteAcceptPage() {
     );
   }
 
-  if (done === "accepted") {
+  // ── Declined state ──
+  if (declined) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-10 pb-10 text-center">
-            <CheckCircle2 className="h-14 w-14 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-2 text-green-700">Quote Accepted</h2>
-            <p className="text-sm text-gray-600 mb-6">
-              Thank you! Our team has been notified and will be in touch with you shortly to confirm the next steps.
-            </p>
-            <div className="text-xs text-gray-400">Firesky Industries — info@fireskyindustries.co.za</div>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gray-50">
+        <PageHeader />
+        <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+          <Card>
+            <CardContent className="pt-10 pb-10 text-center">
+              <XCircle className="h-14 w-14 text-gray-400 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold mb-2 text-gray-700">Quote Declined</h2>
+              <p className="text-sm text-gray-600">
+                We have noted your response. Our team may follow up with you to discuss your requirements further.
+              </p>
+            </CardContent>
+          </Card>
+          <div className="text-center text-xs text-gray-400">Firesky Industries &nbsp;|&nbsp; info@fireskyindustries.co.za</div>
+        </div>
       </div>
     );
   }
 
-  if (done === "rejected") {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-10 pb-10 text-center">
-            <XCircle className="h-14 w-14 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-2 text-gray-700">Quote Declined</h2>
-            <p className="text-sm text-gray-600 mb-6">
-              We have noted your response. Our team may follow up with you to discuss your requirements further.
-            </p>
-            <div className="text-xs text-gray-400">Firesky Industries — info@fireskyindustries.co.za</div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const alreadyResponded = quote?.status === "accepted" || quote?.status === "rejected";
+  const isAccepted = quote?.status === "accepted" || justAccepted;
+  const isRejected = quote?.status === "rejected" && !justAccepted;
+  const isPending = quote?.status === "sent" && !justAccepted;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-orange-500 text-white px-4 py-5">
-        <div className="max-w-2xl mx-auto">
-          <p className="text-lg font-bold tracking-tight">Firesky Industries</p>
-          <p className="text-sm text-orange-100">Your Custom Quote</p>
-        </div>
-      </div>
+      <PageHeader />
 
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         {/* Greeting */}
@@ -151,9 +270,24 @@ export default function QuoteAcceptPage() {
             {quote?.customerName ? `Hi ${quote.customerName},` : "Your quote is ready"}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Please review your Firesky Industries quote and let us know if you would like to proceed.
+            {isAccepted
+              ? "Your quote has been accepted. Thank you for choosing Firesky Industries."
+              : isRejected
+              ? "You have declined this quote."
+              : "Please review your Firesky Industries quote and let us know if you would like to proceed."}
           </p>
         </div>
+
+        {/* Accepted banner */}
+        {isAccepted && justAccepted && (
+          <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+            <CheckCircle2 className="h-6 w-6 text-green-500 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-green-800">Quote accepted</p>
+              <p className="text-xs text-green-700">Our team has been notified and will be in touch shortly.</p>
+            </div>
+          </div>
+        )}
 
         {/* Quote document */}
         <Card>
@@ -188,26 +322,8 @@ export default function QuoteAcceptPage() {
           </CardContent>
         </Card>
 
-        {/* Response section */}
-        {alreadyResponded ? (
-          <Card className={quote?.status === "accepted" ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50"}>
-            <CardContent className="pt-6 pb-6 text-center">
-              {quote?.status === "accepted" ? (
-                <>
-                  <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-3" />
-                  <p className="font-semibold text-green-700">You accepted this quote</p>
-                  <p className="text-xs text-gray-500 mt-1">Our team will be in touch shortly.</p>
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-                  <p className="font-semibold text-gray-700">You declined this quote</p>
-                  <p className="text-xs text-gray-500 mt-1">We may follow up to discuss further.</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
+        {/* Response section — only shown while pending */}
+        {isPending && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -219,7 +335,6 @@ export default function QuoteAcceptPage() {
               <p className="text-sm text-gray-600">
                 Once you accept, our team will be notified and will contact you to confirm installation scheduling.
               </p>
-
               {!showRejectForm ? (
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button
@@ -262,11 +377,7 @@ export default function QuoteAcceptPage() {
                       <XCircle className="h-4 w-4" />
                       {responding ? "Processing..." : "Confirm Decline"}
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowRejectForm(false)}
-                      disabled={responding}
-                    >
+                    <Button variant="outline" onClick={() => setShowRejectForm(false)} disabled={responding}>
                       Back
                     </Button>
                   </div>
@@ -274,6 +385,25 @@ export default function QuoteAcceptPage() {
               )}
             </CardContent>
           </Card>
+        )}
+
+        {/* Already declined (returning to page) */}
+        {isRejected && (
+          <Card className="border-gray-200 bg-gray-50">
+            <CardContent className="pt-6 pb-6 text-center">
+              <XCircle className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+              <p className="font-semibold text-gray-700">You declined this quote</p>
+              <p className="text-xs text-gray-500 mt-1">We may follow up to discuss further.</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Proof of payment — shown when accepted */}
+        {isAccepted && token && (
+          <PaymentProofSection
+            token={token}
+            alreadyUploaded={!!quote?.paymentProofUrl}
+          />
         )}
 
         {/* Footer */}

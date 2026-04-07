@@ -124,7 +124,7 @@ router.get("/enquiries/:id", async (req, res): Promise<void> => {
       .from(jobsTable)
       .where(eq(jobsTable.enquiryId, params.data.id))
       .limit(1),
-    db.select({ id: quotesTable.id, quoteToken: quotesTable.quoteToken, status: quotesTable.status })
+    db.select({ id: quotesTable.id, quoteToken: quotesTable.quoteToken, status: quotesTable.status, paymentProofUrl: quotesTable.paymentProofUrl })
       .from(quotesTable)
       .where(eq(quotesTable.enquiryId, params.data.id))
       .orderBy(quotesTable.createdAt)
@@ -143,6 +143,7 @@ router.get("/enquiries/:id", async (req, res): Promise<void> => {
     quoteId: linkedQuote[0]?.id ?? undefined,
     quoteToken: linkedQuote[0]?.quoteToken ?? undefined,
     quoteStatus: linkedQuote[0]?.status ?? undefined,
+    quotePaymentProofUrl: linkedQuote[0]?.paymentProofUrl ?? undefined,
   }));
 });
 

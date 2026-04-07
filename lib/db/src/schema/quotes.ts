@@ -22,6 +22,7 @@ export const quotesTable = pgTable("quotes", {
   notes: text("notes"),
   sentAt: timestamp("sent_at").defaultNow(),
   respondedAt: timestamp("responded_at"),
+  paymentProofUrl: text("payment_proof_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

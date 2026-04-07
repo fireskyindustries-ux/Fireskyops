@@ -122,6 +122,7 @@ function SendQuoteSection({
   quoteId,
   quoteToken,
   quoteStatus,
+  quotePaymentProofUrl,
   onSent,
 }: {
   enquiryId: number;
@@ -129,6 +130,7 @@ function SendQuoteSection({
   quoteId?: number | null;
   quoteToken?: string | null;
   quoteStatus?: string | null;
+  quotePaymentProofUrl?: string | null;
   onSent: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -230,6 +232,17 @@ function SendQuoteSection({
               {quoteStatus === "sent" && <Clock className="h-4 w-4" />}
               {quoteStatusLabel[quoteStatus ?? "sent"] ?? quoteStatus}
             </div>
+            {quotePaymentProofUrl && (
+              <a
+                href={`${BASE}/api/storage${quotePaymentProofUrl}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 text-sm font-medium hover:bg-green-100 transition-colors w-fit"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Proof of payment received — view file
+              </a>
+            )}
             <div className="flex items-center gap-3 flex-wrap">
               {quoteToken && (
                 <a
@@ -593,6 +606,7 @@ export default function EnquiryDetail() {
           quoteId={enquiry.quoteId}
           quoteToken={enquiry.quoteToken}
           quoteStatus={enquiry.quoteStatus}
+          quotePaymentProofUrl={enquiry.quotePaymentProofUrl}
           onSent={() => queryClient.invalidateQueries({ queryKey: getGetEnquiryQueryKey(id) })}
         />
       )}

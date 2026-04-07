@@ -24,6 +24,7 @@ router.get("/quote/:token", async (req, res): Promise<void> => {
       notes: quotesTable.notes,
       sentAt: quotesTable.sentAt,
       respondedAt: quotesTable.respondedAt,
+      paymentProofUrl: quotesTable.paymentProofUrl,
       customerName: customersTable.name,
       customerContactName: customersTable.contactName,
       enquiryId: quotesTable.enquiryId,
@@ -134,6 +135,48 @@ router.post("/quote/:token/reject", async (req, res): Promise<void> => {
   );
 
   res.json({ success: true, status: "rejected" });
+});
+
+// ── Public: customer submits proof of payment ──
+router.post("/quote/:token/payment-proof", async (req, res): Promise<void> => {
+  const { token } = req.params;
+  const { fileUrl } = req.body;
+
+  if (!UUID_RE.test(token)) {
+    res.status(404).json({ error: "Quote not found" });
+    return;
+  }
+
+  if (!fileUrl) {
+    res.status(400).json({ error: "fileUrl is required" });
+    return;
+  }
+
+  const [quote] = await db.select().from(quotesTable).where(eq(quotesTable.quoteToken, token));
+
+  if (!quote) {
+    res.status(404).json({ error: "Quote not found" });
+    return;
+  }
+
+  if (quote.status !== "accepted") {
+    res.status(400).json({ error: "Quote must be accepted before submitting proof of payment" });
+    return;
+  }
+
+  await db
+    .update(quotesTable)
+    .set({ paymentProofUrl: fileUrl, updatedAt: new Date() })
+    .where(eq(quotesTable.quoteToken, token));
+
+  const { notifyAdmins } = await import("../lib/notify");
+  notifyAdmins(
+    "Proof of payment received",
+    "A customer has uploaded their proof of payment.",
+    quote.enquiryId ? `/enquiries/${quote.enquiryId}` : quote.jobId ? `/jobs/${quote.jobId}` : "/jobs"
+  );
+
+  res.json({ success: true });
 });
 
 export default router;

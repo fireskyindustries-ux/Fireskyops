@@ -273,6 +273,7 @@ export const GetEnquiryResponse = zod.object({
   quoteId: zod.number().nullish(),
   quoteToken: zod.string().nullish(),
   quoteStatus: zod.enum(["draft", "sent", "accepted", "rejected"]).nullish(),
+  quotePaymentProofUrl: zod.string().nullish(),
 });
 
 /**
