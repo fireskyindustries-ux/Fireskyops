@@ -38,20 +38,22 @@ function PipelineTracker({
   enquiryId,
   inspectionId,
   jobId,
+  quoteToken,
 }: {
   status: string;
   enquiryId: number;
   inspectionId?: number | null;
   jobId?: number | null;
+  quoteToken?: string | null;
 }) {
   const isLost = status === "lost" || status === "closed";
   const statusReached = STATUS_STEP[status] ?? 0;
 
-  // Compute the highest step reached using real data + status
+  // Step reached: use real artifact IDs where available, status otherwise
   const stepReached = (i: number) => {
     if (i === 0) return true;
     if (i === 1) return !!inspectionId || statusReached >= 1;
-    if (i === 2) return statusReached >= 2;
+    if (i === 2) return !!quoteToken || statusReached >= 2;
     if (i === 3) return !!jobId || statusReached >= 3;
     return false;
   };
@@ -63,6 +65,7 @@ function PipelineTracker({
 
   const getHref = (i: number) => {
     if (i === 1 && inspectionId) return `/inspections/${inspectionId}`;
+    if (i === 2 && quoteToken) return `/quote/${quoteToken}`;
     if (i === 3 && jobId) return `/jobs/${jobId}`;
     return null;
   };
@@ -367,6 +370,7 @@ export default function EnquiryDetail() {
               enquiryId={enquiry.id}
               inspectionId={enquiry.inspectionId}
               jobId={enquiry.jobId}
+              quoteToken={enquiry.quoteToken}
             />
           </div>
         </div>
@@ -537,8 +541,8 @@ export default function EnquiryDetail() {
         )}
       </div>
 
-      {/* Quote section — visible once inspection is done */}
-      {hasInspection && canEdit && (
+      {/* Quote section — always visible for admin/user */}
+      {canEdit && (
         <SendQuoteSection
           enquiryId={enquiry.id}
           customerId={enquiry.customerId}
