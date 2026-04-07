@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useGetEnquiry, useUpdateEnquiry, getGetEnquiryQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { ClipboardCheck, Briefcase, AlignLeft, Info, Calendar, ChevronLeft, Pencil, Save, X, CheckCircle2, ExternalLink } from "lucide-react";
+import { ClipboardCheck, Briefcase, AlignLeft, Info, Calendar, ChevronLeft, Pencil, Save, X, CheckCircle2, ExternalLink, FileText, Send, Upload, Clock, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@clerk/react";
 import { cn } from "@/lib/utils";
+
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 const STATUS_STYLES: Record<string, { badge: string; label: string }> = {
   new:             { badge: "bg-blue-50 text-blue-700 border-blue-200",      label: "New" },
@@ -108,6 +110,166 @@ function PipelineTracker({
         );
       })}
     </div>
+  );
+}
+
+function SendQuoteSection({
+  enquiryId,
+  customerId,
+  quoteId,
+  quoteToken,
+  quoteStatus,
+  onSent,
+}: {
+  enquiryId: number;
+  customerId: number;
+  quoteId?: number | null;
+  quoteToken?: string | null;
+  quoteStatus?: string | null;
+  onSent: () => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [notes, setNotes] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+
+  const handleSend = async () => {
+    if (!selectedFile) {
+      toast({ title: "Please select a PDF file", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Step 1: Request presigned upload URL
+      const urlRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: selectedFile.name,
+          size: selectedFile.size,
+          contentType: selectedFile.type || "application/pdf",
+        }),
+      });
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await urlRes.json();
+
+      // Step 2: Upload directly to presigned URL
+      const uploadRes = await fetch(uploadURL, {
+        method: "PUT",
+        body: selectedFile,
+        headers: { "Content-Type": selectedFile.type || "application/pdf" },
+      });
+      if (!uploadRes.ok) throw new Error("File upload failed");
+
+      // Step 3: Create quote record
+      const quoteRes = await fetch(`${BASE}/api/quotes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enquiryId, customerId, fileUrl: objectPath, notes: notes || null }),
+      });
+      if (!quoteRes.ok) {
+        const j = await quoteRes.json();
+        throw new Error(j.error || "Failed to create quote");
+      }
+
+      toast({ title: "Quote sent to customer" });
+      setSelectedFile(null);
+      setNotes("");
+      if (fileRef.current) fileRef.current.value = "";
+      onSent();
+    } catch (e: any) {
+      toast({ title: e.message || "Something went wrong", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const quoteStatusColors: Record<string, string> = {
+    sent: "bg-cyan-50 border-cyan-200 text-cyan-700",
+    accepted: "bg-green-50 border-green-200 text-green-700",
+    rejected: "bg-red-50 border-red-200 text-red-700",
+  };
+
+  const quoteStatusLabel: Record<string, string> = {
+    sent: "Awaiting customer response",
+    accepted: "Customer accepted",
+    rejected: "Customer declined",
+  };
+
+  return (
+    <Card className={quoteId ? (quoteStatus === "accepted" ? "border-green-200" : quoteStatus === "rejected" ? "border-red-200" : "border-cyan-200") : ""}>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <FileText className="h-4 w-4 text-primary" />
+          Quote
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {quoteId ? (
+          <div className="space-y-3">
+            <div className={cn("flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium", quoteStatusColors[quoteStatus ?? "sent"] ?? "bg-gray-50 border-gray-200 text-gray-600")}>
+              {quoteStatus === "accepted" && <ThumbsUp className="h-4 w-4" />}
+              {quoteStatus === "rejected" && <ThumbsDown className="h-4 w-4" />}
+              {quoteStatus === "sent" && <Clock className="h-4 w-4" />}
+              {quoteStatusLabel[quoteStatus ?? "sent"] ?? quoteStatus}
+            </div>
+            {quoteToken && (
+              <a
+                href={`${BASE}/quote/${quoteToken}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-primary hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                View customer quote page
+              </a>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Upload a PDF quote to send to the customer. They will receive an email with a link to review and accept or decline.
+            </p>
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Quote PDF</label>
+              <div
+                className="border-2 border-dashed border-muted-foreground/20 rounded-lg p-4 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                onClick={() => fileRef.current?.click()}
+              >
+                <Upload className="h-6 w-6 mx-auto mb-1.5 text-muted-foreground" />
+                {selectedFile ? (
+                  <p className="text-sm font-medium text-foreground">{selectedFile.name}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Click to select a PDF file</p>
+                )}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  className="hidden"
+                  onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Note to customer (optional)</label>
+              <Textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Any message to include with the quote..."
+                rows={2}
+              />
+            </div>
+            <Button onClick={handleSend} disabled={uploading || !selectedFile} className="gap-2">
+              <Send className="h-4 w-4" />
+              {uploading ? "Sending..." : "Send Quote to Customer"}
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -374,6 +536,18 @@ export default function EnquiryDetail() {
           </Card>
         )}
       </div>
+
+      {/* Quote section — visible once inspection is done */}
+      {hasInspection && canEdit && (
+        <SendQuoteSection
+          enquiryId={enquiry.id}
+          customerId={enquiry.customerId}
+          quoteId={enquiry.quoteId}
+          quoteToken={enquiry.quoteToken}
+          quoteStatus={enquiry.quoteStatus}
+          onSent={() => queryClient.invalidateQueries({ queryKey: getGetEnquiryQueryKey(id) })}
+        />
+      )}
     </div>
   );
 }

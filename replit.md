@@ -23,6 +23,13 @@ A mobile-first React web app for Firesky Industries — a field operations tool 
 - `SESSION_SECRET` — Already configured via Replit secrets
 
 ## Features
+- **Quote Upload & Acceptance Flow** — Full quote lifecycle:
+  - Admin uploads quote PDF from enquiry detail page (after inspection done)
+  - PDF stored in GCS via object storage (`objectPath` stored in `quotes` table)
+  - Customer emailed with link to `/quote/{quoteToken}` page (no login required)
+  - Customer can Accept or Decline quote with optional reason
+  - On accept: enquiry advances to `won`, job (if linked) advances to `won`
+  - Team notified of customer response via in-app notification
 - **Customer Notification System** — Automatic emails via Resend on job stage changes:
   - Email fires automatically when stage changes (enquiry → inspection → quoting → quoted → won)
   - Per-job toggle to enable/disable notifications (on by default if customer has email)

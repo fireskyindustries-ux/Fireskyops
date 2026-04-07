@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, enquiriesTable, customersTable, inspectionsTable, jobsTable } from "@workspace/db";
+import { db, enquiriesTable, customersTable, inspectionsTable, jobsTable, quotesTable } from "@workspace/db";
 import {
   ListEnquiriesQueryParams,
   ListEnquiriesResponse,
@@ -115,7 +115,7 @@ router.get("/enquiries/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [linkedInspection, linkedJob] = await Promise.all([
+  const [linkedInspection, linkedJob, linkedQuote] = await Promise.all([
     db.select({ id: inspectionsTable.id })
       .from(inspectionsTable)
       .where(eq(inspectionsTable.enquiryId, params.data.id))
@@ -123,6 +123,11 @@ router.get("/enquiries/:id", async (req, res): Promise<void> => {
     db.select({ id: jobsTable.id })
       .from(jobsTable)
       .where(eq(jobsTable.enquiryId, params.data.id))
+      .limit(1),
+    db.select({ id: quotesTable.id, quoteToken: quotesTable.quoteToken, status: quotesTable.status })
+      .from(quotesTable)
+      .where(eq(quotesTable.enquiryId, params.data.id))
+      .orderBy(quotesTable.createdAt)
       .limit(1),
   ]);
 
@@ -135,6 +140,9 @@ router.get("/enquiries/:id", async (req, res): Promise<void> => {
     notes: row.notes ?? undefined,
     inspectionId: linkedInspection[0]?.id ?? undefined,
     jobId: linkedJob[0]?.id ?? undefined,
+    quoteId: linkedQuote[0]?.id ?? undefined,
+    quoteToken: linkedQuote[0]?.quoteToken ?? undefined,
+    quoteStatus: linkedQuote[0]?.status ?? undefined,
   }));
 });
 

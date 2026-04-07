@@ -2,11 +2,14 @@ import { Router, type IRouter } from "express";
 import { requireAuth } from "../middlewares/requireAuth";
 import healthRouter from "./health";
 import trackRouter from "./track";
+import storageRouter from "./storage";
+import quotePublicRouter from "./quote_public";
 import customersRouter from "./customers";
 import enquiriesRouter from "./enquiries";
 import inspectionsRouter from "./inspections";
 import jobsRouter from "./jobs";
 import jobLoadsRouter from "./job_loads";
+import quotesRouter from "./quotes";
 import appointmentsRouter from "./appointments";
 import dashboardRouter from "./dashboard";
 import skyRouter from "./sky";
@@ -21,6 +24,8 @@ router.use(healthRouter);
 
 // Public routes (no auth)
 router.use(trackRouter);
+router.use(storageRouter);
+router.use(quotePublicRouter);
 
 // All routes below require authentication
 router.use(requireAuth);
@@ -31,6 +36,7 @@ router.use(enquiriesRouter);
 router.use(inspectionsRouter);
 router.use(jobsRouter);
 router.use(jobLoadsRouter);
+router.use(quotesRouter);
 router.use(appointmentsRouter);
 router.use(skyRouter);
 router.use(usersRouter);

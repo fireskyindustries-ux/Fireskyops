@@ -270,6 +270,9 @@ export const GetEnquiryResponse = zod.object({
   updatedAt: zod.coerce.date(),
   inspectionId: zod.number().nullish(),
   jobId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  quoteToken: zod.string().nullish(),
+  quoteStatus: zod.enum(["draft", "sent", "accepted", "rejected"]).nullish(),
 });
 
 /**
@@ -742,4 +745,18 @@ export const SendOpenaiMessageParams = zod.object({
 
 export const SendOpenaiMessageBody = zod.object({
   content: zod.string(),
+});
+
+/**
+ * @summary Object storage upload URL
+ */
+export const RequestUploadUrlBody = zod.object({
+  name: zod.string(),
+  size: zod.number(),
+  contentType: zod.string(),
+});
+
+export const RequestUploadUrlResponse = zod.object({
+  uploadURL: zod.string(),
+  objectPath: zod.string(),
 });
