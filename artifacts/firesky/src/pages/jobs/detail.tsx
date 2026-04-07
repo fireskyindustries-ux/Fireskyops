@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { useGetJob, useUpdateJob, getGetJobQueryKey } from "@workspace/api-client-react";
+import { useGetJob, useUpdateJob, getGetJobQueryKey, useListJobLoads, useCreateJobLoad, useUpdateJobLoad, useDeleteJobLoad } from "@workspace/api-client-react";
+import type { JobLoad } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { Briefcase, CalendarDays, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle, Plus, Clock, User, MessageCircle, Bell, BellOff, Copy, Mail, Truck, Wrench } from "lucide-react";
+import { Briefcase, CalendarDays, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle, Plus, Clock, User, MessageCircle, Bell, BellOff, Copy, Mail, Truck, Wrench, ChevronDown, ChevronUp, Trash2, Package } from "lucide-react";
 import { AssignUser } from "@/components/assign-user";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { SkyInlineButton } from "@/components/sky";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +18,158 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { AppointmentForm, type AppointmentFormValues } from "@/components/calendar/AppointmentForm";
 import { useUser } from "@clerk/react";
+import { cn } from "@/lib/utils";
+
+const LOAD_STATUS_STYLES: Record<string, { label: string; color: string }> = {
+  pending:    { label: "Pending",    color: "bg-gray-100 text-gray-700 border-gray-200" },
+  scheduled:  { label: "Scheduled", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  in_transit: { label: "In Transit",color: "bg-amber-100 text-amber-700 border-amber-200" },
+  delivered:  { label: "Delivered", color: "bg-green-100 text-green-700 border-green-200" },
+};
+
+function LoadCard({ load, jobId, canEdit }: { load: JobLoad; jobId: number; canEdit: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<Record<string, any>>({});
+  const updateLoad = useUpdateJobLoad(jobId);
+  const deleteLoad = useDeleteJobLoad(jobId);
+  const { toast } = useToast();
+  const { user } = useUser();
+  const isAdmin = (user?.publicMetadata?.role as string) === "admin";
+
+  const startEdit = () => {
+    setForm({
+      status: load.status,
+      scheduledDate: load.scheduledDate ? load.scheduledDate.slice(0, 10) : "",
+      deliveredAt: load.deliveredAt ? load.deliveredAt.slice(0, 10) : "",
+      tankSize: load.tankSize ?? "",
+      tankQuantity: load.tankQuantity ?? "",
+      driverName: load.driverName ?? "",
+      vehicleReg: load.vehicleReg ?? "",
+      notes: load.notes ?? "",
+    });
+    setOpen(true);
+  };
+
+  const handleSave = () => {
+    const data: any = {
+      status: form.status,
+      driverName: form.driverName || null,
+      vehicleReg: form.vehicleReg || null,
+      notes: form.notes || null,
+      tankSize: form.tankSize || null,
+      tankQuantity: form.tankQuantity ? Number(form.tankQuantity) : null,
+      scheduledDate: form.scheduledDate || null,
+      deliveredAt: form.deliveredAt || null,
+    };
+    updateLoad.mutate({ id: load.id, data }, {
+      onSuccess: () => { toast({ title: `Load ${load.loadNumber} updated` }); setOpen(false); },
+      onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+    });
+  };
+
+  const style = LOAD_STATUS_STYLES[load.status] ?? LOAD_STATUS_STYLES.pending;
+
+  return (
+    <div className="border rounded-xl overflow-hidden">
+      <button
+        className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/40 transition-colors"
+        onClick={() => canEdit ? startEdit() : setOpen(!open)}
+      >
+        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
+          {load.loadNumber}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm">Load {load.loadNumber}</p>
+          <p className="text-xs text-muted-foreground line-clamp-1">
+            {load.tankQuantity && load.tankSize ? `${load.tankQuantity}x ${load.tankSize}` : ""}
+            {load.driverName ? ` · ${load.driverName}` : ""}
+            {load.scheduledDate ? ` · ${format(new Date(load.scheduledDate), "d MMM")}` : ""}
+          </p>
+        </div>
+        <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full border", style.color)}>
+          {style.label}
+        </span>
+        {canEdit ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : null}
+      </button>
+
+      {open && (
+        <div className="border-t bg-muted/20 p-4 space-y-4">
+          {canEdit ? (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2 space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</label>
+                  <div className="flex rounded-lg border overflow-hidden bg-background">
+                    {Object.entries(LOAD_STATUS_STYLES).map(([val, s]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setForm((f: any) => ({ ...f, status: val }))}
+                        className={cn(
+                          "flex-1 py-1.5 text-xs font-semibold transition-all border-r last:border-r-0",
+                          form.status === val ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                        )}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Scheduled Date</label>
+                  <Input type="date" value={form.scheduledDate} onChange={e => setForm((f: any) => ({ ...f, scheduledDate: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Delivered Date</label>
+                  <Input type="date" value={form.deliveredAt} onChange={e => setForm((f: any) => ({ ...f, deliveredAt: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tank Size</label>
+                  <Input placeholder="e.g. 10000L" value={form.tankSize} onChange={e => setForm((f: any) => ({ ...f, tankSize: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Qty</label>
+                  <Input type="number" placeholder="1" value={form.tankQuantity} onChange={e => setForm((f: any) => ({ ...f, tankQuantity: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Driver</label>
+                  <Input placeholder="Driver name" value={form.driverName} onChange={e => setForm((f: any) => ({ ...f, driverName: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Vehicle Reg</label>
+                  <Input placeholder="e.g. CA 123-456" value={form.vehicleReg} onChange={e => setForm((f: any) => ({ ...f, vehicleReg: e.target.value }))} />
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes</label>
+                  <Textarea rows={2} placeholder="Load notes..." value={form.notes} onChange={e => setForm((f: any) => ({ ...f, notes: e.target.value }))} />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleSave} disabled={updateLoad.isPending} className="flex-1">
+                  {updateLoad.isPending ? "Saving..." : "Save Load"}
+                </Button>
+                {isAdmin && (
+                  <Button size="sm" variant="destructive" onClick={() => deleteLoad.mutate(load.id)} disabled={deleteLoad.isPending}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-2 text-sm">
+              {load.scheduledDate && <p><span className="font-medium">Scheduled:</span> {format(new Date(load.scheduledDate), "d MMM yyyy")}</p>}
+              {load.deliveredAt && <p><span className="font-medium">Delivered:</span> {format(new Date(load.deliveredAt), "d MMM yyyy")}</p>}
+              {load.driverName && <p><span className="font-medium">Driver:</span> {load.driverName}</p>}
+              {load.vehicleReg && <p><span className="font-medium">Vehicle:</span> {load.vehicleReg}</p>}
+              {load.notes && <p className="text-muted-foreground">{load.notes}</p>}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 function apiFetch(path: string) {
@@ -48,6 +203,8 @@ export default function JobDetail() {
   const { user } = useUser();
   const role = (user?.publicMetadata?.role as string) || "guest";
   const canEdit = role === "admin" || role === "user";
+  const { data: jobLoads = [] } = useListJobLoads(id);
+  const createLoad = useCreateJobLoad(id);
   const [showCloseOptions, setShowCloseOptions] = useState(false);
   const [aptFormOpen, setAptFormOpen] = useState(false);
   const [aptFormInitial, setAptFormInitial] = useState<Partial<AppointmentFormValues>>({});
@@ -329,6 +486,69 @@ export default function JobDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delivery Loads */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Delivery Loads
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {jobLoads.length === 0
+                ? "No loads added yet"
+                : `${jobLoads.filter(l => l.status === "delivered").length} of ${jobLoads.length} delivered`}
+            </p>
+          </div>
+          {canEdit && jobLoads.length < 10 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 shrink-0"
+              disabled={createLoad.isPending}
+              onClick={() => {
+                const nextNum = jobLoads.length > 0 ? Math.max(...jobLoads.map(l => l.loadNumber)) + 1 : 1;
+                createLoad.mutate({ loadNumber: nextNum, status: "pending" }, {
+                  onSuccess: () => toast({ title: `Load ${nextNum} added` }),
+                  onError: () => toast({ title: "Failed to add load", variant: "destructive" }),
+                });
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Add Load
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {jobLoads.length === 0 ? (
+            <div className="text-center py-6 text-sm text-muted-foreground">
+              <Truck className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              <p>Add loads to track bulk deliveries (Load 1, Load 2 ...)</p>
+            </div>
+          ) : (
+            <>
+              {/* Progress bar */}
+              <div className="flex gap-1 h-2 rounded-full overflow-hidden bg-muted mb-3">
+                {jobLoads.map((load) => (
+                  <div
+                    key={load.id}
+                    className={cn(
+                      "flex-1 transition-colors",
+                      load.status === "delivered" ? "bg-green-500" :
+                      load.status === "in_transit" ? "bg-amber-400" :
+                      load.status === "scheduled" ? "bg-blue-400" : "bg-muted-foreground/20"
+                    )}
+                  />
+                ))}
+              </div>
+              {jobLoads.map((load) => (
+                <LoadCard key={load.id} load={load} jobId={id} canEdit={canEdit} />
+              ))}
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Customer Updates Card */}
       {(() => {

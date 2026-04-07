@@ -33,6 +33,11 @@ const STAGE_CONFIG: Record<string, { subject: string; headline: string; body: st
     headline: "Installation confirmed",
     body: "Your installation has been confirmed. Our team will be in touch to finalise scheduling and any last-minute details.",
   },
+  delivered: {
+    subject: "Your Firesky order has been delivered",
+    headline: "All loads delivered",
+    body: "All delivery loads for your order have been completed and delivered to site. Thank you for choosing Firesky Industries. Please don't hesitate to reach out if you need anything.",
+  },
   lost: null,
   closed: null,
 };
