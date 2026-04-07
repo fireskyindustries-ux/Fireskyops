@@ -72,12 +72,12 @@ function EnquiryPipelineTracker({ status }: { status: string }) {
   );
 }
 
-function StatCard({ label, value, icon: Icon, iconBg, iconColor, sub }: {
+function StatCard({ label, value, icon: Icon, iconBg, iconColor, sub, href }: {
   label: string; value: number; icon: React.ElementType;
-  iconBg: string; iconColor: string; sub?: string;
+  iconBg: string; iconColor: string; sub?: string; href?: string;
 }) {
-  return (
-    <Card className="border shadow-sm">
+  const card = (
+    <Card className={cn("border shadow-sm", href && "cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-150")}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-5 px-5">
         <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
         <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center", iconBg)}>
@@ -90,6 +90,8 @@ function StatCard({ label, value, icon: Icon, iconBg, iconColor, sub }: {
       </CardContent>
     </Card>
   );
+  if (href) return <Link href={href}>{card}</Link>;
+  return card;
 }
 
 export default function Dashboard() {
@@ -147,6 +149,7 @@ export default function Dashboard() {
           iconBg="bg-blue-50"
           iconColor="text-blue-600"
           sub="Registered accounts"
+          href="/customers"
         />
         <StatCard
           label="Active Enquiries"
@@ -155,6 +158,7 @@ export default function Dashboard() {
           iconBg="bg-amber-50"
           iconColor="text-amber-600"
           sub="Open requests"
+          href="/enquiries"
         />
         <StatCard
           label="Active Jobs"
@@ -163,6 +167,7 @@ export default function Dashboard() {
           iconBg="bg-primary/10"
           iconColor="text-primary"
           sub="In pipeline"
+          href="/jobs"
         />
       </div>
 
