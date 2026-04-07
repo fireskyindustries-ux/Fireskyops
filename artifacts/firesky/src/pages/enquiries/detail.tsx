@@ -26,7 +26,7 @@ const STATUS_STYLES: Record<string, { badge: string; label: string }> = {
   closed:          { badge: "bg-gray-50 text-gray-600 border-gray-200",       label: "Closed" },
 };
 
-const PIPELINE_MAP: Record<string, number> = {
+const STATUS_STEP: Record<string, number> = {
   new: 0, in_progress: 0, inspection_done: 1, quoted: 2, won: 3,
 };
 const PIPELINE_LABELS = ["Enquiry", "Inspection", "Quote", "Job"];
@@ -42,14 +42,20 @@ function PipelineTracker({
   inspectionId?: number | null;
   jobId?: number | null;
 }) {
-  const currentStep = PIPELINE_MAP[status] ?? 0;
-  const isDone = status === "won";
   const isLost = status === "lost" || status === "closed";
+  const statusReached = STATUS_STEP[status] ?? 0;
 
-  const getHref = (i: number) => {
-    if (i === 0) return `/enquiries/${enquiryId}`;
-    if (i === 1 && inspectionId) return `/inspections/${inspectionId}`;
-    if (i === 3 && jobId) return `/jobs/${jobId}`;
+  const stepDone = (i: number) => {
+    if (i === 0) return true;
+    if (i === 1) return !!inspectionId || statusReached >= 1;
+    if (i === 2) return statusReached >= 2;
+    if (i === 3) return !!jobId || statusReached >= 3;
+    return false;
+  };
+
+  const getHref = (i: number, done: boolean) => {
+    if (i === 1 && done && inspectionId) return `/inspections/${inspectionId}`;
+    if (i === 3 && done && jobId) return `/jobs/${jobId}`;
     return null;
   };
 
@@ -64,22 +70,20 @@ function PipelineTracker({
   return (
     <div className="flex items-center gap-1">
       {PIPELINE_LABELS.map((label, i) => {
-        const active = i === currentStep && !isDone;
-        const done = i < currentStep || isDone;
-        const href = getHref(i);
+        const done = stepDone(i);
+        const nextDone = stepDone(i + 1);
+        const href = getHref(i, done);
         const pill = (
           <div className={cn(
             "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all",
             done
-              ? "bg-green-500 text-white border-green-500"
-              : active
               ? "bg-primary text-primary-foreground border-primary"
               : "bg-muted text-muted-foreground border-muted-foreground/20",
             href && "cursor-pointer hover:opacity-80",
           )}>
             {done && <CheckCircle2 className="h-2.5 w-2.5" />}
             {label}
-            {href && done && <ExternalLink className="h-2 w-2 opacity-70" />}
+            {href && <ExternalLink className="h-2 w-2 opacity-70" />}
           </div>
         );
 
@@ -87,7 +91,7 @@ function PipelineTracker({
           <div key={label} className="flex items-center gap-1">
             {href ? <Link href={href}>{pill}</Link> : pill}
             {i < PIPELINE_LABELS.length - 1 && (
-              <div className={cn("w-3 h-px", done ? "bg-green-500" : "bg-muted-foreground/30")} />
+              <div className={cn("w-3 h-px", done && nextDone ? "bg-primary/50" : "bg-muted-foreground/30")} />
             )}
           </div>
         );
