@@ -135,9 +135,10 @@ function SendQuoteSection({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [replacing, setReplacing] = useState(false);
   const { toast } = useToast();
 
-  const handleSend = async () => {
+  const uploadAndSubmit = async (isReplace: boolean) => {
     if (!selectedFile) {
       toast({ title: "Please select a PDF file", variant: "destructive" });
       return;
@@ -166,20 +167,28 @@ function SendQuoteSection({
       });
       if (!uploadRes.ok) throw new Error("File upload failed");
 
-      // Step 3: Create quote record
-      const quoteRes = await fetch(`${BASE}/api/quotes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enquiryId, customerId, fileUrl: objectPath, notes: notes || null }),
-      });
+      // Step 3: Create or replace quote record
+      const quoteRes = isReplace && quoteId
+        ? await fetch(`${BASE}/api/quotes/${quoteId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileUrl: objectPath, notes: notes || null }),
+          })
+        : await fetch(`${BASE}/api/quotes`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ enquiryId, customerId, fileUrl: objectPath, notes: notes || null }),
+          });
+
       if (!quoteRes.ok) {
         const j = await quoteRes.json();
-        throw new Error(j.error || "Failed to create quote");
+        throw new Error(j.error || "Failed to save quote");
       }
 
-      toast({ title: "Quote sent to customer" });
+      toast({ title: isReplace ? "Quote replaced and re-sent to customer" : "Quote sent to customer" });
       setSelectedFile(null);
       setNotes("");
+      setReplacing(false);
       if (fileRef.current) fileRef.current.value = "";
       onSent();
     } catch (e: any) {
@@ -188,6 +197,9 @@ function SendQuoteSection({
       setUploading(false);
     }
   };
+
+  const handleSend = () => uploadAndSubmit(false);
+  const handleReplace = () => uploadAndSubmit(true);
 
   const quoteStatusColors: Record<string, string> = {
     sent: "bg-cyan-50 border-cyan-200 text-cyan-700",
@@ -210,7 +222,7 @@ function SendQuoteSection({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {quoteId ? (
+        {quoteId && !replacing ? (
           <div className="space-y-3">
             <div className={cn("flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium", quoteStatusColors[quoteStatus ?? "sent"] ?? "bg-gray-50 border-gray-200 text-gray-600")}>
               {quoteStatus === "accepted" && <ThumbsUp className="h-4 w-4" />}
@@ -218,22 +230,41 @@ function SendQuoteSection({
               {quoteStatus === "sent" && <Clock className="h-4 w-4" />}
               {quoteStatusLabel[quoteStatus ?? "sent"] ?? quoteStatus}
             </div>
-            {quoteToken && (
-              <a
-                href={`${BASE}/quote/${quoteToken}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-primary hover:underline"
+            <div className="flex items-center gap-3 flex-wrap">
+              {quoteToken && (
+                <a
+                  href={`${BASE}/quote/${quoteToken}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  View customer quote page
+                </a>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 text-xs"
+                onClick={() => { setReplacing(true); setSelectedFile(null); setNotes(""); }}
               >
-                <ExternalLink className="h-3.5 w-3.5" />
-                View customer quote page
-              </a>
-            )}
+                <Upload className="h-3.5 w-3.5" />
+                Replace Quote
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
+            {replacing && (
+              <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <Upload className="h-4 w-4" />
+                Uploading a new PDF will replace the current quote and re-send the email to the customer.
+              </div>
+            )}
             <p className="text-sm text-muted-foreground">
-              Upload a PDF quote to send to the customer. They will receive an email with a link to review and accept or decline.
+              {replacing
+                ? "Select the corrected PDF to send to the customer."
+                : "Upload a PDF quote to send to the customer. They will receive an email with a link to review and accept or decline."}
             </p>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Quote PDF</label>
@@ -265,10 +296,23 @@ function SendQuoteSection({
                 rows={2}
               />
             </div>
-            <Button onClick={handleSend} disabled={uploading || !selectedFile} className="gap-2">
-              <Send className="h-4 w-4" />
-              {uploading ? "Sending..." : "Send Quote to Customer"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={replacing ? handleReplace : handleSend}
+                disabled={uploading || !selectedFile}
+                className="gap-2"
+              >
+                <Send className="h-4 w-4" />
+                {uploading
+                  ? (replacing ? "Replacing..." : "Sending...")
+                  : (replacing ? "Replace & Re-send to Customer" : "Send Quote to Customer")}
+              </Button>
+              {replacing && (
+                <Button variant="outline" onClick={() => { setReplacing(false); setSelectedFile(null); }}>
+                  Cancel
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </CardContent>

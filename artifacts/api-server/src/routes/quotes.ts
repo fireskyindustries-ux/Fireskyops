@@ -75,6 +75,58 @@ router.post("/quotes", async (req, res): Promise<void> => {
   });
 });
 
+// ── Internal: replace an existing quote (auth required) ──
+router.put("/quotes/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { fileUrl, notes, resendEmail } = req.body;
+  if (!fileUrl) { res.status(400).json({ error: "fileUrl is required" }); return; }
+
+  const [existing] = await db.select().from(quotesTable).where(eq(quotesTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Quote not found" }); return; }
+
+  const [quote] = await db
+    .update(quotesTable)
+    .set({
+      fileUrl,
+      notes: notes ?? existing.notes,
+      status: "sent",
+      respondedAt: null,
+      sentAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(quotesTable.id, id))
+    .returning();
+
+  // Re-send email to customer if requested
+  if (resendEmail !== false) {
+    const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, existing.customerId));
+    if (customer?.email) {
+      try {
+        const { sendQuoteEmail } = await import("../lib/email");
+        await sendQuoteEmail({
+          customerName: customer.contactName || customer.name,
+          customerEmail: customer.email,
+          quoteToken: quote.quoteToken,
+          jobTitle: existing.enquiryId ? `Enquiry #${existing.enquiryId}` : `Job #${existing.jobId}`,
+          notes: quote.notes ?? null,
+        });
+      } catch (err) {
+        logger.error({ err }, "Failed to re-send quote email");
+      }
+    }
+    const { notifyAdmins } = await import("../lib/notify");
+    notifyAdmins(
+      `Quote replaced — ${existing.enquiryId ? `Enquiry #${existing.enquiryId}` : `Job #${existing.jobId}`}`,
+      "Quote PDF replaced and re-sent to customer",
+      existing.enquiryId ? `/enquiries/${existing.enquiryId}` : existing.jobId ? `/jobs/${existing.jobId}` : "/enquiries"
+    );
+  }
+
+  res.json({ id: quote.id, quoteToken: quote.quoteToken, status: quote.status, fileUrl: quote.fileUrl, sentAt: quote.sentAt });
+});
+
 // ── Internal: list quotes for an enquiry or job (auth required) ──
 router.get("/quotes", async (req, res): Promise<void> => {
   const enquiryId = req.query.enquiryId ? Number(req.query.enquiryId) : null;
