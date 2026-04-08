@@ -7,9 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, UserPlus, Trash2, Shield, User, AlertTriangle } from "lucide-react";
-
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+import { Loader2, UserPlus, Trash2, Shield, User } from "lucide-react";
 
 interface AppUser {
   id: string;
@@ -211,71 +209,6 @@ export default function AdminUsers() {
           )}
         </CardContent>
       </Card>
-      {/* Temporary: Clear all production data */}
-      <Card className="border-red-200">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2 text-red-700">
-            <AlertTriangle className="h-4 w-4" />
-            Clear All Data
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            This will permanently delete all customers, enquiries, jobs, inspections, quotes, and related records from the live database. This cannot be undone.
-          </p>
-          <ClearDataButton />
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function ClearDataButton() {
-  const [confirmed, setConfirmed] = useState(false);
-  const [clearing, setClearing] = useState(false);
-  const [done, setDone] = useState(false);
-  const { toast } = useToast();
-
-  const handleClear = async () => {
-    setClearing(true);
-    try {
-      const res = await fetch(`${BASE}/api/admin/reset-data`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed");
-      setDone(true);
-      toast({ title: "All data cleared successfully." });
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
-    } finally {
-      setClearing(false);
-    }
-  };
-
-  if (done) {
-    return <p className="text-sm text-green-700 font-medium">All data has been cleared successfully.</p>;
-  }
-
-  if (!confirmed) {
-    return (
-      <Button variant="destructive" onClick={() => setConfirmed(true)}>
-        Clear All Data
-      </Button>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <p className="text-sm font-medium text-red-700">Are you sure? This will delete everything permanently.</p>
-      <div className="flex gap-2">
-        <Button variant="destructive" onClick={handleClear} disabled={clearing}>
-          {clearing ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Clearing...</> : "Yes, delete everything"}
-        </Button>
-        <Button variant="outline" onClick={() => setConfirmed(false)} disabled={clearing}>Cancel</Button>
-      </div>
     </div>
   );
 }
