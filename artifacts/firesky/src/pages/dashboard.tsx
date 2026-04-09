@@ -2,7 +2,7 @@ import { useGetDashboardSummary } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Users, FileText, Briefcase, Plus, ArrowRight, ChevronRight } from "lucide-react";
+import { Users, FileText, Briefcase, Plus, ArrowRight, ChevronRight, Clock, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { SkyInlineButton } from "@/components/sky";
@@ -97,6 +97,28 @@ function EnquiryPipelineTracker({
       })}
     </div>
   );
+}
+
+function HudTile({
+  count, label, icon: Icon, activeClass, href,
+}: {
+  count: number; label: string; icon: React.ElementType;
+  activeClass: string; href?: string;
+}) {
+  const active = count > 0;
+  const inner = (
+    <div className={cn(
+      "flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 text-center transition-colors",
+      active ? activeClass : "border-transparent bg-muted/40 text-muted-foreground",
+      href && active && "cursor-pointer hover:opacity-80",
+    )}>
+      <Icon className="h-4 w-4 opacity-70" />
+      <span className="text-2xl font-bold leading-none tabular-nums">{count}</span>
+      <span className="text-[10px] leading-tight font-medium">{label}</span>
+    </div>
+  );
+  if (href && active) return <Link href={href}>{inner}</Link>;
+  return inner;
 }
 
 function StatCard({ label, value, icon: Icon, iconBg, iconColor, sub, href }: {
@@ -196,6 +218,41 @@ export default function Dashboard() {
           sub="In pipeline"
           href="/jobs"
         />
+      </div>
+
+      {/* Pipeline health HUD */}
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Pipeline Health</p>
+        <div className="grid grid-cols-4 gap-2">
+          <HudTile
+            count={summary.staleEnquiries}
+            label="Stale Enquiries"
+            icon={Clock}
+            activeClass="bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400"
+            href="/enquiries"
+          />
+          <HudTile
+            count={summary.staleJobs}
+            label="Stale Jobs"
+            icon={Clock}
+            activeClass="bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400"
+            href="/jobs"
+          />
+          <HudTile
+            count={summary.urgentEnquiries}
+            label="Urgent Enquiries"
+            icon={AlertTriangle}
+            activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
+            href="/enquiries"
+          />
+          <HudTile
+            count={summary.urgentJobs}
+            label="Urgent Jobs"
+            icon={AlertTriangle}
+            activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
+            href="/jobs"
+          />
+        </div>
       </div>
 
       {/* Recent cards */}

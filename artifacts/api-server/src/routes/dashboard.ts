@@ -1,11 +1,14 @@
 import { Router, type IRouter } from "express";
-import { desc, inArray, eq } from "drizzle-orm";
+import { desc, inArray, eq, and, lt, notInArray, count } from "drizzle-orm";
 import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
 router.get("/dashboard/summary", async (req, res): Promise<void> => {
-  const [customers, enquiries, jobs, recentEnquiriesRaw, recentJobsRaw] = await Promise.all([
+  const staleThreshold = new Date(Date.now() - 48 * 60 * 60 * 1000);
+
+  const [customers, enquiries, jobs, recentEnquiriesRaw, recentJobsRaw,
+         staleEnquiries, staleJobs, urgentEnquiries, urgentJobs] = await Promise.all([
     db.select().from(customersTable),
     db.select().from(enquiriesTable),
     db.select().from(jobsTable),
@@ -33,6 +36,14 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
       .from(jobsTable)
       .orderBy(desc(jobsTable.createdAt))
       .limit(5),
+    db.select({ count: count() }).from(enquiriesTable).where(
+      and(inArray(enquiriesTable.status, ["new", "in_progress"]), lt(enquiriesTable.updatedAt, staleThreshold)),
+    ),
+    db.select({ count: count() }).from(jobsTable).where(
+      and(notInArray(jobsTable.stage, ["won", "lost", "closed"]), lt(jobsTable.updatedAt, staleThreshold)),
+    ),
+    db.select({ count: count() }).from(enquiriesTable).where(eq(enquiriesTable.priority, "high")),
+    db.select({ count: count() }).from(jobsTable).where(eq(jobsTable.priority, "high")),
   ]);
 
   const enquiryIds = recentEnquiriesRaw.map((e) => e.id);
@@ -79,6 +90,10 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     totalCustomers: customers.length,
     totalEnquiries: enquiries.length,
     totalJobs: jobs.length,
+    staleEnquiries: Number(staleEnquiries[0].count),
+    staleJobs: Number(staleJobs[0].count),
+    urgentEnquiries: Number(urgentEnquiries[0].count),
+    urgentJobs: Number(urgentJobs[0].count),
     jobsByStage,
     recentEnquiries,
     recentJobs,

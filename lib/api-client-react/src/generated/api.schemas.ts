@@ -86,6 +86,10 @@ export interface DashboardSummary {
   totalCustomers: number;
   totalEnquiries: number;
   totalJobs: number;
+  staleEnquiries: number;
+  staleJobs: number;
+  urgentEnquiries: number;
+  urgentJobs: number;
   jobsByStage: DashboardSummaryJobsByStage;
   recentEnquiries: Enquiry[];
   recentJobs: Job[];
