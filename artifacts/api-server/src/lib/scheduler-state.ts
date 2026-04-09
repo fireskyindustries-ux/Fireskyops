@@ -4,8 +4,17 @@ import path from "path";
 const STATE_DIR = path.join(process.cwd(), "data");
 const STATE_FILE = path.join(STATE_DIR, "scheduler-state.json");
 
+export interface SchedulerCounts {
+  newRecords: number;
+  staleEnquiries: number;
+  staleJobs: number;
+  urgentEnquiries: number;
+  urgentJobs: number;
+}
+
 export interface SchedulerState {
   lastSuccessfulCheck: string;
+  lastNotifiedCounts?: SchedulerCounts;
 }
 
 export const INTERVAL_MS = 30 * 60 * 1000;

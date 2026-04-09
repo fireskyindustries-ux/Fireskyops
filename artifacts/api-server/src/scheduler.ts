@@ -1,7 +1,8 @@
 import { gt, lt, count, and, inArray, notInArray, eq } from "drizzle-orm";
 import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable } from "@workspace/db";
 import { logger } from "./lib/logger";
-import { loadSchedulerState, saveSchedulerState, INTERVAL_MS, STALE_MS } from "./lib/scheduler-state";
+import { loadSchedulerState, saveSchedulerState, INTERVAL_MS, STALE_MS, type SchedulerCounts } from "./lib/scheduler-state";
+import { notifyAdmins } from "./lib/notify";
 
 async function runCheck(): Promise<void> {
   const runAt = new Date();
@@ -66,7 +67,42 @@ async function runCheck(): Promise<void> {
   logger.info(`[scheduler]   Urgent jobs:          ${urgentJobs[0].count}`);
   logger.info("─────────────────────────────────────────────────");
 
-  saveSchedulerState({ lastSuccessfulCheck: runAt.toISOString() });
+  const currentCounts: SchedulerCounts = {
+    newRecords: customers[0].count + enquiries[0].count + jobs[0].count + inspections[0].count,
+    staleEnquiries: staleEnquiries[0].count,
+    staleJobs: staleJobs[0].count,
+    urgentEnquiries: urgentEnquiries[0].count,
+    urgentJobs: urgentJobs[0].count,
+  };
+
+  const prev = state.lastNotifiedCounts;
+  const countsChanged = !prev ||
+    prev.newRecords !== currentCounts.newRecords ||
+    prev.staleEnquiries !== currentCounts.staleEnquiries ||
+    prev.staleJobs !== currentCounts.staleJobs ||
+    prev.urgentEnquiries !== currentCounts.urgentEnquiries ||
+    prev.urgentJobs !== currentCounts.urgentJobs;
+
+  const anyAboveZero = Object.values(currentCounts).some((v) => v > 0);
+
+  if (anyAboveZero && countsChanged) {
+    const parts: string[] = [];
+    if (currentCounts.newRecords > 0) parts.push(`${currentCounts.newRecords} new record${currentCounts.newRecords !== 1 ? "s" : ""}`);
+    if (currentCounts.staleEnquiries > 0) parts.push(`${currentCounts.staleEnquiries} stale enquir${currentCounts.staleEnquiries !== 1 ? "ies" : "y"}`);
+    if (currentCounts.staleJobs > 0) parts.push(`${currentCounts.staleJobs} stale job${currentCounts.staleJobs !== 1 ? "s" : ""}`);
+    if (currentCounts.urgentEnquiries > 0) parts.push(`${currentCounts.urgentEnquiries} urgent enquir${currentCounts.urgentEnquiries !== 1 ? "ies" : "y"}`);
+    if (currentCounts.urgentJobs > 0) parts.push(`${currentCounts.urgentJobs} urgent job${currentCounts.urgentJobs !== 1 ? "s" : ""}`);
+
+    const body = parts.join(", ");
+    logger.info(`[scheduler] Notifying admins: ${body}`);
+    await notifyAdmins("Scheduler alert", body, "/dashboard");
+  } else if (!anyAboveZero) {
+    logger.info("[scheduler] All counts zero — no notification sent");
+  } else {
+    logger.info("[scheduler] Counts unchanged since last notification — skipping");
+  }
+
+  saveSchedulerState({ lastSuccessfulCheck: runAt.toISOString(), lastNotifiedCounts: currentCounts });
   logger.info(`[scheduler] Timestamp saved: ${runAt.toISOString()}`);
   logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 }
