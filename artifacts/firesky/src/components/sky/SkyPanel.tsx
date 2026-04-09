@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type KeyboardEvent } from "react";
-import { Sparkles, X, Send, RotateCcw, ChevronRight, Database, RefreshCw, AlertCircle } from "lucide-react";
+import { Sparkles, X, Send, RotateCcw, ChevronRight, Database, RefreshCw, AlertCircle, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useSkyState, useSkyActions, type SkyContextType } from "./SkyContext";
 import { useUser } from "@clerk/react";
 import { cn } from "@/lib/utils";
+import { SkyCameraMode } from "./SkyCameraMode";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 function skyApiUrl(path: string) { return `${BASE}${path}`; }
@@ -172,6 +173,7 @@ export function SkyPanel() {
   const isAdmin = role === "admin";
 
   const [input, setInput] = useState("");
+  const [cameraOpen, setCameraOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -202,6 +204,10 @@ export function SkyPanel() {
   };
 
   if (!isOpen) return null;
+
+  if (cameraOpen) {
+    return <SkyCameraMode onClose={() => setCameraOpen(false)} />;
+  }
 
   const contextLabel = isAdmin
     ? "System Brain"
@@ -320,6 +326,15 @@ export function SkyPanel() {
         <div className="border-t border-border flex-shrink-0 bg-background">
           <div className="p-3">
             <div className="flex gap-2 items-end">
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-10 w-10 rounded-xl flex-shrink-0"
+                onClick={() => setCameraOpen(true)}
+                title="Sky Vision — point camera at a site or installation"
+              >
+                <Camera className="h-4 w-4" />
+              </Button>
               <Textarea
                 ref={textareaRef}
                 value={input}

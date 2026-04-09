@@ -1077,4 +1077,59 @@ router.post("/sky/chat", async (req, res) => {
   }
 });
 
+// ─── Vision endpoint ─────────────────────────────────────────────────────────
+
+router.post("/api/sky/vision", requireAuth, async (req, res): Promise<void> => {
+  const { imageBase64, mimeType = "image/jpeg", question } = req.body;
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const sseWrite = (data: Record<string, unknown>) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  const userQuestion =
+    question?.trim() ||
+    "What do you see in this image? Describe what you observe and flag anything relevant to a Firesky water tank installation, site inspection, or delivery.";
+
+  try {
+    const stream = await openai.chat.completions.create({
+      model: "gpt-4o",
+      max_tokens: 1024,
+      messages: [
+        { role: "system", content: FIRESKY_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${imageBase64}`,
+                detail: "high",
+              },
+            } as any,
+            { type: "text", text: userQuestion },
+          ],
+        },
+      ],
+      stream: true,
+    });
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content;
+      if (content) sseWrite({ content });
+    }
+
+    sseWrite({ done: true });
+    res.end();
+  } catch (err: any) {
+    console.error("Sky vision error:", err);
+    sseWrite({ error: "Sky vision is unavailable right now. Please try again." });
+    sseWrite({ done: true });
+    res.end();
+  }
+});
+
 export default router;
