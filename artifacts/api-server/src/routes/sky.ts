@@ -996,7 +996,7 @@ router.post("/sky/chat", async (req, res) => {
         let completion: any;
         try {
           completion = await (openai.chat.completions.create as any)({
-            model: "gpt-5.2",
+            model: "gpt-5.4",
             max_completion_tokens: 8192,
             messages: chatMessages,
             tools: ADMIN_TOOLS,
@@ -1006,7 +1006,7 @@ router.post("/sky/chat", async (req, res) => {
           // If tools not supported, fall through to plain streaming
           console.warn("Tool calling failed, falling back to streaming:", toolErr.message);
           const fallback = await openai.chat.completions.create({
-            model: "gpt-5.2",
+            model: "gpt-5.4",
             max_completion_tokens: 8192,
             messages: chatMessages,
             stream: true,
@@ -1055,7 +1055,7 @@ router.post("/sky/chat", async (req, res) => {
     } else {
       // ── Non-admin: plain streaming ────────────────────────────────────────
       const stream = await openai.chat.completions.create({
-        model: "gpt-5.2",
+        model: "gpt-5.4",
         max_completion_tokens: 8192,
         messages: chatMessages,
         stream: true,
