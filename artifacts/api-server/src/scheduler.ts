@@ -1,41 +1,11 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
-import path from "path";
 import { gt, lt, count, and, inArray, notInArray, eq } from "drizzle-orm";
 import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable } from "@workspace/db";
 import { logger } from "./lib/logger";
-
-const STATE_DIR = path.join(process.cwd(), "data");
-const STATE_FILE = path.join(STATE_DIR, "scheduler-state.json");
-const INTERVAL_MS = 30 * 60 * 1000;
-const STALE_MS = 48 * 60 * 60 * 1000;
-
-interface SchedulerState {
-  lastSuccessfulCheck: string;
-}
-
-function loadState(): SchedulerState {
-  try {
-    if (existsSync(STATE_FILE)) {
-      const raw = readFileSync(STATE_FILE, "utf-8");
-      const parsed = JSON.parse(raw) as SchedulerState;
-      if (parsed.lastSuccessfulCheck) return parsed;
-    }
-  } catch (err) {
-    logger.warn({ err }, "[scheduler] Could not read state file — using default");
-  }
-  return { lastSuccessfulCheck: new Date(Date.now() - INTERVAL_MS).toISOString() };
-}
-
-function saveState(state: SchedulerState): void {
-  if (!existsSync(STATE_DIR)) {
-    mkdirSync(STATE_DIR, { recursive: true });
-  }
-  writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), "utf-8");
-}
+import { loadSchedulerState, saveSchedulerState, INTERVAL_MS, STALE_MS } from "./lib/scheduler-state";
 
 async function runCheck(): Promise<void> {
   const runAt = new Date();
-  const state = loadState();
+  const state = loadSchedulerState();
   const since = new Date(state.lastSuccessfulCheck);
   const staleThreshold = new Date(runAt.getTime() - STALE_MS);
 
@@ -96,7 +66,7 @@ async function runCheck(): Promise<void> {
   logger.info(`[scheduler]   Urgent jobs:          ${urgentJobs[0].count}`);
   logger.info("─────────────────────────────────────────────────");
 
-  saveState({ lastSuccessfulCheck: runAt.toISOString() });
+  saveSchedulerState({ lastSuccessfulCheck: runAt.toISOString() });
   logger.info(`[scheduler] Timestamp saved: ${runAt.toISOString()}`);
   logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 }

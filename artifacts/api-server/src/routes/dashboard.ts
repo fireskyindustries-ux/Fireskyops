@@ -1,14 +1,18 @@
 import { Router, type IRouter } from "express";
-import { desc, inArray, eq, and, lt, notInArray, count } from "drizzle-orm";
+import { desc, inArray, eq, and, lt, notInArray, count, gt } from "drizzle-orm";
 import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable } from "@workspace/db";
+import { loadSchedulerState, STALE_MS } from "../lib/scheduler-state";
 
 const router: IRouter = Router();
 
 router.get("/dashboard/summary", async (req, res): Promise<void> => {
-  const staleThreshold = new Date(Date.now() - 48 * 60 * 60 * 1000);
+  const schedulerState = loadSchedulerState();
+  const since = new Date(schedulerState.lastSuccessfulCheck);
+  const staleThreshold = new Date(Date.now() - STALE_MS);
 
   const [customers, enquiries, jobs, recentEnquiriesRaw, recentJobsRaw,
-         staleEnquiries, staleJobs, urgentEnquiries, urgentJobs] = await Promise.all([
+         staleEnquiries, staleJobs, urgentEnquiries, urgentJobs,
+         newCustomers, newEnquiries, newJobs, newInspections] = await Promise.all([
     db.select().from(customersTable),
     db.select().from(enquiriesTable),
     db.select().from(jobsTable),
@@ -44,6 +48,11 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     ),
     db.select({ count: count() }).from(enquiriesTable).where(eq(enquiriesTable.priority, "high")),
     db.select({ count: count() }).from(jobsTable).where(eq(jobsTable.priority, "high")),
+    // New records since last scheduler check
+    db.select({ count: count() }).from(customersTable).where(gt(customersTable.createdAt, since)),
+    db.select({ count: count() }).from(enquiriesTable).where(gt(enquiriesTable.createdAt, since)),
+    db.select({ count: count() }).from(jobsTable).where(gt(jobsTable.createdAt, since)),
+    db.select({ count: count() }).from(inspectionsTable).where(gt(inspectionsTable.createdAt, since)),
   ]);
 
   const enquiryIds = recentEnquiriesRaw.map((e) => e.id);
@@ -94,6 +103,8 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     staleJobs: Number(staleJobs[0].count),
     urgentEnquiries: Number(urgentEnquiries[0].count),
     urgentJobs: Number(urgentJobs[0].count),
+    newRecords: Number(newCustomers[0].count) + Number(newEnquiries[0].count) + Number(newJobs[0].count) + Number(newInspections[0].count),
+    lastChecked: schedulerState.lastSuccessfulCheck,
     jobsByStage,
     recentEnquiries,
     recentJobs,

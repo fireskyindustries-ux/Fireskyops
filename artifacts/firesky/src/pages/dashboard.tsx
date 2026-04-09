@@ -2,11 +2,12 @@ import { useGetDashboardSummary } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Users, FileText, Briefcase, Plus, ArrowRight, ChevronRight, Clock, AlertTriangle } from "lucide-react";
+import { Users, FileText, Briefcase, Plus, ArrowRight, ChevronRight, Clock, AlertTriangle, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { SkyInlineButton } from "@/components/sky";
 import { cn } from "@/lib/utils";
+import { useUser } from "@clerk/react";
 
 const ENQUIRY_STATUS_STYLES: Record<string, { dot: string; badge: string; label: string }> = {
   new:              { dot: "bg-blue-500",   badge: "bg-blue-50 text-blue-700 border-blue-200",    label: "New" },
@@ -145,6 +146,9 @@ function StatCard({ label, value, icon: Icon, iconBg, iconColor, sub, href }: {
 
 export default function Dashboard() {
   const { data: summary, isLoading, error } = useGetDashboardSummary();
+  const { user } = useUser();
+  const role = (user?.publicMetadata?.role as string) || "guest";
+  const isAdmin = role === "admin";
 
   if (isLoading) {
     return (
@@ -220,40 +224,53 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Pipeline health HUD */}
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Pipeline Health</p>
-        <div className="grid grid-cols-4 gap-2">
-          <HudTile
-            count={summary.staleEnquiries}
-            label="Stale Enquiries"
-            icon={Clock}
-            activeClass="bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400"
-            href="/enquiries"
-          />
-          <HudTile
-            count={summary.staleJobs}
-            label="Stale Jobs"
-            icon={Clock}
-            activeClass="bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400"
-            href="/jobs"
-          />
-          <HudTile
-            count={summary.urgentEnquiries}
-            label="Urgent Enquiries"
-            icon={AlertTriangle}
-            activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
-            href="/enquiries"
-          />
-          <HudTile
-            count={summary.urgentJobs}
-            label="Urgent Jobs"
-            icon={AlertTriangle}
-            activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
-            href="/jobs"
-          />
+      {/* Admin summary HUD — admin only */}
+      {isAdmin && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Admin Summary</p>
+            <p className="text-[10px] text-muted-foreground">
+              Last check: {formatDistanceToNow(new Date(summary.lastChecked), { addSuffix: true })}
+            </p>
+          </div>
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+            <HudTile
+              count={summary.newRecords}
+              label="New Records"
+              icon={Sparkles}
+              activeClass="bg-primary/8 border-primary/20 text-primary dark:bg-primary/15 dark:border-primary/30"
+            />
+            <HudTile
+              count={summary.staleEnquiries}
+              label="Stale Enquiries"
+              icon={Clock}
+              activeClass="bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400"
+              href="/enquiries"
+            />
+            <HudTile
+              count={summary.staleJobs}
+              label="Stale Jobs"
+              icon={Clock}
+              activeClass="bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400"
+              href="/jobs"
+            />
+            <HudTile
+              count={summary.urgentEnquiries}
+              label="Urgent Enquiries"
+              icon={AlertTriangle}
+              activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
+              href="/enquiries"
+            />
+            <HudTile
+              count={summary.urgentJobs}
+              label="Urgent Jobs"
+              icon={AlertTriangle}
+              activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
+              href="/jobs"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Recent cards */}
       <div className="grid gap-6 md:grid-cols-2">

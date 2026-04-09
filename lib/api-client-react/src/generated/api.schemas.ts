@@ -90,6 +90,8 @@ export interface DashboardSummary {
   staleJobs: number;
   urgentEnquiries: number;
   urgentJobs: number;
+  newRecords: number;
+  lastChecked: string;
   jobsByStage: DashboardSummaryJobsByStage;
   recentEnquiries: Enquiry[];
   recentJobs: Job[];
