@@ -1135,7 +1135,7 @@ router.post("/sky/vision", requireAuth, async (req, res): Promise<void> => {
   try {
     // Stream the main analysis
     const stream = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-5.4",
       max_tokens: 512,
       messages: chatMessages,
       stream: true,
@@ -1162,7 +1162,7 @@ router.post("/sky/vision", requireAuth, async (req, res): Promise<void> => {
         },
       ];
       const sugResp = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5.4-mini",
         max_tokens: 120,
         messages: suggestionMessages,
       });
