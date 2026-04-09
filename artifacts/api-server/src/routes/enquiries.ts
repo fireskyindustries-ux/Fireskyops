@@ -34,6 +34,10 @@ router.get("/enquiries", async (req, res): Promise<void> => {
       status: enquiriesTable.status,
       priority: enquiriesTable.priority,
       notes: enquiriesTable.notes,
+      nextAction: enquiriesTable.nextAction,
+      nextActionDate: enquiriesTable.nextActionDate,
+      followUpDueDate: enquiriesTable.followUpDueDate,
+      assignedStaff: enquiriesTable.assignedStaff,
       createdAt: enquiriesTable.createdAt,
       updatedAt: enquiriesTable.updatedAt,
     })
@@ -55,6 +59,10 @@ router.get("/enquiries", async (req, res): Promise<void> => {
     tankSize: r.tankSize ?? undefined,
     tankQuantity: r.tankQuantity ?? undefined,
     notes: r.notes ?? undefined,
+    nextAction: r.nextAction ?? undefined,
+    nextActionDate: r.nextActionDate ?? undefined,
+    followUpDueDate: r.followUpDueDate ?? undefined,
+    assignedStaff: r.assignedStaff ?? undefined,
   }));
   res.json(ListEnquiriesResponse.parse(normalized));
 });
@@ -103,6 +111,10 @@ router.get("/enquiries/:id", async (req, res): Promise<void> => {
       status: enquiriesTable.status,
       priority: enquiriesTable.priority,
       notes: enquiriesTable.notes,
+      nextAction: enquiriesTable.nextAction,
+      nextActionDate: enquiriesTable.nextActionDate,
+      followUpDueDate: enquiriesTable.followUpDueDate,
+      assignedStaff: enquiriesTable.assignedStaff,
       createdAt: enquiriesTable.createdAt,
       updatedAt: enquiriesTable.updatedAt,
     })
@@ -138,6 +150,10 @@ router.get("/enquiries/:id", async (req, res): Promise<void> => {
     tankSize: row.tankSize ?? undefined,
     tankQuantity: row.tankQuantity ?? undefined,
     notes: row.notes ?? undefined,
+    nextAction: row.nextAction ?? undefined,
+    nextActionDate: row.nextActionDate ?? undefined,
+    followUpDueDate: row.followUpDueDate ?? undefined,
+    assignedStaff: row.assignedStaff ?? undefined,
     inspectionId: linkedInspection[0]?.id ?? undefined,
     jobId: linkedJob[0]?.id ?? undefined,
     quoteId: linkedQuote[0]?.id ?? undefined,
@@ -177,7 +193,14 @@ router.put("/enquiries/:id", async (req, res): Promise<void> => {
     .where(eq(customersTable.id, enquiry.customerId));
 
   res.json(
-    UpdateEnquiryResponse.parse({ ...enquiry, customerName: customer?.name ?? undefined }),
+    UpdateEnquiryResponse.parse({
+      ...enquiry,
+      customerName: customer?.name ?? undefined,
+      nextAction: enquiry.nextAction ?? undefined,
+      nextActionDate: enquiry.nextActionDate ?? undefined,
+      followUpDueDate: enquiry.followUpDueDate ?? undefined,
+      assignedStaff: enquiry.assignedStaff ?? undefined,
+    }),
   );
 });
 

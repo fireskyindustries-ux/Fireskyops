@@ -42,6 +42,10 @@ export interface Enquiry {
   status: EnquiryStatus;
   priority?: EnquiryPriority;
   notes?: string;
+  nextAction?: string;
+  nextActionDate?: string;
+  followUpDueDate?: string;
+  assignedStaff?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,6 +82,12 @@ export interface Job {
   tankQuantity?: number;
   estimatedValue?: number;
   notes?: string;
+  nextAction?: string;
+  nextActionDate?: string;
+  followUpDueDate?: string;
+  quoteSentDate?: string;
+  lostReason?: string;
+  accessRisk?: string;
   createdAt: string;
   updatedAt: string;
 }

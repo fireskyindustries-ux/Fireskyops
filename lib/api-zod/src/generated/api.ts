@@ -238,6 +238,10 @@ export const CreateEnquiryBody = zod.object({
     .nullish(),
   priority: zod.enum(["low", "medium", "high"]).nullish(),
   notes: zod.string().nullish(),
+  nextAction: zod.string().nullish(),
+  nextActionDate: zod.string().nullish(),
+  followUpDueDate: zod.string().nullish(),
+  assignedStaff: zod.string().nullish(),
 });
 
 /**
@@ -266,6 +270,10 @@ export const GetEnquiryResponse = zod.object({
   ]),
   priority: zod.enum(["low", "medium", "high"]).nullish(),
   notes: zod.string().nullish(),
+  nextAction: zod.string().nullish(),
+  nextActionDate: zod.string().nullish(),
+  followUpDueDate: zod.string().nullish(),
+  assignedStaff: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
   inspectionId: zod.number().nullish(),
@@ -294,6 +302,10 @@ export const UpdateEnquiryBody = zod.object({
     .nullish(),
   priority: zod.enum(["low", "medium", "high"]).nullish(),
   notes: zod.string().nullish(),
+  nextAction: zod.string().nullish(),
+  nextActionDate: zod.string().nullish(),
+  followUpDueDate: zod.string().nullish(),
+  assignedStaff: zod.string().nullish(),
 });
 
 export const UpdateEnquiryResponse = zod.object({
@@ -315,6 +327,10 @@ export const UpdateEnquiryResponse = zod.object({
   ]),
   priority: zod.enum(["low", "medium", "high"]).nullish(),
   notes: zod.string().nullish(),
+  nextAction: zod.string().nullish(),
+  nextActionDate: zod.string().nullish(),
+  followUpDueDate: zod.string().nullish(),
+  assignedStaff: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -563,6 +579,12 @@ export const CreateJobBody = zod.object({
   estimatedValue: zod.number().nullish(),
   assignedToId: zod.string().nullish(),
   notes: zod.string().nullish(),
+  nextAction: zod.string().nullish(),
+  nextActionDate: zod.string().nullish(),
+  followUpDueDate: zod.string().nullish(),
+  quoteSentDate: zod.string().nullish(),
+  lostReason: zod.string().nullish(),
+  accessRisk: zod.enum(["low", "medium", "high"]).nullish(),
 });
 
 /**
@@ -593,6 +615,12 @@ export const GetJobResponse = zod.object({
   estimatedValue: zod.number().nullish(),
   assignedToId: zod.string().nullish(),
   notes: zod.string().nullish(),
+  nextAction: zod.string().nullish(),
+  nextActionDate: zod.string().nullish(),
+  followUpDueDate: zod.string().nullish(),
+  quoteSentDate: zod.string().nullish(),
+  lostReason: zod.string().nullish(),
+  accessRisk: zod.enum(["low", "medium", "high"]).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -625,6 +653,13 @@ export const UpdateJobBody = zod.object({
   assignedToId: zod.string().nullish(),
   notes: zod.string().nullish(),
   notificationsEnabled: zod.boolean().optional(),
+  jobType: zod.string().nullish(),
+  nextAction: zod.string().nullish(),
+  nextActionDate: zod.string().nullish(),
+  followUpDueDate: zod.string().nullish(),
+  quoteSentDate: zod.string().nullish(),
+  lostReason: zod.string().nullish(),
+  accessRisk: zod.enum(["low", "medium", "high"]).nullish(),
 });
 
 export const UpdateJobResponse = zod.object({
@@ -648,6 +683,12 @@ export const UpdateJobResponse = zod.object({
   estimatedValue: zod.number().nullish(),
   assignedToId: zod.string().nullish(),
   notes: zod.string().nullish(),
+  nextAction: zod.string().nullish(),
+  nextActionDate: zod.string().nullish(),
+  followUpDueDate: zod.string().nullish(),
+  quoteSentDate: zod.string().nullish(),
+  lostReason: zod.string().nullish(),
+  accessRisk: zod.enum(["low", "medium", "high"]).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

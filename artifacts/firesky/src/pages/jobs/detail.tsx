@@ -208,6 +208,8 @@ export default function JobDetail() {
   const [showCloseOptions, setShowCloseOptions] = useState(false);
   const [aptFormOpen, setAptFormOpen] = useState(false);
   const [aptFormInitial, setAptFormInitial] = useState<Partial<AppointmentFormValues>>({});
+  const [editingPipeline, setEditingPipeline] = useState(false);
+  const [pipelineForm, setPipelineForm] = useState<Record<string, any>>({});
 
   const { data: appointments = [], refetch: refetchApts } = useQuery<any[]>({
     queryKey: ["/api/appointments", "job", id],
@@ -231,6 +233,43 @@ export default function JobDetail() {
 
   const handleClose = (outcome: "won" | "lost" | "closed") => {
     handleStageChange(outcome);
+  };
+
+  const startEditPipeline = () => {
+    const j = job as any;
+    setPipelineForm({
+      nextAction: j.nextAction ?? "",
+      nextActionDate: j.nextActionDate ?? "",
+      followUpDueDate: j.followUpDueDate ?? "",
+      quoteSentDate: j.quoteSentDate ?? "",
+      lostReason: j.lostReason ?? "",
+      accessRisk: j.accessRisk ?? "",
+    });
+    setEditingPipeline(true);
+  };
+
+  const handleSavePipeline = () => {
+    updateJob.mutate(
+      {
+        id,
+        data: {
+          nextAction: pipelineForm.nextAction || null,
+          nextActionDate: pipelineForm.nextActionDate || null,
+          followUpDueDate: pipelineForm.followUpDueDate || null,
+          quoteSentDate: pipelineForm.quoteSentDate || null,
+          lostReason: pipelineForm.lostReason || null,
+          accessRisk: pipelineForm.accessRisk || null,
+        } as any,
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Pipeline details saved" });
+          queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) });
+          setEditingPipeline(false);
+        },
+        onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+      }
+    );
   };
 
   if (isLoading) {
@@ -686,6 +725,126 @@ export default function JobDetail() {
           />
         </CardContent>
       </Card>
+
+      {/* Pipeline Details — edit form */}
+      {canEdit && editingPipeline && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Pipeline Details</CardTitle>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingPipeline(false)}>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 space-y-1">
+                <label className="text-sm font-medium">Next Action</label>
+                <Input value={pipelineForm.nextAction} onChange={e => setPipelineForm((p: any) => ({ ...p, nextAction: e.target.value }))} placeholder="e.g. Send revised quote" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Next Action Date</label>
+                <Input type="date" value={pipelineForm.nextActionDate} onChange={e => setPipelineForm((p: any) => ({ ...p, nextActionDate: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Follow-up Due Date</label>
+                <Input type="date" value={pipelineForm.followUpDueDate} onChange={e => setPipelineForm((p: any) => ({ ...p, followUpDueDate: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Quote Sent Date</label>
+                <Input type="date" value={pipelineForm.quoteSentDate} onChange={e => setPipelineForm((p: any) => ({ ...p, quoteSentDate: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Access Risk</label>
+                <Select value={pipelineForm.accessRisk || ""} onValueChange={v => setPipelineForm((p: any) => ({ ...p, accessRisk: v || null }))}>
+                  <SelectTrigger><SelectValue placeholder="Select risk level" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="sm:col-span-2 space-y-1">
+                <label className="text-sm font-medium">Lost Reason</label>
+                <Textarea value={pipelineForm.lostReason} onChange={e => setPipelineForm((p: any) => ({ ...p, lostReason: e.target.value }))} placeholder="Why was this job lost?" rows={2} />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleSavePipeline} disabled={updateJob.isPending} className="gap-2">
+                <MessageCircle className="h-4 w-4" />
+                {updateJob.isPending ? "Saving..." : "Save Details"}
+              </Button>
+              <Button variant="outline" onClick={() => setEditingPipeline(false)}>Cancel</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Pipeline Details — display card */}
+      {(() => {
+        const j = job as any;
+        const hasAny = j.nextAction || j.nextActionDate || j.followUpDueDate || j.quoteSentDate || j.lostReason || j.accessRisk;
+        return (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-lg">Pipeline Details</CardTitle>
+              {canEdit && !editingPipeline && (
+                <Button variant="outline" size="sm" className="gap-2" onClick={startEditPipeline}>
+                  <MessageCircle className="h-4 w-4" /> Edit
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent>
+              {!hasAny ? (
+                <p className="text-sm text-muted-foreground py-2 text-center">No pipeline details recorded.</p>
+              ) : (
+                <div className="space-y-3">
+                  {j.nextAction && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Next Action</p>
+                      <p className="text-sm mt-0.5">{j.nextAction}</p>
+                    </div>
+                  )}
+                  {j.nextActionDate && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Next Action Date</p>
+                      <p className="text-sm mt-0.5">{format(new Date(j.nextActionDate), "d MMM yyyy")}</p>
+                    </div>
+                  )}
+                  {j.followUpDueDate && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Follow-up Due</p>
+                      <p className="text-sm mt-0.5">{format(new Date(j.followUpDueDate), "d MMM yyyy")}</p>
+                    </div>
+                  )}
+                  {j.quoteSentDate && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quote Sent</p>
+                      <p className="text-sm mt-0.5">{format(new Date(j.quoteSentDate), "d MMM yyyy")}</p>
+                    </div>
+                  )}
+                  {j.accessRisk && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Access Risk</p>
+                      <p className={`text-sm font-medium mt-0.5 capitalize ${j.accessRisk === "high" ? "text-red-600" : j.accessRisk === "medium" ? "text-amber-600" : "text-green-600"}`}>
+                        {j.accessRisk}
+                      </p>
+                    </div>
+                  )}
+                  {j.lostReason && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Lost Reason</p>
+                      <p className="text-sm mt-0.5 text-muted-foreground">{j.lostReason}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Appointments */}
       <Card>

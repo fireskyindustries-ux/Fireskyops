@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, real, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, real, boolean, date } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -20,6 +20,12 @@ export const jobsTable = pgTable("jobs", {
   assignedToId: text("assigned_to_id"),
   jobType: text("job_type").notNull().default("full_install"),
   notes: text("notes"),
+  nextAction: text("next_action"),
+  nextActionDate: date("next_action_date"),
+  followUpDueDate: date("follow_up_due_date"),
+  quoteSentDate: date("quote_sent_date"),
+  lostReason: text("lost_reason"),
+  accessRisk: text("access_risk"),
   customerToken: text("customer_token").default(sql`gen_random_uuid()`),
   notificationsEnabled: boolean("notifications_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -359,6 +359,10 @@ export default function EnquiryDetail() {
       tankSize: enquiry?.tankSize ?? "",
       tankQuantity: enquiry?.tankQuantity ?? "",
       notes: enquiry?.notes ?? "",
+      nextAction: enquiry?.nextAction ?? "",
+      nextActionDate: enquiry?.nextActionDate ?? "",
+      followUpDueDate: enquiry?.followUpDueDate ?? "",
+      assignedStaff: enquiry?.assignedStaff ?? "",
     });
     setEditing(true);
   };
@@ -368,6 +372,10 @@ export default function EnquiryDetail() {
       title: editForm.title,
       status: editForm.status,
       priority: editForm.priority,
+      nextAction: editForm.nextAction || null,
+      nextActionDate: editForm.nextActionDate || null,
+      followUpDueDate: editForm.followUpDueDate || null,
+      assignedStaff: editForm.assignedStaff || null,
     };
     if (editForm.description) payload.description = editForm.description;
     if (editForm.tankSize) payload.tankSize = editForm.tankSize;
@@ -536,6 +544,22 @@ export default function EnquiryDetail() {
                 <label className="text-sm font-medium mb-1 block">Internal Notes</label>
                 <Textarea value={editForm.notes} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} rows={2} />
               </div>
+              <div className="sm:col-span-2">
+                <label className="text-sm font-medium mb-1 block">Next Action</label>
+                <Input value={editForm.nextAction} onChange={e => setEditForm(p => ({ ...p, nextAction: e.target.value }))} placeholder="e.g. Call customer to confirm site visit" />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Next Action Date</label>
+                <Input type="date" value={editForm.nextActionDate} onChange={e => setEditForm(p => ({ ...p, nextActionDate: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Follow-up Due Date</label>
+                <Input type="date" value={editForm.followUpDueDate} onChange={e => setEditForm(p => ({ ...p, followUpDueDate: e.target.value }))} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-sm font-medium mb-1 block">Assigned Staff</label>
+                <Input value={editForm.assignedStaff} onChange={e => setEditForm(p => ({ ...p, assignedStaff: e.target.value }))} placeholder="e.g. John Smith" />
+              </div>
             </div>
             <div className="flex gap-2 pt-1">
               <Button onClick={handleSave} disabled={updateEnquiry.isPending} className="gap-2">
@@ -597,6 +621,53 @@ export default function EnquiryDetail() {
           </Card>
         )}
       </div>
+
+      {/* Follow-up details — show when any pipeline field is set */}
+      {(enquiry.nextAction || enquiry.nextActionDate || enquiry.followUpDueDate || enquiry.assignedStaff) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Follow-up Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {enquiry.assignedStaff && (
+              <div className="flex items-start gap-3">
+                <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assigned Staff</p>
+                  <p className="text-sm">{enquiry.assignedStaff}</p>
+                </div>
+              </div>
+            )}
+            {enquiry.nextAction && (
+              <div className="flex items-start gap-3">
+                <Clock className="h-4 w-4 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Next Action</p>
+                  <p className="text-sm">{enquiry.nextAction}</p>
+                </div>
+              </div>
+            )}
+            {enquiry.nextActionDate && (
+              <div className="flex items-start gap-3">
+                <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Next Action Date</p>
+                  <p className="text-sm">{format(new Date(enquiry.nextActionDate), "d MMM yyyy")}</p>
+                </div>
+              </div>
+            )}
+            {enquiry.followUpDueDate && (
+              <div className="flex items-start gap-3">
+                <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Follow-up Due</p>
+                  <p className="text-sm">{format(new Date(enquiry.followUpDueDate), "d MMM yyyy")}</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quote section — always visible for admin/user */}
       {canEdit && (
