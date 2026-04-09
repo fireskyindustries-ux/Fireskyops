@@ -245,28 +245,28 @@ export default function Dashboard() {
               label="Stale Enquiries"
               icon={Clock}
               activeClass="bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400"
-              href="/enquiries"
+              href="/enquiries?filter=stale"
             />
             <HudTile
               count={summary.staleJobs}
               label="Stale Jobs"
               icon={Clock}
               activeClass="bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400"
-              href="/jobs"
+              href="/jobs?filter=stale"
             />
             <HudTile
               count={summary.urgentEnquiries}
               label="Urgent Enquiries"
               icon={AlertTriangle}
               activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
-              href="/enquiries"
+              href="/enquiries?filter=urgent"
             />
             <HudTile
               count={summary.urgentJobs}
               label="Urgent Jobs"
               icon={AlertTriangle}
               activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
-              href="/jobs"
+              href="/jobs?filter=urgent"
             />
           </div>
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground pt-1">Data Quality</p>
@@ -276,49 +276,49 @@ export default function Dashboard() {
               label="Overdue Enq"
               icon={CalendarX}
               activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
-              href="/enquiries"
+              href="/enquiries?filter=overdue_followup"
             />
             <HudTile
               count={summary.overdueFollowUpJobs}
               label="Overdue Jobs"
               icon={CalendarX}
               activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
-              href="/jobs"
+              href="/jobs?filter=overdue_followup"
             />
             <HudTile
               count={summary.noNextActionEnquiries}
               label="No Action Enq"
               icon={CircleSlash}
               activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
-              href="/enquiries"
+              href="/enquiries?filter=no_next_action"
             />
             <HudTile
               count={summary.noNextActionJobs}
               label="No Action Jobs"
               icon={CircleSlash}
               activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
-              href="/jobs"
+              href="/jobs?filter=no_next_action"
             />
             <HudTile
               count={summary.quotedNoFollowUp}
               label="Quoted, No Date"
               icon={CalendarX}
               activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
-              href="/jobs"
+              href="/jobs?filter=quoted_no_followup"
             />
             <HudTile
               count={summary.lostNoReason}
               label="Lost, No Reason"
               icon={CircleSlash}
               activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
-              href="/jobs"
+              href="/jobs?filter=lost_no_reason"
             />
             <HudTile
               count={summary.highAccessRiskJobs}
               label="High Risk Jobs"
               icon={ShieldAlert}
               activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
-              href="/jobs"
+              href="/jobs?filter=high_access_risk"
             />
           </div>
         </div>

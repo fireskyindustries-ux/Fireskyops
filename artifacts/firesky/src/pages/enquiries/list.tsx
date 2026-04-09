@@ -1,12 +1,12 @@
 import { useListEnquiries } from "@workspace/api-client-react";
-import { Link } from "wouter";
-import { Plus, Filter, ChevronRight } from "lucide-react";
+import { Link, useSearch, useLocation } from "wouter";
+import { Plus, Filter, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { format, subHours } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
 const STATUS_STYLES: Record<string, { dot: string; badge: string; label: string }> = {
@@ -62,12 +62,60 @@ function PipelineTracker({ status }: { status: string }) {
   );
 }
 
+const ACTIVE_STATUSES = ["new", "in_progress", "inspection_done", "quoted"];
+
+const QUICK_FILTER_LABELS: Record<string, string> = {
+  stale:            "Stale (no update in 48h)",
+  urgent:           "Urgent — High Priority",
+  overdue_followup: "Overdue Follow-up",
+  no_next_action:   "No Next Action",
+};
+
+function applyQuickFilter(enquiries: any[], filter: string): any[] {
+  const staleThreshold = subHours(new Date(), 48);
+  const today = new Date().toISOString().slice(0, 10);
+
+  switch (filter) {
+    case "stale":
+      return enquiries.filter(e =>
+        ["new", "in_progress"].includes(e.status) &&
+        new Date(e.updatedAt) < staleThreshold,
+      );
+    case "urgent":
+      return enquiries.filter(e => e.priority === "high");
+    case "overdue_followup":
+      return enquiries.filter(e =>
+        ACTIVE_STATUSES.includes(e.status) &&
+        e.followUpDueDate &&
+        e.followUpDueDate < today,
+      );
+    case "no_next_action":
+      return enquiries.filter(e =>
+        ACTIVE_STATUSES.includes(e.status) &&
+        (!e.nextAction || e.nextAction === ""),
+      );
+    default:
+      return enquiries;
+  }
+}
+
 export default function EnquiriesList() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const quickFilter = new URLSearchParams(search).get("filter");
 
-  const { data: enquiries, isLoading, error } = useListEnquiries({
-    status: statusFilter !== "all" ? statusFilter : undefined
+  const { data: allEnquiries, isLoading, error } = useListEnquiries({
+    status: quickFilter ? undefined : statusFilter !== "all" ? statusFilter : undefined,
   });
+
+  const enquiries = useMemo(() => {
+    if (!allEnquiries) return [];
+    if (!quickFilter) return allEnquiries;
+    return applyQuickFilter(allEnquiries, quickFilter);
+  }, [allEnquiries, quickFilter]);
+
+  const filterLabel = quickFilter ? QUICK_FILTER_LABELS[quickFilter] : null;
 
   return (
     <div className="space-y-6">
@@ -83,23 +131,48 @@ export default function EnquiriesList() {
         </Link>
       </div>
 
-      <div className="flex items-center gap-3">
-        <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[200px] h-9 text-sm">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="new">New</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="inspection_done">Inspection Done</SelectItem>
-            <SelectItem value="quoted">Quoted</SelectItem>
-            <SelectItem value="won">Won</SelectItem>
-            <SelectItem value="lost">Lost</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Active quick filter pill */}
+      {filterLabel && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium text-muted-foreground">Filtered:</span>
+          <span className="inline-flex items-center gap-1.5 bg-primary/10 text-primary border border-primary/20 rounded-full px-3 py-1 text-xs font-semibold">
+            {filterLabel}
+            {!isLoading && (
+              <span className="bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 text-[10px] leading-none font-bold ml-0.5">
+                {enquiries.length}
+              </span>
+            )}
+            <button
+              onClick={() => navigate("/enquiries")}
+              className="ml-0.5 hover:opacity-70 transition-opacity"
+              aria-label="Clear filter"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        </div>
+      )}
+
+      {/* Status filter — hidden when quick filter is active */}
+      {!quickFilter && (
+        <div className="flex items-center gap-3">
+          <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[200px] h-9 text-sm">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="new">New</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="inspection_done">Inspection Done</SelectItem>
+              <SelectItem value="quoted">Quoted</SelectItem>
+              <SelectItem value="won">Won</SelectItem>
+              <SelectItem value="lost">Lost</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-3">
@@ -107,14 +180,24 @@ export default function EnquiriesList() {
         </div>
       ) : error ? (
         <div className="text-destructive py-8 text-center">Failed to load enquiries</div>
-      ) : enquiries?.length === 0 ? (
+      ) : enquiries.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground border rounded-xl bg-card">
           <p className="font-medium">No enquiries found</p>
-          {statusFilter !== "all" && <p className="text-sm mt-1">Try clearing the status filter</p>}
+          {quickFilter && (
+            <p className="text-sm mt-1">
+              No records match this filter.{" "}
+              <button onClick={() => navigate("/enquiries")} className="text-primary underline underline-offset-2">
+                Clear filter
+              </button>
+            </p>
+          )}
+          {!quickFilter && statusFilter !== "all" && (
+            <p className="text-sm mt-1">Try clearing the status filter</p>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
-          {enquiries?.map((enquiry) => {
+          {enquiries.map((enquiry) => {
             const s = STATUS_STYLES[enquiry.status] ?? STATUS_STYLES.new;
             return (
               <Link key={enquiry.id} href={`/enquiries/${enquiry.id}`}>
@@ -129,6 +212,11 @@ export default function EnquiriesList() {
                             {enquiry.customerName || `Customer #${enquiry.customerId}`}
                             {enquiry.tankSize && <span className="ml-2 text-xs">· {enquiry.tankQuantity || 1}× {enquiry.tankSize}</span>}
                           </p>
+                          {enquiry.nextAction && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 italic">
+                              Next: {enquiry.nextAction}
+                            </p>
+                          )}
                           <PipelineTracker status={enquiry.status} />
                         </div>
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
