@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { desc, inArray, eq, and, lt, notInArray, count, gt, isNull, sql } from "drizzle-orm";
+import { desc, inArray, eq, and, lt, notInArray, count, gt, isNull, or, sql } from "drizzle-orm";
 import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable } from "@workspace/db";
 import { loadSchedulerState, STALE_MS } from "../lib/scheduler-state";
 
@@ -73,17 +73,17 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
         sql`${jobsTable.followUpDueDate} < ${today}`,
       ),
     ),
-    // Data quality — no next action
+    // Data quality — no next action (null or empty string)
     db.select({ count: count() }).from(enquiriesTable).where(
       and(
         notInArray(enquiriesTable.status, ["won", "lost", "closed"]),
-        isNull(enquiriesTable.nextAction),
+        or(isNull(enquiriesTable.nextAction), eq(enquiriesTable.nextAction, "")),
       ),
     ),
     db.select({ count: count() }).from(jobsTable).where(
       and(
         notInArray(jobsTable.stage, ["won", "lost", "closed"]),
-        isNull(jobsTable.nextAction),
+        or(isNull(jobsTable.nextAction), eq(jobsTable.nextAction, "")),
       ),
     ),
     // Data quality — quoted with no follow-up date

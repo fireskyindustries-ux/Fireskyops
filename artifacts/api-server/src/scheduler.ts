@@ -1,4 +1,4 @@
-import { gt, lt, count, and, inArray, notInArray, eq, isNull, sql } from "drizzle-orm";
+import { gt, lt, count, and, inArray, notInArray, eq, isNull, or, sql } from "drizzle-orm";
 import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable } from "@workspace/db";
 import { logger } from "./lib/logger";
 import { loadSchedulerState, saveSchedulerState, INTERVAL_MS, STALE_MS, type SchedulerCounts } from "./lib/scheduler-state";
@@ -80,19 +80,19 @@ async function runCheck(): Promise<void> {
       ),
     ),
 
-    // No next action: active enquiry missing next_action
+    // No next action: active enquiry with next_action null or empty string
     db.select({ count: count() }).from(enquiriesTable).where(
       and(
         notInArray(enquiriesTable.status, ["won", "lost", "closed"]),
-        isNull(enquiriesTable.nextAction),
+        or(isNull(enquiriesTable.nextAction), eq(enquiriesTable.nextAction, "")),
       ),
     ),
 
-    // No next action: active job missing next_action
+    // No next action: active job with next_action null or empty string
     db.select({ count: count() }).from(jobsTable).where(
       and(
         notInArray(jobsTable.stage, ["won", "lost", "closed"]),
-        isNull(jobsTable.nextAction),
+        or(isNull(jobsTable.nextAction), eq(jobsTable.nextAction, "")),
       ),
     ),
 
