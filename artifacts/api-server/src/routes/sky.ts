@@ -1079,7 +1079,7 @@ router.post("/sky/chat", async (req, res) => {
 
 // ─── Vision endpoint ─────────────────────────────────────────────────────────
 
-router.post("/api/sky/vision", requireAuth, async (req, res): Promise<void> => {
+router.post("/sky/vision", requireAuth, async (req, res): Promise<void> => {
   const { imageBase64, mimeType = "image/jpeg", question } = req.body;
 
   res.setHeader("Content-Type", "text/event-stream");
