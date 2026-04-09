@@ -10,6 +10,9 @@ import { Router } from "./AppRouter";
 import { ErrorBoundary } from "./components/error-boundary";
 import TrackPage from "./pages/track";
 import QuoteAcceptPage from "./pages/quotes/accept";
+import { initDarkMode } from "./hooks/use-dark-mode";
+
+initDarkMode();
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;

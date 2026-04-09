@@ -1,11 +1,12 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail } from "lucide-react";
+import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SkyPanel, SkyFloatingButton } from "./sky";
 import { useUser, useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "./NotificationBell";
+import { useDarkMode } from "@/hooks/use-dark-mode";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -57,6 +58,7 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
   const { signOut } = useClerk();
   const [, setLocation] = useLocation();
   const role = (user?.publicMetadata?.role as string) || "guest";
+  const { isDark, toggle: toggleDark } = useDarkMode();
 
   return (
     <div className="border-t border-sidebar-border">
@@ -99,6 +101,15 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
           <p className="text-[10px] text-muted-foreground capitalize">{role}</p>
         </div>
         {role !== "guest" && <NotificationBell />}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
+          onClick={toggleDark}
+          title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </Button>
         <Button
           variant="ghost"
           size="icon"
