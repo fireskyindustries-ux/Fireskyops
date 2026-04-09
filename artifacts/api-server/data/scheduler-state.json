@@ -1,17 +1,17 @@
 {
-  "lastSuccessfulCheck": "2026-04-09T12:16:40.718Z",
+  "lastSuccessfulCheck": "2026-04-09T12:18:33.489Z",
   "lastNotifiedCounts": {
-    "newRecords": 0,
+    "newRecords": 9,
     "staleEnquiries": 0,
     "staleJobs": 0,
     "urgentEnquiries": 1,
-    "urgentJobs": 1,
-    "overdueFollowUpEnquiries": 0,
-    "overdueFollowUpJobs": 0,
-    "noNextActionEnquiries": 0,
-    "noNextActionJobs": 0,
-    "quotedNoFollowUp": 0,
-    "lostNoReason": 0,
-    "highAccessRiskJobs": 0
+    "urgentJobs": 2,
+    "overdueFollowUpEnquiries": 1,
+    "overdueFollowUpJobs": 1,
+    "noNextActionEnquiries": 2,
+    "noNextActionJobs": 2,
+    "quotedNoFollowUp": 1,
+    "lostNoReason": 1,
+    "highAccessRiskJobs": 1
   }
 }
