@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { desc, inArray, eq, and, lt, notInArray, count, gt } from "drizzle-orm";
+import { desc, inArray, eq, and, lt, notInArray, count, gt, isNull, sql } from "drizzle-orm";
 import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable } from "@workspace/db";
 import { loadSchedulerState, STALE_MS } from "../lib/scheduler-state";
 
@@ -10,9 +10,14 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const since = new Date(schedulerState.lastSuccessfulCheck);
   const staleThreshold = new Date(Date.now() - STALE_MS);
 
+  const today = new Date().toISOString().slice(0, 10);
+
   const [customers, enquiries, jobs, recentEnquiriesRaw, recentJobsRaw,
          staleEnquiries, staleJobs, urgentEnquiries, urgentJobs,
-         newCustomers, newEnquiries, newJobs, newInspections] = await Promise.all([
+         newCustomers, newEnquiries, newJobs, newInspections,
+         overdueFollowUpEnquiries, overdueFollowUpJobs,
+         noNextActionEnquiries, noNextActionJobs,
+         quotedNoFollowUp, lostNoReason, highAccessRiskJobs] = await Promise.all([
     db.select().from(customersTable),
     db.select().from(enquiriesTable),
     db.select().from(jobsTable),
@@ -53,6 +58,44 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     db.select({ count: count() }).from(enquiriesTable).where(gt(enquiriesTable.createdAt, since)),
     db.select({ count: count() }).from(jobsTable).where(gt(jobsTable.createdAt, since)),
     db.select({ count: count() }).from(inspectionsTable).where(gt(inspectionsTable.createdAt, since)),
+    // Data quality — overdue follow-up
+    db.select({ count: count() }).from(enquiriesTable).where(
+      and(
+        notInArray(enquiriesTable.status, ["won", "lost", "closed"]),
+        sql`${enquiriesTable.followUpDueDate} is not null`,
+        sql`${enquiriesTable.followUpDueDate} < ${today}`,
+      ),
+    ),
+    db.select({ count: count() }).from(jobsTable).where(
+      and(
+        notInArray(jobsTable.stage, ["won", "lost", "closed"]),
+        sql`${jobsTable.followUpDueDate} is not null`,
+        sql`${jobsTable.followUpDueDate} < ${today}`,
+      ),
+    ),
+    // Data quality — no next action
+    db.select({ count: count() }).from(enquiriesTable).where(
+      and(
+        notInArray(enquiriesTable.status, ["won", "lost", "closed"]),
+        isNull(enquiriesTable.nextAction),
+      ),
+    ),
+    db.select({ count: count() }).from(jobsTable).where(
+      and(
+        notInArray(jobsTable.stage, ["won", "lost", "closed"]),
+        isNull(jobsTable.nextAction),
+      ),
+    ),
+    // Data quality — quoted with no follow-up date
+    db.select({ count: count() }).from(jobsTable).where(
+      and(eq(jobsTable.stage, "quoted"), isNull(jobsTable.followUpDueDate)),
+    ),
+    // Data quality — lost with no reason
+    db.select({ count: count() }).from(jobsTable).where(
+      and(eq(jobsTable.stage, "lost"), isNull(jobsTable.lostReason)),
+    ),
+    // Data quality — high access risk
+    db.select({ count: count() }).from(jobsTable).where(eq(jobsTable.accessRisk, "high")),
   ]);
 
   const enquiryIds = recentEnquiriesRaw.map((e) => e.id);
@@ -104,6 +147,13 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     urgentEnquiries: Number(urgentEnquiries[0].count),
     urgentJobs: Number(urgentJobs[0].count),
     newRecords: Number(newCustomers[0].count) + Number(newEnquiries[0].count) + Number(newJobs[0].count) + Number(newInspections[0].count),
+    overdueFollowUpEnquiries: Number(overdueFollowUpEnquiries[0].count),
+    overdueFollowUpJobs: Number(overdueFollowUpJobs[0].count),
+    noNextActionEnquiries: Number(noNextActionEnquiries[0].count),
+    noNextActionJobs: Number(noNextActionJobs[0].count),
+    quotedNoFollowUp: Number(quotedNoFollowUp[0].count),
+    lostNoReason: Number(lostNoReason[0].count),
+    highAccessRiskJobs: Number(highAccessRiskJobs[0].count),
     lastChecked: schedulerState.lastSuccessfulCheck,
     jobsByStage,
     recentEnquiries,

@@ -10,6 +10,13 @@ export interface SchedulerCounts {
   staleJobs: number;
   urgentEnquiries: number;
   urgentJobs: number;
+  overdueFollowUpEnquiries: number;
+  overdueFollowUpJobs: number;
+  noNextActionEnquiries: number;
+  noNextActionJobs: number;
+  quotedNoFollowUp: number;
+  lostNoReason: number;
+  highAccessRiskJobs: number;
 }
 
 export interface SchedulerState {

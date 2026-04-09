@@ -2,7 +2,7 @@ import { useGetDashboardSummary } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Users, FileText, Briefcase, Plus, ArrowRight, ChevronRight, Clock, AlertTriangle, Sparkles } from "lucide-react";
+import { Users, FileText, Briefcase, Plus, ArrowRight, ChevronRight, Clock, AlertTriangle, Sparkles, CalendarX, CircleSlash, ShieldAlert } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
 import { SkyInlineButton } from "@/components/sky";
@@ -226,8 +226,8 @@ export default function Dashboard() {
 
       {/* Admin summary HUD — admin only */}
       {isAdmin && (
-        <div>
-          <div className="flex items-center justify-between mb-2">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
             <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Admin Summary</p>
             <p className="text-[10px] text-muted-foreground">
               Last check: {formatDistanceToNow(new Date(summary.lastChecked), { addSuffix: true })}
@@ -265,6 +265,58 @@ export default function Dashboard() {
               count={summary.urgentJobs}
               label="Urgent Jobs"
               icon={AlertTriangle}
+              activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
+              href="/jobs"
+            />
+          </div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground pt-1">Data Quality</p>
+          <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
+            <HudTile
+              count={summary.overdueFollowUpEnquiries}
+              label="Overdue Enq"
+              icon={CalendarX}
+              activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
+              href="/enquiries"
+            />
+            <HudTile
+              count={summary.overdueFollowUpJobs}
+              label="Overdue Jobs"
+              icon={CalendarX}
+              activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
+              href="/jobs"
+            />
+            <HudTile
+              count={summary.noNextActionEnquiries}
+              label="No Action Enq"
+              icon={CircleSlash}
+              activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
+              href="/enquiries"
+            />
+            <HudTile
+              count={summary.noNextActionJobs}
+              label="No Action Jobs"
+              icon={CircleSlash}
+              activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
+              href="/jobs"
+            />
+            <HudTile
+              count={summary.quotedNoFollowUp}
+              label="Quoted, No Date"
+              icon={CalendarX}
+              activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
+              href="/jobs"
+            />
+            <HudTile
+              count={summary.lostNoReason}
+              label="Lost, No Reason"
+              icon={CircleSlash}
+              activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
+              href="/jobs"
+            />
+            <HudTile
+              count={summary.highAccessRiskJobs}
+              label="High Risk Jobs"
+              icon={ShieldAlert}
               activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
               href="/jobs"
             />

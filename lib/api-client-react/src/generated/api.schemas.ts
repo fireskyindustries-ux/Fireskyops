@@ -101,6 +101,13 @@ export interface DashboardSummary {
   urgentEnquiries: number;
   urgentJobs: number;
   newRecords: number;
+  overdueFollowUpEnquiries: number;
+  overdueFollowUpJobs: number;
+  noNextActionEnquiries: number;
+  noNextActionJobs: number;
+  quotedNoFollowUp: number;
+  lostNoReason: number;
+  highAccessRiskJobs: number;
   lastChecked: string;
   jobsByStage: DashboardSummaryJobsByStage;
   recentEnquiries: Enquiry[];
