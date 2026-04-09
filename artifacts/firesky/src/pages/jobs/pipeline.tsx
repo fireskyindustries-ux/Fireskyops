@@ -160,7 +160,7 @@ export default function JobsPipeline() {
           <p className="text-sm text-muted-foreground">Track installation progress</p>
         </div>
         <Link href="/jobs/new">
-          <Button size="lg" className="w-full sm:w-auto h-10 px-6 hex-clip font-semibold">
+          <Button size="lg" className="w-full sm:w-auto h-10 px-6 font-semibold">
             <Plus className="mr-2 h-4 w-4" /> New Job
           </Button>
         </Link>

@@ -141,7 +141,7 @@ export default function CustomerDetail() {
                         href={mapsUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-md hex-clip-sm hover:bg-primary/90 active:scale-95 transition-all"
+                        className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-md hover:bg-primary/90 active:scale-95 transition-all"
                       >
                         <ExternalLink className="h-4 w-4" />
                         Open in Google Maps

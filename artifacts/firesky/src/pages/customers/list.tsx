@@ -36,7 +36,7 @@ export default function CustomersList() {
           <p className="text-sm text-muted-foreground">Farms and client contacts</p>
         </div>
         <Link href="/customers/new">
-          <Button size="lg" className="w-full sm:w-auto h-10 px-6 hex-clip font-semibold">
+          <Button size="lg" className="w-full sm:w-auto h-10 px-6 font-semibold">
             <Plus className="mr-2 h-4 w-4" /> Add Customer
           </Button>
         </Link>

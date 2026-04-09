@@ -131,7 +131,7 @@ export default function AdminUsers() {
               <Button
                 onClick={handleInvite}
                 disabled={inviting || !inviteEmail.trim()}
-                className="h-11 hex-clip px-6"
+                className="h-11 px-6"
               >
                 {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserPlus className="mr-2 h-4 w-4" /> Send Invite</>}
               </Button>

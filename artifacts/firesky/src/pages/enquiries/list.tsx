@@ -77,7 +77,7 @@ export default function EnquiriesList() {
           <p className="text-sm text-muted-foreground">Manage inbound requests and leads</p>
         </div>
         <Link href="/enquiries/new">
-          <Button size="lg" className="w-full sm:w-auto h-10 px-6 hex-clip font-semibold">
+          <Button size="lg" className="w-full sm:w-auto h-10 px-6 font-semibold">
             <Plus className="mr-2 h-4 w-4" /> New Enquiry
           </Button>
         </Link>

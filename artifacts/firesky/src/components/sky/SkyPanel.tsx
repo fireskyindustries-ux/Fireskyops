@@ -376,7 +376,7 @@ export function SkyFloatingButton() {
     <button
       onClick={() => openSky()}
       className={cn(
-        "fixed z-40 flex items-center gap-2 shadow-lg shadow-primary/30 hex-clip",
+        "fixed z-40 flex items-center gap-2 shadow-lg shadow-primary/30",
         "bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95",
         "px-6 h-12 text-sm font-semibold tracking-wide",
         "bottom-[96px] right-4 md:bottom-6 md:right-6"
@@ -409,7 +409,7 @@ export function SkyInlineButton({
   return (
     <Button
       variant={variant}
-      className={cn("gap-2 hex-clip-sm px-5", className)}
+      className={cn("gap-2 px-5", className)}
       onClick={() => openSky({ contextType, contextData, contextLabel })}
     >
       <Sparkles className="h-4 w-4" />

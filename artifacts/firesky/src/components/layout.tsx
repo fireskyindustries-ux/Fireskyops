@@ -166,7 +166,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="px-3 pb-3 pt-2">
           <Link href={ctaLink}>
-            <Button className="w-full h-11 hex-clip px-6 font-semibold tracking-wide text-sm">
+            <Button className="w-full h-11 px-6 font-semibold tracking-wide text-sm">
               <Plus className="mr-2 h-4 w-4" /> {ctaLabel}
             </Button>
           </Link>
@@ -196,7 +196,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </nav>
             <div className="px-3 pb-3 pt-2">
               <Link href={ctaLink}>
-                <Button className="w-full h-11 hex-clip px-6 font-semibold text-sm">
+                <Button className="w-full h-11 px-6 font-semibold text-sm">
                   <Plus className="mr-2 h-4 w-4" /> {ctaLabel}
                 </Button>
               </Link>

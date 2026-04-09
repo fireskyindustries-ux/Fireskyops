@@ -190,7 +190,7 @@ export default function NewEnquiry() {
           </p>
         </div>
         <Button
-          className="h-12 px-10 hex-clip font-semibold text-base"
+          className="h-12 px-10 font-semibold text-base"
           onClick={() => { window.location.href = "https://www.fireskyindustries.co.za"; }}
         >
           Done
@@ -396,7 +396,7 @@ export default function NewEnquiry() {
           <Button type="button" variant="outline" onClick={() => window.history.back()} className="h-11 px-6">
             Cancel
           </Button>
-          <Button type="submit" disabled={submitting} className="h-11 px-8 hex-clip font-semibold">
+          <Button type="submit" disabled={submitting} className="h-11 px-8 font-semibold">
             {submitting ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
             ) : (

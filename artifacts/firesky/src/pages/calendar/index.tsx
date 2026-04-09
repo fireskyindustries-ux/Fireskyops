@@ -320,7 +320,7 @@ export default function CalendarPage() {
           </div>
 
           {canEdit && (
-            <Button size="sm" className="gap-1.5 hex-clip px-4" onClick={() => openNew()}>
+            <Button size="sm" className="gap-1.5 px-4" onClick={() => openNew()}>
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Schedule</span>
             </Button>
