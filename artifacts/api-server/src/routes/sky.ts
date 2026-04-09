@@ -1079,8 +1079,24 @@ router.post("/sky/chat", async (req, res) => {
 
 // ─── Vision endpoint ─────────────────────────────────────────────────────────
 
+const VISION_SYSTEM_PROMPT = FIRESKY_SYSTEM_PROMPT + `
+
+You are currently in Sky Vision mode. The user is sharing live camera images from the field with you. You have memory of everything observed so far in this session — reference earlier observations where relevant.
+
+Keep your responses concise and spoken-word friendly. No bullet lists with dashes — use natural flowing sentences instead. Avoid all markdown formatting. Speak as if you are right there with the technician on site.`;
+
 router.post("/sky/vision", requireAuth, async (req, res): Promise<void> => {
-  const { imageBase64, mimeType = "image/jpeg", question } = req.body;
+  const {
+    imageBase64,
+    mimeType = "image/jpeg",
+    question,
+    history = [],
+  } = req.body as {
+    imageBase64: string;
+    mimeType?: string;
+    question?: string;
+    history?: Array<{ role: "user" | "assistant"; content: string }>;
+  };
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -1092,34 +1108,72 @@ router.post("/sky/vision", requireAuth, async (req, res): Promise<void> => {
 
   const userQuestion =
     question?.trim() ||
-    "What do you see in this image? Describe what you observe and flag anything relevant to a Firesky water tank installation, site inspection, or delivery.";
+    "What do you see? Describe what you observe and flag anything relevant to a Firesky site inspection or installation.";
+
+  // Build conversation messages with history
+  const chatMessages: any[] = [{ role: "system", content: VISION_SYSTEM_PROMPT }];
+
+  for (const turn of history) {
+    chatMessages.push({ role: turn.role, content: turn.content });
+  }
+
+  // Current turn with image
+  chatMessages.push({
+    role: "user",
+    content: [
+      {
+        type: "image_url",
+        image_url: {
+          url: `data:${mimeType};base64,${imageBase64}`,
+          detail: "high",
+        },
+      },
+      { type: "text", text: userQuestion },
+    ],
+  });
 
   try {
+    // Stream the main analysis
     const stream = await openai.chat.completions.create({
       model: "gpt-4o",
-      max_tokens: 1024,
-      messages: [
-        { role: "system", content: FIRESKY_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: [
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${mimeType};base64,${imageBase64}`,
-                detail: "high",
-              },
-            } as any,
-            { type: "text", text: userQuestion },
-          ],
-        },
-      ],
+      max_tokens: 512,
+      messages: chatMessages,
       stream: true,
     });
 
+    let fullResponse = "";
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
-      if (content) sseWrite({ content });
+      if (content) {
+        fullResponse += content;
+        sseWrite({ content });
+      }
+    }
+
+    // Generate contextual suggestions (non-streaming, fast)
+    try {
+      const suggestionMessages = [
+        ...chatMessages,
+        { role: "assistant", content: fullResponse },
+        {
+          role: "user",
+          content:
+            "Based on what you just observed, give me exactly 3 very short suggestions for what to look at or check next on site. Reply ONLY with a JSON array of strings. Example: [\"Check the inlet pipe\",\"Show the overflow outlet\",\"Inspect the stand base\"]",
+        },
+      ];
+      const sugResp = await openai.chat.completions.create({
+        model: "gpt-4o",
+        max_tokens: 120,
+        messages: suggestionMessages,
+      });
+      const raw = sugResp.choices[0]?.message?.content || "";
+      const match = raw.match(/\[[\s\S]*\]/);
+      if (match) {
+        const suggestions = JSON.parse(match[0]);
+        if (Array.isArray(suggestions)) sseWrite({ suggestions });
+      }
+    } catch {
+      // suggestions are optional — don't fail if they error
     }
 
     sseWrite({ done: true });

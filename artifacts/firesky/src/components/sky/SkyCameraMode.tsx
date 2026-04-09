@@ -1,33 +1,74 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import { X, Camera, Loader2, Sparkles, Zap, ZapOff, FlipHorizontal } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  X, Camera, Loader2, Sparkles, Mic, MicOff, Volume2, VolumeX,
+  FlipHorizontal, RotateCcw, ChevronRight,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+interface VisionTurn {
+  role: "user" | "assistant";
+  content: string;
+}
 
 interface SkyCameraModeProps {
   onClose: () => void;
 }
 
+// ─── Speech helpers ───────────────────────────────────────────────────────────
+
+const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+const hasVoiceInput = !!SR;
+const hasTTS = typeof window !== "undefined" && "speechSynthesis" in window;
+
+function speakText(text: string, onEnd?: () => void) {
+  if (!hasTTS) { onEnd?.(); return; }
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate = 1.05;
+  utt.pitch = 1;
+  utt.lang = "en-ZA";
+  utt.onend = () => onEnd?.();
+  utt.onerror = () => onEnd?.();
+  window.speechSynthesis.speak(utt);
+}
+
+function stopSpeaking() {
+  if (hasTTS) window.speechSynthesis.cancel();
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export function SkyCameraMode({ onClose }: SkyCameraModeProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const autoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const srRef = useRef<any>(null);
 
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [autoMode, setAutoMode] = useState(false);
-  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(hasTTS);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  // Conversation memory
+  const [history, setHistory] = useState<VisionTurn[]>([]);
+  const [captureCount, setCaptureCount] = useState(0);
+
+  // ── Camera ────────────────────────────────────────────────────────────────
 
   const startCamera = useCallback(async (facing: "environment" | "user") => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     setCameraError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: false,
       });
       streamRef.current = stream;
@@ -36,11 +77,11 @@ export function SkyCameraMode({ onClose }: SkyCameraModeProps) {
         await videoRef.current.play();
       }
     } catch (err: any) {
-      if (err.name === "NotAllowedError") {
-        setCameraError("Camera permission denied. Please allow camera access in your browser settings and try again.");
-      } else {
-        setCameraError("Could not access the camera. Please check your device settings.");
-      }
+      setCameraError(
+        err.name === "NotAllowedError"
+          ? "Camera permission denied. Please allow camera access in your browser settings."
+          : "Could not access the camera. Please check your device settings."
+      );
     }
   }, []);
 
@@ -48,6 +89,8 @@ export function SkyCameraMode({ onClose }: SkyCameraModeProps) {
     startCamera(facingMode);
     return () => {
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      stopSpeaking();
+      srRef.current?.stop();
     };
   }, []);
 
@@ -57,10 +100,43 @@ export function SkyCameraMode({ onClose }: SkyCameraModeProps) {
     startCamera(next);
   };
 
+  // ── Voice input ───────────────────────────────────────────────────────────
+
+  const startListening = useCallback(() => {
+    if (!hasVoiceInput || isListening) return;
+    stopSpeaking();
+    const sr = new SR();
+    srRef.current = sr;
+    sr.lang = "en-ZA";
+    sr.interimResults = false;
+    sr.maxAlternatives = 1;
+    sr.onstart = () => setIsListening(true);
+    sr.onresult = (e: any) => {
+      const transcript = e.results[0][0].transcript;
+      setQuestion(transcript);
+      setIsListening(false);
+      // Auto-capture with spoken question
+      setTimeout(() => captureAndAnalyze(transcript), 300);
+    };
+    sr.onerror = () => setIsListening(false);
+    sr.onend = () => setIsListening(false);
+    sr.start();
+  }, [isListening]);
+
+  const stopListening = useCallback(() => {
+    srRef.current?.stop();
+    setIsListening(false);
+  }, []);
+
+  // ── Capture & analyse ─────────────────────────────────────────────────────
+
   const captureAndAnalyze = useCallback(async (customQuestion?: string) => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || isAnalyzing || video.videoWidth === 0) return;
+
+    stopSpeaking();
+    setSuggestions([]);
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -70,8 +146,10 @@ export function SkyCameraMode({ onClose }: SkyCameraModeProps) {
     const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
     const base64 = dataUrl.split(",")[1];
 
+    const askedQuestion = customQuestion || question || undefined;
     setIsAnalyzing(true);
     setResponse("");
+    setQuestion("");
 
     try {
       const res = await fetch(`${BASE}/api/sky/vision`, {
@@ -81,7 +159,8 @@ export function SkyCameraMode({ onClose }: SkyCameraModeProps) {
         body: JSON.stringify({
           imageBase64: base64,
           mimeType: "image/jpeg",
-          question: customQuestion || question || undefined,
+          question: askedQuestion,
+          history,
         }),
       });
 
@@ -90,6 +169,7 @@ export function SkyCameraMode({ onClose }: SkyCameraModeProps) {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let fullResponse = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -101,33 +181,39 @@ export function SkyCameraMode({ onClose }: SkyCameraModeProps) {
           if (!line.startsWith("data: ")) continue;
           try {
             const data = JSON.parse(line.slice(6));
-            if (data.content) setResponse((prev) => prev + data.content);
-            if (data.error) setResponse(data.error);
+            if (data.content) {
+              fullResponse += data.content;
+              setResponse(fullResponse);
+            }
+            if (data.suggestions && Array.isArray(data.suggestions)) {
+              setSuggestions(data.suggestions.slice(0, 3));
+            }
+            if (data.error) {
+              setResponse(data.error);
+            }
           } catch {}
         }
+      }
+
+      // Add to memory
+      setHistory((prev) => [
+        ...prev,
+        { role: "user", content: askedQuestion || "What do you see?" },
+        { role: "assistant", content: fullResponse },
+      ]);
+      setCaptureCount((c) => c + 1);
+
+      // Speak the response
+      if (voiceEnabled && fullResponse) {
+        setIsSpeaking(true);
+        speakText(fullResponse, () => setIsSpeaking(false));
       }
     } catch {
       setResponse("Sky could not analyse the image. Please try again.");
     } finally {
       setIsAnalyzing(false);
     }
-  }, [isAnalyzing, question]);
-
-  useEffect(() => {
-    if (autoMode) {
-      autoIntervalRef.current = setInterval(() => {
-        captureAndAnalyze();
-      }, 6000);
-    } else {
-      if (autoIntervalRef.current) {
-        clearInterval(autoIntervalRef.current);
-        autoIntervalRef.current = null;
-      }
-    }
-    return () => {
-      if (autoIntervalRef.current) clearInterval(autoIntervalRef.current);
-    };
-  }, [autoMode, captureAndAnalyze]);
+  }, [isAnalyzing, question, history, voiceEnabled]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -136,8 +222,27 @@ export function SkyCameraMode({ onClose }: SkyCameraModeProps) {
     }
   };
 
+  const clearSession = () => {
+    setHistory([]);
+    setResponse("");
+    setSuggestions([]);
+    setCaptureCount(0);
+    stopSpeaking();
+    setIsSpeaking(false);
+  };
+
+  const toggleVoice = () => {
+    if (voiceEnabled) {
+      stopSpeaking();
+      setIsSpeaking(false);
+    }
+    setVoiceEnabled((v) => !v);
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
-    <div className="fixed inset-0 z-[70] bg-black flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-[70] bg-black flex flex-col overflow-hidden select-none">
       <canvas ref={canvasRef} className="hidden" />
 
       {/* Live camera feed */}
@@ -159,103 +264,179 @@ export function SkyCameraMode({ onClose }: SkyCameraModeProps) {
         </div>
       )}
 
-      {/* Scanning frame overlay */}
+      {/* Corner scan frame */}
       {!cameraError && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-64 h-64 relative opacity-30">
-            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-orange-400 rounded-tl-sm" />
-            <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-orange-400 rounded-tr-sm" />
-            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-orange-400 rounded-bl-sm" />
-            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-orange-400 rounded-br-sm" />
+          <div className="w-56 h-56 relative opacity-40">
+            <div className="absolute top-0 left-0 w-7 h-7 border-t-2 border-l-2 border-orange-400" />
+            <div className="absolute top-0 right-0 w-7 h-7 border-t-2 border-r-2 border-orange-400" />
+            <div className="absolute bottom-0 left-0 w-7 h-7 border-b-2 border-l-2 border-orange-400" />
+            <div className="absolute bottom-0 right-0 w-7 h-7 border-b-2 border-r-2 border-orange-400" />
           </div>
         </div>
       )}
 
-      {/* Top bar */}
+      {/* Speaking pulse ring around frame */}
+      {isSpeaking && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-56 h-56 rounded-full border-2 border-orange-400 opacity-60 animate-ping" />
+        </div>
+      )}
+
+      {/* ── Top bar ── */}
       <div
-        className="relative z-10 flex items-center justify-between px-4 py-3"
-        style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%)" }}
+        className="relative z-10 flex items-center justify-between px-4 pt-4 pb-6"
+        style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.80) 0%, transparent 100%)" }}
       >
-        <div className="flex items-center gap-2 text-white">
-          <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center">
-            <Sparkles className="h-4 w-4 text-white" />
+        <div className="flex items-center gap-2.5">
+          <div className={cn(
+            "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+            isAnalyzing ? "bg-orange-500" : isSpeaking ? "bg-blue-500" : "bg-orange-500"
+          )}>
+            {isAnalyzing
+              ? <Loader2 className="h-4 w-4 text-white animate-spin" />
+              : isSpeaking
+              ? <Volume2 className="h-4 w-4 text-white" />
+              : <Sparkles className="h-4 w-4 text-white" />
+            }
           </div>
           <div>
-            <p className="text-sm font-bold tracking-tight text-white leading-none">Sky Vision</p>
-            <p className="text-[10px] text-white/60 leading-none mt-0.5">Point camera at a site, tank, or installation</p>
+            <p className="text-sm font-bold text-white leading-none">Sky Vision</p>
+            <p className="text-[10px] text-white/55 leading-none mt-0.5">
+              {captureCount === 0
+                ? "Point camera and capture"
+                : `${captureCount} observation${captureCount !== 1 ? "s" : ""} this session`}
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-1.5">
+          {captureCount > 0 && (
+            <button
+              onClick={clearSession}
+              className="w-8 h-8 rounded-full bg-black/40 flex items-center justify-center text-white/70 hover:text-white"
+              title="Clear session memory"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {hasTTS && (
+            <button
+              onClick={toggleVoice}
+              className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                voiceEnabled ? "bg-blue-500 text-white" : "bg-black/40 text-white/60"
+              )}
+              title={voiceEnabled ? "Voice output on" : "Voice output off"}
+            >
+              {voiceEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+            </button>
+          )}
           <button
             onClick={flipCamera}
-            className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-white"
+            className="w-8 h-8 rounded-full bg-black/40 flex items-center justify-center text-white"
             title="Flip camera"
           >
-            <FlipHorizontal className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => setAutoMode((v) => !v)}
-            className={cn(
-              "flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-semibold transition-colors",
-              autoMode ? "bg-orange-500 text-white" : "bg-black/40 text-white"
-            )}
-          >
-            {autoMode ? <Zap className="h-3 w-3" /> : <ZapOff className="h-3 w-3" />}
-            {autoMode ? "Auto On" : "Auto"}
+            <FlipHorizontal className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-white"
+            className="w-8 h-8 rounded-full bg-black/40 flex items-center justify-center text-white"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      {/* Spacer pushes bottom content down */}
+      {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Sky response HUD */}
+      {/* ── Suggestion chips ── */}
+      {suggestions.length > 0 && !isAnalyzing && (
+        <div className="relative z-10 px-3 mb-3 flex flex-col gap-1.5">
+          <p className="text-[10px] text-white/50 uppercase tracking-wider font-medium px-1">Sky suggests</p>
+          {suggestions.map((s, i) => (
+            <button
+              key={i}
+              onClick={() => captureAndAnalyze(s)}
+              className="flex items-center gap-2 w-full text-left px-3 py-2 rounded-xl text-sm text-white font-medium transition-all active:scale-[0.98]"
+              style={{ background: "rgba(249,115,22,0.22)", backdropFilter: "blur(12px)", border: "1px solid rgba(249,115,22,0.35)" }}
+            >
+              <ChevronRight className="h-3.5 w-3.5 text-orange-400 flex-shrink-0" />
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Sky response HUD ── */}
       {(response || isAnalyzing) && (
         <div
           className="relative z-10 mx-3 mb-3 rounded-2xl p-4"
-          style={{ background: "rgba(0,0,0,0.78)", backdropFilter: "blur(14px)" }}
+          style={{ background: "rgba(0,0,0,0.80)", backdropFilter: "blur(16px)" }}
         >
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-1.5">
             <div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
               <Sparkles className="h-3 w-3 text-white" />
             </div>
             <span className="text-xs font-semibold text-orange-400">Sky</span>
-            {isAnalyzing && <Loader2 className="h-3 w-3 text-white/50 animate-spin ml-auto" />}
-          </div>
-          <p className="text-sm text-white leading-relaxed whitespace-pre-wrap max-h-36 overflow-y-auto">
-            {isAnalyzing && !response ? (
-              <span className="text-white/50 italic">Analysing what I see...</span>
-            ) : (
-              response
+            {isSpeaking && (
+              <span className="ml-auto flex items-center gap-1 text-[10px] text-blue-400">
+                <Volume2 className="h-3 w-3" /> Speaking...
+              </span>
             )}
+          </div>
+          <p className="text-sm text-white leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">
+            {isAnalyzing && !response
+              ? <span className="text-white/50 italic">Analysing what I see...</span>
+              : response}
           </p>
         </div>
       )}
 
-      {/* Capture button + input */}
+      {/* ── Input row ── */}
       <div
         className="relative z-10 px-3 pb-3"
         style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       >
         <div
           className="flex gap-2 items-end rounded-2xl px-3 py-2"
-          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(14px)" }}
+          style={{ background: "rgba(0,0,0,0.70)", backdropFilter: "blur(16px)" }}
         >
-          <Textarea
+          {/* Voice input button */}
+          {hasVoiceInput ? (
+            <button
+              onPointerDown={startListening}
+              onPointerUp={stopListening}
+              onPointerLeave={stopListening}
+              disabled={isAnalyzing}
+              className={cn(
+                "mb-1 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all",
+                isListening
+                  ? "bg-red-500 animate-pulse"
+                  : "bg-white/15 hover:bg-white/25 disabled:opacity-40"
+              )}
+              title="Hold to speak"
+            >
+              {isListening
+                ? <MicOff className="h-4 w-4 text-white" />
+                : <Mic className="h-4 w-4 text-white" />
+              }
+            </button>
+          ) : null}
+
+          {/* Text input */}
+          <textarea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask Sky about what you see..."
-            className="min-h-[38px] max-h-[80px] resize-none text-sm bg-transparent border-0 text-white placeholder:text-white/40 focus-visible:ring-0 focus-visible:ring-offset-0 py-2 px-0"
+            placeholder={isListening ? "Listening..." : "Ask Sky about what you see..."}
+            className="flex-1 min-h-[38px] max-h-[72px] resize-none text-sm bg-transparent border-0 text-white placeholder:text-white/40 focus:outline-none py-2 px-0 leading-snug"
             rows={1}
-            disabled={isAnalyzing}
+            disabled={isAnalyzing || isListening}
           />
+
+          {/* Capture button */}
           <button
             onClick={() => captureAndAnalyze()}
             disabled={isAnalyzing || !!cameraError}
@@ -267,15 +448,17 @@ export function SkyCameraMode({ onClose }: SkyCameraModeProps) {
             )}
             title="Capture and analyse"
           >
-            {isAnalyzing ? (
-              <Loader2 className="h-5 w-5 text-white animate-spin" />
-            ) : (
-              <Camera className="h-5 w-5 text-white" />
-            )}
+            {isAnalyzing
+              ? <Loader2 className="h-5 w-5 text-white animate-spin" />
+              : <Camera className="h-5 w-5 text-white" />
+            }
           </button>
         </div>
-        <p className="text-center text-[10px] text-white/40 mt-2">
-          Tap the camera button to capture a frame and ask Sky
+
+        <p className="text-center text-[10px] text-white/35 mt-1.5">
+          {hasVoiceInput
+            ? "Hold mic to speak • Tap camera to capture • Tap suggestions to guide Sky"
+            : "Type a question • Tap camera to capture • Tap suggestions to guide Sky"}
         </p>
       </div>
     </div>
