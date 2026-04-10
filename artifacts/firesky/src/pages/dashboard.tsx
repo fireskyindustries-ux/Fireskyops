@@ -2,7 +2,7 @@ import { useGetDashboardSummary } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Users, FileText, Briefcase, Plus, ArrowRight, ChevronRight, Clock, AlertTriangle, Sparkles, CalendarX, CircleSlash, ShieldAlert } from "lucide-react";
+import { Users, FileText, Briefcase, Plus, ArrowRight, ChevronRight, Clock, AlertTriangle, Sparkles, CalendarX, CircleSlash, ShieldAlert, Download } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
 import { SkyInlineButton } from "@/components/sky";
@@ -320,6 +320,14 @@ export default function Dashboard() {
               activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
               href="/jobs?filter=high_access_risk"
             />
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <a href="/api/admin/export" download>
+              <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 text-muted-foreground">
+                <Download className="h-3.5 w-3.5" /> Download source zip
+              </Button>
+            </a>
           </div>
         </div>
       )}
