@@ -34,3 +34,19 @@ channel = "stable-25_05"
 VAPID_PUBLIC_KEY = "BJSsTi9AaD4sIg7Spgl2xPoMO-SPp5_ukaQdicEgVbfnE1pcr80yz9-0KTdxVHIT2qKIbJgstY00xxj76QVvZ0k"
 VAPID_PRIVATE_KEY = "_u4hJ6KFm9JOuMVG9i-pJRke79fG4cElTIt6lyGhams"
 VAPID_EMAIL = "info@fireskyindustries.co.za"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 18117
+externalPort = 80
+
+[[ports]]
+localPort = 22857
+externalPort = 3000
