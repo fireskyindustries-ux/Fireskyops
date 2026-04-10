@@ -7,7 +7,7 @@ const router = Router();
 
 const WORKSPACE_ROOT = path.resolve(__dirname, "../../../..");
 
-router.get("/api/admin/export", (req, res) => {
+router.get("/admin/export", (req, res) => {
   const auth = getAuth(req);
   const claims = (auth?.sessionClaims as any) ?? {};
   const role = (claims?.publicMetadata?.role as string) || "guest";
