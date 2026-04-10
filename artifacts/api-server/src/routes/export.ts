@@ -1,28 +1,22 @@
 import { Router } from "express";
 import archiver from "archiver";
 import path from "path";
-import { getAuth } from "@clerk/express";
+import { requireAdmin } from "../middlewares/requireAuth";
 
 const router = Router();
 
-const WORKSPACE_ROOT = path.resolve(__dirname, "../../../..");
+// process.cwd() = artifacts/api-server when pnpm runs the package
+// go up two levels to reach the workspace root
+const WORKSPACE_ROOT = path.resolve(process.cwd(), "../..");
 
-router.get("/admin/export", (req, res) => {
-  const auth = getAuth(req);
-  const claims = (auth?.sessionClaims as any) ?? {};
-  const role = (claims?.publicMetadata?.role as string) || "guest";
-
-  if (role !== "admin") {
-    return res.status(403).json({ error: "Admin access required" });
-  }
-
+router.get("/admin/export", requireAdmin, (_req, res) => {
   const filename = `firesky-source-${new Date().toISOString().slice(0, 10)}.zip`;
   res.setHeader("Content-Type", "application/zip");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
 
   const archive = archiver("zip", { zlib: { level: 6 } });
 
-  archive.on("error", (err) => {
+  archive.on("error", () => {
     res.status(500).end();
   });
 
