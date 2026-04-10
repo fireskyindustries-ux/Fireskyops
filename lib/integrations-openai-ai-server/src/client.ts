@@ -1,18 +1,16 @@
 import OpenAI from "openai";
 
-if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+// Prefer a direct API key if provided (works in all environments including production deployments).
+// Fall back to the Replit AI integration proxy for development convenience.
+const apiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+const baseURL = process.env.OPENAI_API_KEY
+  ? undefined // use OpenAI's default base URL
+  : process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+
+if (!apiKey) {
   throw new Error(
-    "AI_INTEGRATIONS_OPENAI_BASE_URL must be set. Did you forget to provision the OpenAI AI integration?",
+    "No OpenAI credentials found. Set OPENAI_API_KEY or provision the Replit OpenAI AI integration.",
   );
 }
 
-if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-  throw new Error(
-    "AI_INTEGRATIONS_OPENAI_API_KEY must be set. Did you forget to provision the OpenAI AI integration?",
-  );
-}
-
-export const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+export const openai = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
