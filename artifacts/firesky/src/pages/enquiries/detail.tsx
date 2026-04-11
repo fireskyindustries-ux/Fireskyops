@@ -426,13 +426,13 @@ export default function EnquiryDetail() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div className="flex-1 min-w-0">
           <button onClick={() => navigate("/enquiries")} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
             <ChevronLeft className="h-4 w-4" /> Enquiries
           </button>
           <div className="flex items-center gap-3 mb-2 flex-wrap">
-            <h1 className="text-3xl font-bold tracking-tight">{enquiry.title}</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight break-words min-w-0">{enquiry.title}</h1>
             <span className={cn("text-[11px] font-medium px-2.5 py-0.5 rounded-full border", statusStyle.badge)}>
               {statusStyle.label}
             </span>
