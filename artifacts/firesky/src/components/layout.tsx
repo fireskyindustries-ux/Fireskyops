@@ -209,7 +209,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 pb-[80px] md:pb-0">
-        <div className={`flex-1 overflow-y-auto overflow-x-hidden min-h-0 ${location.startsWith("/calendar") ? "" : "p-4 md:p-8"}`}>
+        <div className={`flex-1 overflow-y-auto min-h-0 ${location.startsWith("/calendar") ? "" : "p-4 md:p-8"}`}>
           {children}
         </div>
       </main>
