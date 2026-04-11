@@ -31,6 +31,9 @@ function printDeliveryNote(job: any, loads: JobLoad[]) {
   const win = window.open("", "_blank");
   if (!win) return;
 
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const logoUrl = `${window.location.origin}${base}/firesky-logo-print.png`;
+
   const refNo = `DN-${String(job.id).padStart(5, "0")}`;
   const jobRef = `JOB-${String(job.id).padStart(5, "0")}`;
   const today = new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" });
@@ -89,8 +92,7 @@ function printDeliveryNote(job: any, loads: JobLoad[]) {
 <body>
   <div class="header">
     <div>
-      <div class="company-name">Firesky Industries</div>
-      <div class="company-tagline">Your Complete Water Storage Solution</div>
+      <img src="${logoUrl}" alt="Firesky Industries" style="height:72px;width:auto;display:block;" />
     </div>
     <div class="doc-title">
       <h1>Delivery Note</h1>
