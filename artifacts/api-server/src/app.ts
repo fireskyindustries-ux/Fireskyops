@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
+import mcpSseRouter from "./routes/mcp_sse";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
@@ -33,6 +34,9 @@ app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use(cors({ credentials: true, origin: true }));
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
+
+// MCP SSE routes — public, mounted before Clerk middleware
+app.use("/api", mcpSseRouter);
 
 app.use(clerkMiddleware());
 
