@@ -8,6 +8,9 @@ const router = Router();
 
 const FIRESKY_URL = "https://field-ops-manager-leemanski2.replit.app/api/ingest/firevision";
 
+// Session store — keyed by mcp-session-id header value
+const sessions = new Map<string, StreamableHTTPServerTransport>();
+
 function createMcpServer(): McpServer {
   const server = new McpServer({
     name: "firevision-mcp",
@@ -19,7 +22,7 @@ function createMcpServer(): McpServer {
     "Submit a customer enquiry captured by Fire Vision to Firesky Industries",
     {
       name:                 z.string().describe("Customer full name (required)"),
-      phone:                z.string().optional().describe("Customer phone number — used to avoid duplicate customers"),
+      phone:                z.string().optional().describe("Customer phone number"),
       location:             z.string().optional().describe("Customer location or site address"),
       problem_need:         z.string().optional().describe("Customer's problem or need"),
       recommended_solution: z.string().optional().describe("Recommended solution"),
@@ -47,20 +50,37 @@ function createMcpServer(): McpServer {
   return server;
 }
 
-// Stateless Streamable HTTP transport — single endpoint for GET and POST
-// This is the transport format expected by ChatGPT / OpenAI app builder
 router.all("/mcp", async (req, res): Promise<void> => {
+  const sessionId = req.headers["mcp-session-id"] as string | undefined;
+
+  // Reuse existing session if available
+  if (sessionId && sessions.has(sessionId)) {
+    const transport = sessions.get(sessionId)!;
+    await transport.handleRequest(req, res, req.body);
+    return;
+  }
+
+  // New connection — create a transport + server pair
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
   });
 
   const server = createMcpServer();
+  await server.connect(transport);
 
-  try {
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.body);
-  } finally {
-    await server.close();
+  // Clean up session when the transport closes
+  transport.onclose = () => {
+    if (transport.sessionId) {
+      sessions.delete(transport.sessionId);
+    }
+  };
+
+  // Process the request (sets transport.sessionId on initialize)
+  await transport.handleRequest(req, res, req.body);
+
+  // Register session for subsequent requests
+  if (transport.sessionId) {
+    sessions.set(transport.sessionId, transport);
   }
 });
 
