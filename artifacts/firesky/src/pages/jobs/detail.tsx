@@ -619,8 +619,13 @@ export default function JobDetail() {
           }
         };
 
+        const whatsappMessage = trackingUrl
+          ? `Hi${j.customerName ? ` ${j.customerName}` : ""}, here is your Firesky Industries job tracking link for *${job.title}*. You can use this to follow your progress at any time: ${trackingUrl}`
+          : `Hi${j.customerName ? ` ${j.customerName}` : ""}, this is Firesky Industries reaching out regarding your job: *${job.title}*.`;
         const whatsappUrl = hasPhone
-          ? `https://wa.me/${j.customerPhone.replace(/\D/g, "").replace(/^0/, "27")}?text=${encodeURIComponent(`Hi, this is Firesky Industries reaching out regarding your job: ${job.title}.`)}`
+          ? `https://wa.me/${j.customerPhone.replace(/\D/g, "").replace(/^0/, "27")}?text=${encodeURIComponent(whatsappMessage)}`
+          : trackingUrl
+          ? `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`
           : null;
 
         return (
@@ -678,20 +683,22 @@ export default function JobDetail() {
               )}
 
               {/* WhatsApp */}
-              {hasPhone && whatsappUrl && (
+              {whatsappUrl && (
                 <div className="flex items-start gap-3">
                   <MessageCircle className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
                   <div>
                     <p className="text-sm font-medium">WhatsApp</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{j.customerPhone}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {hasPhone ? j.customerPhone : "Send tracking link via WhatsApp"}
+                    </p>
                     <a
                       href={whatsappUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 mt-2 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-full hover:bg-green-100 transition-colors"
+                      className="inline-flex items-center gap-1.5 mt-2 text-xs font-medium bg-[#25D366] text-white px-3 py-1.5 rounded-full hover:bg-[#1ebe5d] transition-colors"
                     >
                       <MessageCircle className="h-3.5 w-3.5" />
-                      Message on WhatsApp
+                      {hasPhone ? "Send tracking link" : "Send via WhatsApp"}
                     </a>
                   </div>
                 </div>
