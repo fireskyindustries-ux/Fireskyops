@@ -427,10 +427,10 @@ export default function JobDetail() {
         <button onClick={() => navigate("/jobs")} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
           <ChevronLeft className="h-4 w-4" /> Jobs Pipeline
         </button>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold tracking-tight">{job.title}</h1>
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 mb-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight break-words min-w-0">{job.title}</h1>
               {job.priority && (
                 <Badge variant={job.priority === "high" ? "destructive" : job.priority === "medium" ? "default" : "outline"} className="uppercase">
                   {job.priority}
