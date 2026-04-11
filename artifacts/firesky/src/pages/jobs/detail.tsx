@@ -83,6 +83,13 @@ function printDeliveryNote(job: any, loads: JobLoad[]) {
     .sig-box .sub { font-size: 11px; color: #666; margin-top: 4px; }
     .sig-line { height: 48px; border-bottom: 1px solid #aaa; margin: 16px 0 6px; }
     .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #ddd; text-align: center; font-size: 11px; color: #888; }
+    .ordered-box { border: 2px solid #e85d04; border-radius: 6px; padding: 14px 16px; margin-bottom: 24px; background: #fff8f5; }
+    .ordered-box h3 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #e85d04; font-weight: 700; margin-bottom: 10px; border-bottom: 1px solid #fddccc; padding-bottom: 6px; }
+    .ordered-row { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; border-bottom: 1px solid #fddccc; }
+    .ordered-row:last-child { border-bottom: none; }
+    .ordered-row .item { font-size: 13px; font-weight: 600; }
+    .ordered-row .qty { font-size: 12px; color: #555; }
+    .ordered-total { margin-top: 8px; display: flex; justify-content: space-between; font-weight: 700; font-size: 14px; border-top: 2px solid #e85d04; padding-top: 8px; }
     @media print {
       body { padding: 16px 20px; }
       @page { margin: 16mm; size: A4; }
@@ -115,6 +122,25 @@ function printDeliveryNote(job: any, loads: JobLoad[]) {
       ${job.tankSize || job.tankQuantity ? `<p><span>Tanks:</span> ${job.tankQuantity ?? 1}x ${job.tankSize || "—"}</p>` : ""}
       ${j.assignedStaff ? `<p><span>Assigned:</span> ${j.assignedStaff}</p>` : ""}
     </div>
+  </div>
+
+  <div class="ordered-box">
+    <h3>Goods Ordered</h3>
+    ${(job.tankSize || job.tankQuantity) ? `
+    <div class="ordered-row">
+      <span class="item">${job.tankQuantity ?? 1}x ${job.tankSize || "Tank"}</span>
+      <span class="qty">${((job as any).jobType || "full_install") === "delivery_only" ? "Delivery Only" : "Full Installation"}</span>
+    </div>` : ""}
+    ${(job as any).accessRisk ? `
+    <div class="ordered-row">
+      <span class="item">Site Access</span>
+      <span class="qty">${(job as any).accessRisk} risk</span>
+    </div>` : ""}
+    ${j.estimatedValue ? `
+    <div class="ordered-total">
+      <span>Quoted Value</span>
+      <span>R ${Number(j.estimatedValue).toLocaleString("en-ZA")}</span>
+    </div>` : ""}
   </div>
 
   <div class="section-title">Delivery Loads</div>
@@ -694,7 +720,12 @@ export default function JobDetail() {
               disabled={createLoad.isPending}
               onClick={() => {
                 const nextNum = jobLoads.length > 0 ? Math.max(...jobLoads.map(l => l.loadNumber)) + 1 : 1;
-                createLoad.mutate({ loadNumber: nextNum, status: "pending" }, {
+                createLoad.mutate({
+                  loadNumber: nextNum,
+                  status: "pending",
+                  tankSize: job.tankSize ?? undefined,
+                  tankQuantity: job.tankQuantity ?? undefined,
+                }, {
                   onSuccess: () => toast({ title: `Load ${nextNum} added` }),
                   onError: () => toast({ title: "Failed to add load", variant: "destructive" }),
                 });
