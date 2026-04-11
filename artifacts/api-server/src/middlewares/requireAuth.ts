@@ -38,8 +38,25 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     return res.status(401).json({ error: "Unauthorized" });
   }
   (req as any).userId = userId;
-  (req as any).userRole = getRole(req);
-  next();
+
+  // Fast path: role already embedded in JWT claims
+  const claimRole = roleFromClaims(req);
+  if (claimRole) {
+    (req as any).userRole = claimRole;
+    next();
+    return;
+  }
+
+  // Slow path: JWT template not configured — fetch role from Clerk API
+  roleFromClerkApi(userId)
+    .then((role) => {
+      (req as any).userRole = role;
+      next();
+    })
+    .catch(() => {
+      (req as any).userRole = "guest";
+      next();
+    });
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
