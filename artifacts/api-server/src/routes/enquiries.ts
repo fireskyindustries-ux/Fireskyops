@@ -176,6 +176,12 @@ router.put("/enquiries/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  // Fetch current status before update so we can detect changes
+  const [existing] = await db
+    .select({ status: enquiriesTable.status, title: enquiriesTable.title })
+    .from(enquiriesTable)
+    .where(eq(enquiriesTable.id, params.data.id));
+
   const [enquiry] = await db
     .update(enquiriesTable)
     .set({ ...parsed.data, updatedAt: new Date() })
@@ -191,6 +197,19 @@ router.put("/enquiries/:id", async (req, res): Promise<void> => {
     .select()
     .from(customersTable)
     .where(eq(customersTable.id, enquiry.customerId));
+
+  // Notify admins when status changes
+  const statusChanged = existing && parsed.data.status && existing.status !== parsed.data.status;
+  if (statusChanged) {
+    const STATUS_LABELS: Record<string, string> = {
+      new: "New", in_progress: "In Progress", won: "Won", lost: "Lost", closed: "Closed",
+    };
+    notifyAdmins(
+      `Enquiry status changed — ${enquiry.title || customer?.name || "Enquiry"}`,
+      `${STATUS_LABELS[existing.status] ?? existing.status} → ${STATUS_LABELS[enquiry.status] ?? enquiry.status}`,
+      `/enquiries/${enquiry.id}`
+    );
+  }
 
   res.json(
     UpdateEnquiryResponse.parse({

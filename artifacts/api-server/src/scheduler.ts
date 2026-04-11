@@ -152,36 +152,26 @@ async function runCheck(): Promise<void> {
     highAccessRiskJobs: highAccessRiskJobs[0].count,
   };
 
-  const prev = state.lastNotifiedCounts;
-  const countsChanged = !prev ||
-    (Object.keys(currentCounts) as (keyof SchedulerCounts)[]).some(
-      (k) => prev[k] !== currentCounts[k],
-    );
+  // Only notify admins when genuinely new records have arrived since the last run.
+  // Persistent aggregate issues (stale, urgent, overdue) are logged for monitoring
+  // but do NOT generate notifications — those are handled event-driven in the routes.
+  const newEnquiries = enquiries[0].count;
+  const newJobs = jobs[0].count;
+  const newCustomers = customers[0].count;
+  const newInspections = inspections[0].count;
+  const newRecordsTotal = currentCounts.newRecords;
 
-  const anyAboveZero = Object.values(currentCounts).some((v) => v > 0);
-
-  if (anyAboveZero && countsChanged) {
+  if (newRecordsTotal > 0) {
     const parts: string[] = [];
-    if (currentCounts.newRecords > 0) parts.push(`${currentCounts.newRecords} new record${currentCounts.newRecords !== 1 ? "s" : ""}`);
-    if (currentCounts.staleEnquiries > 0) parts.push(`${currentCounts.staleEnquiries} stale enquir${currentCounts.staleEnquiries !== 1 ? "ies" : "y"}`);
-    if (currentCounts.staleJobs > 0) parts.push(`${currentCounts.staleJobs} stale job${currentCounts.staleJobs !== 1 ? "s" : ""}`);
-    if (currentCounts.urgentEnquiries > 0) parts.push(`${currentCounts.urgentEnquiries} urgent enquir${currentCounts.urgentEnquiries !== 1 ? "ies" : "y"}`);
-    if (currentCounts.urgentJobs > 0) parts.push(`${currentCounts.urgentJobs} urgent job${currentCounts.urgentJobs !== 1 ? "s" : ""}`);
-    if (currentCounts.overdueFollowUpEnquiries > 0) parts.push(`${currentCounts.overdueFollowUpEnquiries} overdue follow-up enquir${currentCounts.overdueFollowUpEnquiries !== 1 ? "ies" : "y"}`);
-    if (currentCounts.overdueFollowUpJobs > 0) parts.push(`${currentCounts.overdueFollowUpJobs} overdue follow-up job${currentCounts.overdueFollowUpJobs !== 1 ? "s" : ""}`);
-    if (currentCounts.noNextActionEnquiries > 0) parts.push(`${currentCounts.noNextActionEnquiries} enquir${currentCounts.noNextActionEnquiries !== 1 ? "ies" : "y"} with no next action`);
-    if (currentCounts.noNextActionJobs > 0) parts.push(`${currentCounts.noNextActionJobs} job${currentCounts.noNextActionJobs !== 1 ? "s" : ""} with no next action`);
-    if (currentCounts.quotedNoFollowUp > 0) parts.push(`${currentCounts.quotedNoFollowUp} quoted job${currentCounts.quotedNoFollowUp !== 1 ? "s" : ""} with no follow-up date`);
-    if (currentCounts.lostNoReason > 0) parts.push(`${currentCounts.lostNoReason} lost job${currentCounts.lostNoReason !== 1 ? "s" : ""} with no reason`);
-    if (currentCounts.highAccessRiskJobs > 0) parts.push(`${currentCounts.highAccessRiskJobs} high access risk job${currentCounts.highAccessRiskJobs !== 1 ? "s" : ""}`);
-
+    if (newEnquiries > 0) parts.push(`${newEnquiries} new enquir${newEnquiries !== 1 ? "ies" : "y"}`);
+    if (newJobs > 0) parts.push(`${newJobs} new job${newJobs !== 1 ? "s" : ""}`);
+    if (newCustomers > 0) parts.push(`${newCustomers} new customer${newCustomers !== 1 ? "s" : ""}`);
+    if (newInspections > 0) parts.push(`${newInspections} new inspection${newInspections !== 1 ? "s" : ""}`);
     const body = parts.join(", ");
     logger.info(`[scheduler] Notifying admins: ${body}`);
-    await notifyAdmins("Scheduler alert", body, "/dashboard");
-  } else if (!anyAboveZero) {
-    logger.info("[scheduler] All counts zero — no notification sent");
+    await notifyAdmins("New activity", body, "/dashboard");
   } else {
-    logger.info("[scheduler] Counts unchanged since last notification — skipping");
+    logger.info("[scheduler] No new records since last check — no notification sent");
   }
 
   saveSchedulerState({ lastSuccessfulCheck: runAt.toISOString(), lastNotifiedCounts: currentCounts });

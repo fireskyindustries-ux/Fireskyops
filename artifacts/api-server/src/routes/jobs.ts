@@ -200,18 +200,31 @@ router.put("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
     });
   }
 
-  // In-app notification to assignee on stage change
-  if (stageChanged && job.assignedToId) {
+  // In-app notifications on stage change
+  if (stageChanged) {
     const STAGE_LABELS: Record<string, string> = {
       enquiry: "Enquiry", inspection: "Inspection", quoting: "Quoting",
       quoted: "Quoted", won: "Won", lost: "Lost", closed: "Closed",
     };
-    notifyUsers(
-      [job.assignedToId],
-      `Job stage updated — ${job.title}`,
-      `Moved to ${STAGE_LABELS[job.stage] || job.stage}`,
+    const prevLabel = STAGE_LABELS[existing.stage] ?? existing.stage;
+    const newLabel = STAGE_LABELS[job.stage] ?? job.stage;
+
+    // Notify admins of the stage change
+    notifyAdmins(
+      `Job stage changed — ${job.title}`,
+      `${prevLabel} → ${newLabel}`,
       `/jobs/${job.id}`
     );
+
+    // Also notify assignee if they are not an admin (they get it separately)
+    if (job.assignedToId) {
+      notifyUsers(
+        [job.assignedToId],
+        `Job stage updated — ${job.title}`,
+        `Moved to ${newLabel}`,
+        `/jobs/${job.id}`
+      );
+    }
   }
 
   res.json(normalize({ ...job, customerName: customer?.name, customerEmail: customer?.email, customerPhone: customer?.phone }));
