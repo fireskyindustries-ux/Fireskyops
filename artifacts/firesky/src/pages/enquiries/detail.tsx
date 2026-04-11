@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useGetEnquiry, useUpdateEnquiry, getGetEnquiryQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { ClipboardCheck, Briefcase, AlignLeft, Info, Calendar, ChevronLeft, Pencil, Save, X, CheckCircle2, ExternalLink, FileText, Send, Upload, Clock, ThumbsUp, ThumbsDown } from "lucide-react";
+import { ClipboardCheck, Briefcase, AlignLeft, Info, Calendar, ChevronLeft, Pencil, Save, X, CheckCircle2, ExternalLink, FileText, Send, Upload, Clock, ThumbsUp, ThumbsDown, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -123,6 +123,7 @@ function SendQuoteSection({
   quoteToken,
   quoteStatus,
   quotePaymentProofUrl,
+  customerName,
   onSent,
 }: {
   enquiryId: number;
@@ -131,6 +132,7 @@ function SendQuoteSection({
   quoteToken?: string | null;
   quoteStatus?: string | null;
   quotePaymentProofUrl?: string | null;
+  customerName?: string | null;
   onSent: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -253,6 +255,19 @@ function SendQuoteSection({
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   View customer quote page
+                </a>
+              )}
+              {quoteToken && (
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    `Hi${customerName ? ` ${customerName}` : ""}, your quote from Firesky Industries is ready. View and accept it here: ${window.location.origin}${BASE}/quote/${quoteToken}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#25D366] text-white hover:bg-[#1ebe5d] transition-colors"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  Send via WhatsApp
                 </a>
               )}
               <Button
@@ -678,6 +693,7 @@ export default function EnquiryDetail() {
           quoteToken={enquiry.quoteToken}
           quoteStatus={enquiry.quoteStatus}
           quotePaymentProofUrl={enquiry.quotePaymentProofUrl}
+          customerName={enquiry.customerName}
           onSent={() => queryClient.invalidateQueries({ queryKey: getGetEnquiryQueryKey(id) })}
         />
       )}
