@@ -93,4 +93,10 @@ router.post("/ingest/firevision", async (req, res): Promise<void> => {
   }
 });
 
+// Simple receive-and-log endpoint for Fire Vision agent compatibility
+router.post("/firevision/enquiry", (req, res): void => {
+  console.log("[Fire Vision] Enquiry received:", JSON.stringify(req.body, null, 2));
+  res.json({ success: true, message: "Enquiry received" });
+});
+
 export default router;
