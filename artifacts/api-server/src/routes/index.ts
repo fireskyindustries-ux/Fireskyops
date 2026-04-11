@@ -4,6 +4,7 @@ import healthRouter from "./health";
 import trackRouter from "./track";
 import storageRouter from "./storage";
 import quotePublicRouter from "./quote_public";
+import fireVisionRouter from "./firevision";
 import customersRouter from "./customers";
 import enquiriesRouter from "./enquiries";
 import inspectionsRouter from "./inspections";
@@ -28,6 +29,7 @@ router.use(healthRouter);
 router.use(trackRouter);
 router.use(storageRouter);
 router.use(quotePublicRouter);
+router.use(fireVisionRouter);
 
 // All routes below require authentication
 router.use(requireAuth);
