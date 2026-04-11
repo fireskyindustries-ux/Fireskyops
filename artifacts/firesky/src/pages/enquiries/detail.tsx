@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useGetEnquiry, useUpdateEnquiry, getGetEnquiryQueryKey } from "@workspace/api-client-react";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { ClipboardCheck, Briefcase, AlignLeft, Info, Calendar, ChevronLeft, Pencil, Save, X, CheckCircle2, ExternalLink, FileText, Send, Upload, Clock, ThumbsUp, ThumbsDown, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -351,6 +351,7 @@ function SendQuoteSection({
 export default function EnquiryDetail() {
   const params = useParams();
   const id = Number(params.id);
+  const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const updateEnquiry = useUpdateEnquiry();
@@ -427,9 +428,9 @@ export default function EnquiryDetail() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex-1 min-w-0">
-          <Link href="/enquiries" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
+          <button onClick={() => navigate("/enquiries")} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
             <ChevronLeft className="h-4 w-4" /> Enquiries
-          </Link>
+          </button>
           <div className="flex items-center gap-3 mb-2 flex-wrap">
             <h1 className="text-3xl font-bold tracking-tight">{enquiry.title}</h1>
             <span className={cn("text-[11px] font-medium px-2.5 py-0.5 rounded-full border", statusStyle.badge)}>

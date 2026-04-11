@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useGetJob, useUpdateJob, getGetJobQueryKey, useListJobLoads, useCreateJobLoad, useUpdateJobLoad, useDeleteJobLoad } from "@workspace/api-client-react";
 import type { JobLoad } from "@workspace/api-client-react";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { Briefcase, CalendarDays, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle, Plus, Clock, User, MessageCircle, Bell, BellOff, Copy, Mail, Truck, Wrench, ChevronDown, ChevronUp, Trash2, Package, Printer } from "lucide-react";
 import { AssignUser } from "@/components/assign-user";
 import { Button } from "@/components/ui/button";
@@ -331,6 +331,7 @@ const TERMINAL_STAGES = ["won", "lost", "closed"];
 export default function JobDetail() {
   const params = useParams();
   const id = Number(params.id);
+  const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const updateJob = useUpdateJob();
   const { toast } = useToast();
@@ -423,9 +424,9 @@ export default function JobDetail() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <Link href="/jobs" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
+        <button onClick={() => navigate("/jobs")} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
           <ChevronLeft className="h-4 w-4" /> Jobs Pipeline
-        </Link>
+        </button>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
