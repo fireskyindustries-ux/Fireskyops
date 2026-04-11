@@ -54,7 +54,7 @@ function printDeliveryNote(job: any, loads: JobLoad[]) {
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <title>Delivery Note ${refNo}</title>
+  <title>Delivery Note / Job Card ${refNo}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #fff; padding: 32px 40px; }
@@ -102,7 +102,7 @@ function printDeliveryNote(job: any, loads: JobLoad[]) {
       <img src="${logoUrl}" alt="Firesky Industries" style="height:72px;width:auto;display:block;" />
     </div>
     <div class="doc-title">
-      <h1>Delivery Note</h1>
+      <h1>Delivery Note / Job Card</h1>
       <div class="ref">Ref: ${refNo}</div>
       <div class="date">Date: ${today}</div>
     </div>
@@ -135,11 +135,6 @@ function printDeliveryNote(job: any, loads: JobLoad[]) {
     <div class="ordered-row">
       <span class="item">Site Access</span>
       <span class="qty">${(job as any).accessRisk} risk</span>
-    </div>` : ""}
-    ${j.estimatedValue ? `
-    <div class="ordered-total">
-      <span>Quoted Value</span>
-      <span>R ${Number(j.estimatedValue).toLocaleString("en-ZA")}</span>
     </div>` : ""}
   </div>
 
