@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useGetJob, useUpdateJob, getGetJobQueryKey, useListJobLoads, useCreateJobLoad, useUpdateJobLoad, useDeleteJobLoad } from "@workspace/api-client-react";
 import type { JobLoad } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { Briefcase, CalendarDays, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle, Plus, Clock, User, MessageCircle, Bell, BellOff, Copy, Mail, Truck, Wrench, ChevronDown, ChevronUp, Trash2, Package } from "lucide-react";
+import { Briefcase, CalendarDays, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle, Plus, Clock, User, MessageCircle, Bell, BellOff, Copy, Mail, Truck, Wrench, ChevronDown, ChevronUp, Trash2, Package, Printer } from "lucide-react";
 import { AssignUser } from "@/components/assign-user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,140 @@ const LOAD_STATUS_STYLES: Record<string, { label: string; color: string }> = {
   in_transit: { label: "In Transit",color: "bg-amber-100 text-amber-700 border-amber-200" },
   delivered:  { label: "Delivered", color: "bg-green-100 text-green-700 border-green-200" },
 };
+
+function printDeliveryNote(job: any, loads: JobLoad[]) {
+  const win = window.open("", "_blank");
+  if (!win) return;
+
+  const refNo = `DN-${String(job.id).padStart(5, "0")}`;
+  const jobRef = `JOB-${String(job.id).padStart(5, "0")}`;
+  const today = new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" });
+  const j = job as any;
+
+  const loadsRows = loads.length > 0
+    ? loads.map(l => `
+        <tr>
+          <td>Load ${l.loadNumber}</td>
+          <td>${l.tankQuantity && l.tankSize ? `${l.tankQuantity}x ${l.tankSize}` : l.tankSize || l.tankQuantity || "—"}</td>
+          <td>${l.scheduledDate ? new Date(l.scheduledDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" }) : "—"}</td>
+          <td>${(l as any).driverName || "—"}</td>
+          <td>${LOAD_STATUS_STYLES[l.status ?? "pending"]?.label ?? l.status ?? "—"}</td>
+        </tr>`).join("")
+    : `<tr><td colspan="5" style="text-align:center;color:#666;">No delivery loads recorded</td></tr>`;
+
+  win.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Delivery Note ${refNo}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #fff; padding: 32px 40px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 20px; border-bottom: 3px solid #e85d04; margin-bottom: 24px; }
+    .company-name { font-size: 22px; font-weight: 800; letter-spacing: 1px; color: #111; text-transform: uppercase; }
+    .company-tagline { font-size: 11px; color: #666; margin-top: 3px; }
+    .doc-title { text-align: right; }
+    .doc-title h1 { font-size: 26px; font-weight: 800; color: #e85d04; text-transform: uppercase; letter-spacing: 2px; }
+    .doc-title .ref { font-size: 13px; color: #444; margin-top: 4px; }
+    .doc-title .date { font-size: 12px; color: #666; margin-top: 2px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+    .info-box { border: 1px solid #ddd; border-radius: 6px; padding: 14px 16px; }
+    .info-box h3 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #e85d04; font-weight: 700; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+    .info-box p { margin-bottom: 5px; font-size: 13px; }
+    .info-box p span { color: #555; font-size: 12px; display: inline-block; min-width: 80px; }
+    .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #e85d04; font-weight: 700; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 12px; }
+    thead tr { background: #f5f5f5; }
+    th { text-align: left; padding: 9px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #555; border-bottom: 2px solid #ddd; }
+    td { padding: 9px 12px; border-bottom: 1px solid #eee; vertical-align: top; }
+    tbody tr:last-child td { border-bottom: none; }
+    .notes-box { border: 1px solid #ddd; border-radius: 6px; padding: 14px 16px; margin-bottom: 24px; min-height: 60px; }
+    .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 40px; }
+    .sig-box { border-top: 2px solid #333; padding-top: 10px; }
+    .sig-box .label { font-size: 12px; font-weight: 600; }
+    .sig-box .sub { font-size: 11px; color: #666; margin-top: 4px; }
+    .sig-line { height: 48px; border-bottom: 1px solid #aaa; margin: 16px 0 6px; }
+    .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #ddd; text-align: center; font-size: 11px; color: #888; }
+    @media print {
+      body { padding: 16px 20px; }
+      @page { margin: 16mm; size: A4; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="company-name">Firesky Industries</div>
+      <div class="company-tagline">Your Complete Water Storage Solution</div>
+    </div>
+    <div class="doc-title">
+      <h1>Delivery Note</h1>
+      <div class="ref">Ref: ${refNo}</div>
+      <div class="date">Date: ${today}</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="info-box">
+      <h3>Customer Details</h3>
+      <p><span>Name:</span> ${job.customerName || "—"}</p>
+      ${j.customerPhone ? `<p><span>Phone:</span> ${j.customerPhone}</p>` : ""}
+      ${j.customerEmail ? `<p><span>Email:</span> ${j.customerEmail}</p>` : ""}
+    </div>
+    <div class="info-box">
+      <h3>Job Details</h3>
+      <p><span>Reference:</span> ${jobRef}</p>
+      ${j.jobType ? `<p><span>Type:</span> ${j.jobType}</p>` : ""}
+      ${job.tankSize || job.tankQuantity ? `<p><span>Tanks:</span> ${job.tankQuantity ?? 1}x ${job.tankSize || "—"}</p>` : ""}
+      ${j.assignedStaff ? `<p><span>Assigned:</span> ${j.assignedStaff}</p>` : ""}
+    </div>
+  </div>
+
+  <div class="section-title">Delivery Loads</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Load</th>
+        <th>Items</th>
+        <th>Scheduled Date</th>
+        <th>Driver</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${loadsRows}
+    </tbody>
+  </table>
+
+  ${job.notes ? `
+  <div class="section-title">Notes</div>
+  <div class="notes-box">${job.notes}</div>
+  ` : ""}
+
+  <div class="sig-grid">
+    <div class="sig-box">
+      <div class="label">Received by (Customer)</div>
+      <div class="sub">By signing below, you confirm receipt of the above goods.</div>
+      <div class="sig-line"></div>
+      <div class="sub">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date: _______________</div>
+    </div>
+    <div class="sig-box">
+      <div class="label">Delivered by (Driver / Agent)</div>
+      <div class="sub">Firesky Industries representative</div>
+      <div class="sig-line"></div>
+      <div class="sub">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date: _______________</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Firesky Industries &mdash; ${refNo} &mdash; Printed ${today}
+  </div>
+
+  <script>window.onload = function() { window.print(); }<\/script>
+</body>
+</html>`);
+  win.document.close();
+}
 
 function LoadCard({ load, jobId, canEdit }: { load: JobLoad; jobId: number; canEdit: boolean }) {
   const [open, setOpen] = useState(false);
@@ -313,6 +447,15 @@ export default function JobDetail() {
               contextLabel={job.title}
               variant="outline"
             />
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => printDeliveryNote(job, jobLoads)}
+            >
+              <Printer className="h-4 w-4" />
+              Delivery Note
+            </Button>
             <span className="text-sm font-medium mr-2">Stage:</span>
             <Select value={job.stage} onValueChange={handleStageChange} disabled={updateJob.isPending}>
               <SelectTrigger className="w-[160px]">
