@@ -156,7 +156,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-[100dvh] flex flex-col md:flex-row bg-muted/30">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border pb-8">
-        <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-white">
+        <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-sidebar">
           <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-20 w-auto object-contain" />
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto pt-4">
@@ -175,7 +175,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden flex items-center justify-between px-4 py-2 bg-white border-b border-sidebar-border sticky top-0 z-10 shadow-sm">
+      <header className="md:hidden flex items-center justify-between px-4 py-2 bg-sidebar border-b border-sidebar-border sticky top-0 z-10 shadow-sm">
         <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-12 w-auto object-contain" />
         <div className="flex items-center gap-1">
           {!isGuest && <NotificationBell />}
@@ -186,7 +186,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Button>
             </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0 flex flex-col bg-sidebar">
-            <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-white">
+            <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-sidebar">
               <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-16 w-auto object-contain" />
             </div>
             <nav className="p-3 space-y-1 flex-1 overflow-y-auto pt-4">
@@ -216,13 +216,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Bottom Nav — Admin */}
       {isAdmin && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[72px] bg-white border-t border-sidebar-border flex items-stretch justify-around px-1 z-10">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[72px] bg-sidebar border-t border-sidebar-border flex items-stretch justify-around px-1 z-10">
           {[adminNavItems[0], adminNavItems[1]].map((item) => (
             <BottomNavItem key={item.href} item={item} location={location} />
           ))}
           <div className="flex-1 flex justify-center items-center -mt-5">
             <Link href="/enquiries/new">
-              <Button size="icon" className="h-13 w-13 h-[52px] w-[52px] rounded-full shadow-lg shadow-primary/30 ring-4 ring-white">
+              <Button size="icon" className="h-13 w-13 h-[52px] w-[52px] rounded-full shadow-lg shadow-primary/30 ring-4 ring-sidebar">
                 <Plus className="h-6 w-6" />
               </Button>
             </Link>
@@ -235,12 +235,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Bottom Nav — Field Worker */}
       {isFieldWorker && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[72px] bg-white border-t border-sidebar-border flex items-stretch justify-around px-1 z-10">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[72px] bg-sidebar border-t border-sidebar-border flex items-stretch justify-around px-1 z-10">
           <BottomNavItem item={fieldNavItems[0]} location={location} />
           <BottomNavItem item={fieldNavItems[1]} location={location} />
           <div className="flex-1 flex justify-center items-center -mt-5">
             <Link href="/inspections/new">
-              <Button size="icon" className="h-[52px] w-[52px] rounded-full shadow-lg shadow-primary/30 ring-4 ring-white">
+              <Button size="icon" className="h-[52px] w-[52px] rounded-full shadow-lg shadow-primary/30 ring-4 ring-sidebar">
                 <Plus className="h-6 w-6" />
               </Button>
             </Link>
@@ -252,10 +252,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Bottom Nav — Guest */}
       {isGuest && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[72px] bg-white border-t border-sidebar-border flex items-center justify-around px-2 z-10">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[72px] bg-sidebar border-t border-sidebar-border flex items-center justify-around px-2 z-10">
           <div className="flex-1 flex justify-center -mt-5">
             <Link href="/enquiries/new">
-              <Button size="icon" className="h-[52px] w-[52px] rounded-full shadow-lg shadow-primary/30 ring-4 ring-white">
+              <Button size="icon" className="h-[52px] w-[52px] rounded-full shadow-lg shadow-primary/30 ring-4 ring-sidebar">
                 <Plus className="h-6 w-6" />
               </Button>
             </Link>

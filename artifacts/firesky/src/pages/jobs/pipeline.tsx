@@ -173,7 +173,7 @@ export default function JobsPipeline() {
 
     return (
       <Link key={job.id} href={`/jobs/${job.id}`}>
-        <div className="bg-white border rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group p-3 space-y-2">
+        <div className="bg-card border rounded-xl shadow-sm hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group p-3 space-y-2">
           <div className="space-y-0.5">
             <p className="text-[11px] text-muted-foreground line-clamp-1">{job.customerName || `Customer #${job.customerId}`}</p>
             <h4 className="font-semibold text-sm leading-snug line-clamp-2">{job.title}</h4>
@@ -248,7 +248,7 @@ export default function JobsPipeline() {
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
                 viewMode === "pipeline"
-                  ? "bg-white shadow-sm text-foreground"
+                  ? "bg-card shadow-sm text-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -259,7 +259,7 @@ export default function JobsPipeline() {
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
                 viewMode === "list"
-                  ? "bg-white shadow-sm text-foreground"
+                  ? "bg-card shadow-sm text-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >

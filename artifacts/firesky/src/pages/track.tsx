@@ -121,7 +121,7 @@ export default function TrackPage() {
 
       <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
         {/* Job card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
           <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">Hi {data.customerName},</p>
           <h1 className="text-xl font-bold text-gray-900 mb-1">{data.jobTitle}</h1>
           {(data.tankQuantity || data.tankSize) && (
@@ -143,7 +143,7 @@ export default function TrackPage() {
 
         {/* Pipeline Timeline */}
         {!data.isClosed && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="bg-card rounded-xl shadow-sm border border-border p-5">
             <p className="text-sm font-semibold text-gray-700 mb-4">Progress</p>
             <div className="space-y-0">
               {data.timeline.map((step, i) => {
@@ -154,7 +154,7 @@ export default function TrackPage() {
                       <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center border-2 ${
                         step.done
                           ? "bg-orange-500 border-orange-500"
-                          : "bg-white border-gray-200"
+                          : "bg-card border-border"
                       }`}>
                         {step.done ? (
                           <CheckCircle className="h-4 w-4 text-white" />
@@ -185,7 +185,7 @@ export default function TrackPage() {
 
         {/* Delivery Loads — shown if loads have been added */}
         {hasLoads && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="bg-card rounded-xl shadow-sm border border-border p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-orange-500" />
