@@ -20,6 +20,7 @@ import pushRouter from "./push";
 import websiteRouter from "./website";
 import emailLogsRouter from "./email_logs";
 import exportRouter from "./export";
+import mcpSseRouter from "./mcp_sse";
 
 const router: IRouter = Router();
 
@@ -30,6 +31,7 @@ router.use(trackRouter);
 router.use(storageRouter);
 router.use(quotePublicRouter);
 router.use(fireVisionRouter);
+router.use(mcpSseRouter);
 
 // All routes below require authentication
 router.use(requireAuth);

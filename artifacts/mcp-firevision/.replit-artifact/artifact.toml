@@ -1,0 +1,32 @@
+kind = "web"
+  previewPath = "/mcp/"
+  title = "Fire Vision MCP Server"
+  version = "1.0.0"
+  id = "artifacts/mcp-firevision"
+
+  [[integratedSkills]]
+  name = "react-vite"
+  version = "1.0.0"
+
+  [[services]]
+  name = "web"
+  paths = [ "/mcp" ]
+  localPort = 3002
+
+  [services.development]
+  run = "pnpm --filter @workspace/mcp-firevision run dev"
+
+  [services.production]
+
+  [services.production.run]
+  args = ["node", "artifacts/mcp-firevision/index.js"]
+
+  [services.production.run.env]
+  MCP_HTTP = "true"
+  NODE_ENV = "production"
+
+  [services.env]
+  PORT = "3002"
+  BASE_PATH = "/mcp/"
+  MCP_HTTP = "true"
+  
