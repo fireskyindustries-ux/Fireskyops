@@ -1,13 +1,12 @@
 import { Router } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 
 const router = Router();
 
 const FIRESKY_URL = "https://field-ops-manager-leemanski2.replit.app/api/ingest/firevision";
-
-const sessions = new Map<string, SSEServerTransport>();
 
 function createMcpServer(): McpServer {
   const server = new McpServer({
@@ -48,28 +47,21 @@ function createMcpServer(): McpServer {
   return server;
 }
 
-router.get("/mcp/sse", async (req, res): Promise<void> => {
-  const transport = new SSEServerTransport("/api/mcp/messages", res);
-  sessions.set(transport.sessionId, transport);
-
-  transport.onclose = () => {
-    sessions.delete(transport.sessionId);
-  };
+// Stateless Streamable HTTP transport — single endpoint for GET and POST
+// This is the transport format expected by ChatGPT / OpenAI app builder
+router.all("/mcp", async (req, res): Promise<void> => {
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID(),
+  });
 
   const server = createMcpServer();
-  await server.connect(transport);
-});
 
-router.post("/mcp/messages", async (req, res): Promise<void> => {
-  const sessionId = req.query["sessionId"] as string;
-  const transport = sessions.get(sessionId);
-
-  if (!transport) {
-    res.status(404).json({ error: "Session not found" });
-    return;
+  try {
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  } finally {
+    await server.close();
   }
-
-  await transport.handlePostMessage(req, res);
 });
 
 export default router;
