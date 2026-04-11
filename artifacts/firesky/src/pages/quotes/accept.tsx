@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "wouter";
-import { CheckCircle2, XCircle, FileText, Clock, ThumbsUp, ThumbsDown, Upload, Receipt } from "lucide-react";
+import { CheckCircle2, XCircle, FileText, Clock, ThumbsUp, ThumbsDown, Upload, Receipt, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,11 +22,28 @@ interface QuoteData {
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 function PageHeader() {
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      window.close();
+    }
+  };
+
   return (
     <div className="bg-orange-500 text-white px-4 py-5">
-      <div className="max-w-2xl mx-auto">
-        <p className="text-lg font-bold tracking-tight">Firesky Industries</p>
-        <p className="text-sm text-orange-100">Your Custom Quote</p>
+      <div className="max-w-2xl mx-auto flex items-center justify-between">
+        <div>
+          <p className="text-lg font-bold tracking-tight">Firesky Industries</p>
+          <p className="text-sm text-orange-100">Your Custom Quote</p>
+        </div>
+        <button
+          onClick={handleBack}
+          className="flex items-center gap-1 text-sm text-orange-100 hover:text-white transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back
+        </button>
       </div>
     </div>
   );
