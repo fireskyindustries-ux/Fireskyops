@@ -22,6 +22,7 @@ function createMcpServer(): McpServer {
     "Submit a customer enquiry captured by Fire Vision to Firesky Industries",
     {
       name:                 z.string().describe("Customer full name (required)"),
+      email:                z.string().describe("Customer email address (required)"),
       phone:                z.string().optional().describe("Customer phone number"),
       location:             z.string().optional().describe("Customer location or site address"),
       problem_need:         z.string().optional().describe("Customer's problem or need"),

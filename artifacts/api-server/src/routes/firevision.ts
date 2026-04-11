@@ -8,6 +8,7 @@ const router = Router();
 
 const payloadSchema = z.object({
   name:                 z.string(),
+  email:                z.string().min(1, "email is required"),
   phone:                z.string().optional(),
   location:             z.string().optional(),
   problem_need:         z.string().optional(),
@@ -26,28 +27,38 @@ router.post("/ingest/firevision", async (req, res): Promise<void> => {
   }
 
   const {
-    name, phone, location,
+    name, email, phone, location,
     problem_need, recommended_solution, additional_notes,
     source, priority, status,
   } = parsed.data;
+
+  console.log(`[Fire Vision] Ingest received — name: ${name}, email: ${email}, phone: ${phone ?? "n/a"}`);
 
   try {
     // Find existing customer by phone, or create new
     let customerId: number;
     if (phone) {
       const existing = await db
-        .select({ id: customersTable.id })
+        .select({ id: customersTable.id, email: customersTable.email })
         .from(customersTable)
         .where(eq(customersTable.phone, phone))
         .limit(1);
 
       if (existing.length > 0) {
         customerId = existing[0].id;
+        // Update email if the customer doesn't have one stored yet
+        if (!existing[0].email) {
+          await db
+            .update(customersTable)
+            .set({ email })
+            .where(eq(customersTable.id, customerId));
+        }
       } else {
         const [created] = await db
           .insert(customersTable)
           .values({
             name,
+            email,
             phone,
             ...(location ? { notes: `Location: ${location}` } : {}),
           })
@@ -59,6 +70,7 @@ router.post("/ingest/firevision", async (req, res): Promise<void> => {
         .insert(customersTable)
         .values({
           name,
+          email,
           ...(location ? { notes: `Location: ${location}` } : {}),
         })
         .returning({ id: customersTable.id });
