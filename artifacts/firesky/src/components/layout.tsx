@@ -7,7 +7,6 @@ import { useUser, useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "./NotificationBell";
 import { useDarkMode } from "@/hooks/use-dark-mode";
-import { OfflineBanner } from "./offline-banner";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -155,7 +154,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-[100dvh] flex flex-col md:flex-row bg-muted/30">
-      <OfflineBanner />
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border pb-8">
         <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-sidebar">

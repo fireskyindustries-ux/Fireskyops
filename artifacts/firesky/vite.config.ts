@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
-import { VitePWA } from "vite-plugin-pwa";
 
 const rawPort = process.env.PORT;
 
@@ -36,38 +35,6 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
-    VitePWA({
-      registerType: "autoUpdate",
-      injectRegister: "auto",
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        runtimeCaching: [
-          {
-            urlPattern: /\/api\/customers/,
-            handler: "StaleWhileRevalidate",
-            options: { cacheName: "firesky-customers", expiration: { maxAgeSeconds: 60 * 60 * 24 * 7 } },
-          },
-          {
-            urlPattern: /\/api\/enquiries/,
-            handler: "StaleWhileRevalidate",
-            options: { cacheName: "firesky-enquiries", expiration: { maxAgeSeconds: 60 * 60 * 24 * 7 } },
-          },
-        ],
-      },
-      manifest: {
-        name: "Firesky Field Ops",
-        short_name: "Firesky",
-        description: "Firesky Industries Field Operations",
-        theme_color: "#e85d04",
-        background_color: "#1e1e1e",
-        display: "standalone",
-        orientation: "portrait",
-        icons: [
-          { src: "firesky-logo-print.png", sizes: "192x192", type: "image/png" },
-          { src: "firesky-logo-print.png", sizes: "512x512", type: "image/png" },
-        ],
-      },
-    }),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
