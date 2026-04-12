@@ -9,6 +9,7 @@ import {
   inspectionsTable,
 } from "@workspace/db";
 import { requireAdmin, requireAuth } from "../middlewares/requireAuth";
+import { geminiQuery } from "../lib/gemini-query";
 
 const router = Router();
 
@@ -380,6 +381,23 @@ const ADMIN_TOOLS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "smart_query",
+      description: "Ask a natural language question about the Firesky database. Gemini translates it into a safe read-only SQL query and returns the live results. Use this when list_records or get_record cannot answer the question — for example: filtering by value, date ranges, cross-table analysis, totals, or any ad-hoc data question.",
+      parameters: {
+        type: "object",
+        properties: {
+          question: {
+            type: "string",
+            description: "The data question in plain English, e.g. 'Which jobs have an estimated value over R50000?' or 'How many inspections were done this month?'",
+          },
+        },
+        required: ["question"],
+      },
+    },
+  },
 ] as const;
 
 // ─── Tool execution ──────────────────────────────────────────────────────────
@@ -658,6 +676,11 @@ async function executeTool(name: string, args: Record<string, any>): Promise<Too
         };
       }
 
+      case "smart_query": {
+        const result = await geminiQuery(args.question);
+        return { result };
+      }
+
       default:
         return { result: `Unknown tool: ${name}` };
     }
@@ -685,6 +708,7 @@ function getThinkingMessage(name: string, args: Record<string, any>): string {
     case "create_job": return `Creating job "${args.title}"...`;
     case "update_job_full": return `Updating Job #${args.job_id}...`;
     case "update_inspection_full": return `Updating Inspection #${args.inspection_id}...`;
+    case "smart_query": return `Querying the database...`;
     default: return `Working on it...`;
   }
 }
