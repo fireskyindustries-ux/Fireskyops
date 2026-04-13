@@ -23,6 +23,25 @@ function getGemini(): GoogleGenAI {
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 
+// Retry wrapper for Gemini calls — handles transient 503 overload errors
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastErr = err;
+      const status = err?.status ?? err?.error?.code;
+      const isRetryable = status === 503 || status === 429 ||
+        (typeof err?.message === "string" && (err.message.includes("503") || err.message.includes("high demand") || err.message.includes("UNAVAILABLE")));
+      if (!isRetryable || attempt === maxRetries) throw err;
+      const delay = (attempt + 1) * 2000; // 2s, 4s, 6s
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
 const router = Router();
 
 // ─── System prompt ───────────────────────────────────────────────────────────
@@ -1042,7 +1061,7 @@ router.post("/sky/chat", async (req, res) => {
       const MAX_ROUNDS = 6;
 
       for (let round = 0; round < MAX_ROUNDS; round++) {
-        const response = await ai.models.generateContent({
+        const response = await withRetry(() => ai.models.generateContent({
           model: GEMINI_MODEL,
           contents: geminiContents,
           config: {
@@ -1050,7 +1069,7 @@ router.post("/sky/chat", async (req, res) => {
             tools: [{ functionDeclarations: GEMINI_FUNCTION_DECLARATIONS }],
             maxOutputTokens: 8192,
           },
-        });
+        }));
 
         // Extract function calls from the candidate parts (SDK v1.x)
         const modelParts: any[] = response.candidates?.[0]?.content?.parts ?? [];
@@ -1098,14 +1117,14 @@ router.post("/sky/chat", async (req, res) => {
       }
     } else {
       // ── Non-admin: plain streaming ────────────────────────────────────────
-      const stream = await ai.models.generateContentStream({
+      const stream = await withRetry(() => ai.models.generateContentStream({
         model: GEMINI_MODEL,
         contents: geminiContents,
         config: {
           systemInstruction,
           maxOutputTokens: 8192,
         },
-      });
+      }));
 
       for await (const chunk of stream) {
         const text = chunk.text;
@@ -1178,14 +1197,14 @@ router.post("/sky/vision", requireAuth, async (req, res): Promise<void> => {
 
   try {
     // Stream the main analysis
-    const stream = await ai.models.generateContentStream({
+    const stream = await withRetry(() => ai.models.generateContentStream({
       model: GEMINI_MODEL,
       contents: visionContents,
       config: {
         systemInstruction: VISION_SYSTEM_PROMPT,
         maxOutputTokens: 512,
       },
-    });
+    }));
 
     let fullResponse = "";
     for await (const chunk of stream) {
@@ -1206,11 +1225,11 @@ router.post("/sky/vision", requireAuth, async (req, res): Promise<void> => {
           parts: [{ text: 'Based on what you just observed, give me exactly 3 very short suggestions for what to look at or check next on site. Reply ONLY with a JSON array of strings. Example: ["Check the inlet pipe","Show the overflow outlet","Inspect the stand base"]' }],
         },
       ];
-      const sugResp = await ai.models.generateContent({
+      const sugResp = await withRetry(() => ai.models.generateContent({
         model: GEMINI_MODEL,
         contents: suggestionContents,
         config: { maxOutputTokens: 120 },
-      });
+      }));
       const raw = sugResp.text ?? "";
       const match = raw.match(/\[[\s\S]*\]/);
       if (match) {
