@@ -1,15 +1,29 @@
 import { Router } from "express";
 import archiver from "archiver";
 import path from "path";
+import fs from "fs";
 import { requireAdmin } from "../middlewares/requireAuth";
 
 const router = Router();
 
-// process.cwd() = artifacts/api-server when pnpm runs the package
-// go up two levels to reach the workspace root
-const WORKSPACE_ROOT = path.resolve(process.cwd(), "../..");
+// Find the workspace root by searching for pnpm-workspace.yaml upward from cwd.
+// In dev: cwd = artifacts/api-server → needs to go up 2 levels.
+// In production: cwd = workspace root → already correct.
+function findWorkspaceRoot(): string {
+  let dir = process.cwd();
+  for (let i = 0; i < 4; i++) {
+    if (fs.existsSync(path.join(dir, "pnpm-workspace.yaml"))) {
+      return dir;
+    }
+    const parent = path.resolve(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return process.cwd();
+}
 
 router.get("/admin/export", requireAdmin, (_req, res) => {
+  const workspaceRoot = findWorkspaceRoot();
   const filename = `firesky-source-${new Date().toISOString().slice(0, 10)}.zip`;
   res.setHeader("Content-Type", "application/zip");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -23,7 +37,7 @@ router.get("/admin/export", requireAdmin, (_req, res) => {
   archive.pipe(res);
 
   archive.glob("**/*", {
-    cwd: WORKSPACE_ROOT,
+    cwd: workspaceRoot,
     dot: true,
     ignore: [
       "**/node_modules/**",
