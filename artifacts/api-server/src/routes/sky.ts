@@ -1052,13 +1052,16 @@ router.post("/sky/chat", async (req, res) => {
           },
         });
 
-        const functionCalls = response.functionCalls();
+        // Extract function calls from the candidate parts (SDK v1.x)
+        const modelParts: any[] = response.candidates?.[0]?.content?.parts ?? [];
+        const functionCalls = modelParts
+          .filter((p: any) => p.functionCall)
+          .map((p: any) => p.functionCall as { name: string; args: Record<string, any> });
 
         if (!functionCalls || functionCalls.length === 0) {
-          // Final text response — stream it
+          // Final text response — stream it word by word
           const finalText = response.text ?? "";
           if (finalText) {
-            // Stream word by word for a natural feel
             const words = finalText.split(" ");
             for (const word of words) {
               sseWrite({ content: word + " " });
@@ -1068,7 +1071,6 @@ router.post("/sky/chat", async (req, res) => {
         }
 
         // Add model's turn (with function call parts) to contents
-        const modelParts = response.candidates?.[0]?.content?.parts ?? [];
         geminiContents.push({ role: "model", parts: modelParts });
 
         // Execute each tool call and collect results
