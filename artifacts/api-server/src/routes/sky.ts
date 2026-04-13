@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq, desc } from "drizzle-orm";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { GoogleGenAI } from "@google/genai";
 import {
   db,
   customersTable,
@@ -10,6 +10,18 @@ import {
 } from "@workspace/db";
 import { requireAdmin, requireAuth } from "../middlewares/requireAuth";
 import { geminiQuery } from "../lib/gemini-query";
+
+let _gemini: GoogleGenAI | null = null;
+function getGemini(): GoogleGenAI {
+  if (!_gemini) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
+    _gemini = new GoogleGenAI({ apiKey });
+  }
+  return _gemini;
+}
+
+const GEMINI_MODEL = "gemini-2.5-flash";
 
 const router = Router();
 
@@ -399,6 +411,12 @@ const ADMIN_TOOLS = [
     },
   },
 ] as const;
+
+const GEMINI_FUNCTION_DECLARATIONS = ADMIN_TOOLS.map((t) => ({
+  name: t.function.name,
+  description: t.function.description,
+  parameters: t.function.parameters as any,
+}));
 
 // ─── Tool execution ──────────────────────────────────────────────────────────
 
@@ -960,6 +978,22 @@ router.get("/sky/context", requireAdmin, async (_req, res): Promise<void> => {
 
 type SkyChatMessage = { role: "user" | "assistant"; content: string };
 
+function buildGeminiContents(history: SkyChatMessage[] | undefined, message: string): any[] {
+  const contents: any[] = [];
+  if (Array.isArray(history)) {
+    for (const msg of history) {
+      if (msg.role === "user" || msg.role === "assistant") {
+        contents.push({
+          role: msg.role === "assistant" ? "model" : "user",
+          parts: [{ text: msg.content }],
+        });
+      }
+    }
+  }
+  contents.push({ role: "user", parts: [{ text: message }] });
+  return contents;
+}
+
 router.post("/sky/chat", async (req, res) => {
   const {
     message,
@@ -994,100 +1028,86 @@ router.post("/sky/chat", async (req, res) => {
 
   try {
     const isAdmin = userRole === "admin";
+    const ai = getGemini();
 
     const systemSuffix = isAdmin
       ? buildAdminContextBlock(systemSnapshot, currentPage, contextType, contextData, userName)
       : buildFieldContextBlock(contextType, contextData, userName);
 
-    const systemContent = FIRESKY_SYSTEM_PROMPT + systemSuffix;
-
-    const chatMessages: any[] = [{ role: "system", content: systemContent }];
-
-    if (Array.isArray(history)) {
-      for (const msg of history) {
-        if (msg.role === "user" || msg.role === "assistant") {
-          chatMessages.push({ role: msg.role, content: msg.content });
-        }
-      }
-    }
-    chatMessages.push({ role: "user", content: message });
+    const systemInstruction = FIRESKY_SYSTEM_PROMPT + systemSuffix;
+    const geminiContents = buildGeminiContents(history, message);
 
     if (isAdmin) {
       // ── Admin: tool-calling agent loop ──────────────────────────────────
       const MAX_ROUNDS = 6;
 
       for (let round = 0; round < MAX_ROUNDS; round++) {
-        let completion: any;
-        try {
-          completion = await (openai.chat.completions.create as any)({
-            model: "gpt-5.4",
-            max_completion_tokens: 8192,
-            messages: chatMessages,
-            tools: ADMIN_TOOLS,
-            tool_choice: "auto",
-          });
-        } catch (toolErr: any) {
-          // If tools not supported, fall through to plain streaming
-          console.warn("Tool calling failed, falling back to streaming:", toolErr.message);
-          const fallback = await openai.chat.completions.create({
-            model: "gpt-5.4",
-            max_completion_tokens: 8192,
-            messages: chatMessages,
-            stream: true,
-          });
-          for await (const chunk of fallback) {
-            const c = chunk.choices[0]?.delta?.content;
-            if (c) sseWrite({ content: c });
+        const response = await ai.models.generateContent({
+          model: GEMINI_MODEL,
+          contents: geminiContents,
+          config: {
+            systemInstruction,
+            tools: [{ functionDeclarations: GEMINI_FUNCTION_DECLARATIONS }],
+            maxOutputTokens: 8192,
+          },
+        });
+
+        const functionCalls = response.functionCalls();
+
+        if (!functionCalls || functionCalls.length === 0) {
+          // Final text response — stream it
+          const finalText = response.text ?? "";
+          if (finalText) {
+            // Stream word by word for a natural feel
+            const words = finalText.split(" ");
+            for (const word of words) {
+              sseWrite({ content: word + " " });
+            }
           }
           break;
         }
 
-        const choice = completion.choices[0];
-        const msg = choice.message;
-        chatMessages.push(msg);
+        // Add model's turn (with function call parts) to contents
+        const modelParts = response.candidates?.[0]?.content?.parts ?? [];
+        geminiContents.push({ role: "model", parts: modelParts });
 
-        const finishReason = choice.finish_reason;
-        const toolCalls = msg.tool_calls;
-
-        if (finishReason === "stop" || !toolCalls || toolCalls.length === 0) {
-          // Final response
-          if (msg.content) sseWrite({ content: msg.content });
-          break;
-        }
-
-        // Execute tool calls
-        for (const tc of toolCalls) {
-          const funcName = tc.function.name;
-          let args: Record<string, any> = {};
-          try { args = JSON.parse(tc.function.arguments || "{}"); } catch { /* ignore */ }
+        // Execute each tool call and collect results
+        const toolResultParts: any[] = [];
+        for (const fc of functionCalls) {
+          const funcName = fc.name ?? "";
+          const args = (fc.args ?? {}) as Record<string, any>;
 
           sseWrite({ thinking: getThinkingMessage(funcName, args) });
 
           const { result, action } = await executeTool(funcName, args);
 
-          if (action) {
-            sseWrite({ action });
-          }
+          if (action) sseWrite({ action });
 
-          chatMessages.push({
-            role: "tool",
-            tool_call_id: tc.id,
-            content: result,
+          toolResultParts.push({
+            functionResponse: {
+              name: funcName,
+              response: { result },
+            },
           });
         }
+
+        // Add tool results as user turn
+        geminiContents.push({ role: "user", parts: toolResultParts });
       }
     } else {
       // ── Non-admin: plain streaming ────────────────────────────────────────
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5.4",
-        max_completion_tokens: 8192,
-        messages: chatMessages,
-        stream: true,
+      const stream = await ai.models.generateContentStream({
+        model: GEMINI_MODEL,
+        contents: geminiContents,
+        config: {
+          systemInstruction,
+          maxOutputTokens: 8192,
+        },
       });
 
       for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content;
-        if (content) sseWrite({ content });
+        const text = chunk.text;
+        if (text) sseWrite({ content: text });
       }
     }
 
@@ -1134,63 +1154,62 @@ router.post("/sky/vision", requireAuth, async (req, res): Promise<void> => {
     question?.trim() ||
     "What do you see? Describe what you observe and flag anything relevant to a Firesky site inspection or installation.";
 
-  // Build conversation messages with history
-  const chatMessages: any[] = [{ role: "system", content: VISION_SYSTEM_PROMPT }];
+  const ai = getGemini();
 
+  // Build Gemini contents with history
+  const visionContents: any[] = [];
   for (const turn of history) {
-    chatMessages.push({ role: turn.role, content: turn.content });
+    visionContents.push({
+      role: turn.role === "assistant" ? "model" : "user",
+      parts: [{ text: turn.content }],
+    });
   }
 
-  // Current turn with image
-  chatMessages.push({
+  // Current turn with image + question
+  visionContents.push({
     role: "user",
-    content: [
-      {
-        type: "image_url",
-        image_url: {
-          url: `data:${mimeType};base64,${imageBase64}`,
-          detail: "high",
-        },
-      },
-      { type: "text", text: userQuestion },
+    parts: [
+      { inlineData: { mimeType, data: imageBase64 } },
+      { text: userQuestion },
     ],
   });
 
   try {
     // Stream the main analysis
-    const stream = await openai.chat.completions.create({
-      model: "gpt-5.4",
-      max_tokens: 512,
-      messages: chatMessages,
-      stream: true,
+    const stream = await ai.models.generateContentStream({
+      model: GEMINI_MODEL,
+      contents: visionContents,
+      config: {
+        systemInstruction: VISION_SYSTEM_PROMPT,
+        maxOutputTokens: 512,
+      },
     });
 
     let fullResponse = "";
     for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content;
-      if (content) {
-        fullResponse += content;
-        sseWrite({ content });
+      const text = chunk.text;
+      if (text) {
+        fullResponse += text;
+        sseWrite({ content: text });
       }
     }
 
-    // Generate contextual suggestions (non-streaming, fast)
+    // Generate contextual suggestions (non-streaming)
     try {
-      const suggestionMessages = [
-        ...chatMessages,
-        { role: "assistant", content: fullResponse },
+      const suggestionContents = [
+        ...visionContents,
+        { role: "model", parts: [{ text: fullResponse }] },
         {
           role: "user",
-          content:
-            "Based on what you just observed, give me exactly 3 very short suggestions for what to look at or check next on site. Reply ONLY with a JSON array of strings. Example: [\"Check the inlet pipe\",\"Show the overflow outlet\",\"Inspect the stand base\"]",
+          parts: [{ text: 'Based on what you just observed, give me exactly 3 very short suggestions for what to look at or check next on site. Reply ONLY with a JSON array of strings. Example: ["Check the inlet pipe","Show the overflow outlet","Inspect the stand base"]' }],
         },
       ];
-      const sugResp = await openai.chat.completions.create({
-        model: "gpt-5.4-mini",
-        max_tokens: 120,
-        messages: suggestionMessages,
+      const sugResp = await ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: suggestionContents,
+        config: { maxOutputTokens: 120 },
       });
-      const raw = sugResp.choices[0]?.message?.content || "";
+      const raw = sugResp.text ?? "";
       const match = raw.match(/\[[\s\S]*\]/);
       if (match) {
         const suggestions = JSON.parse(match[0]);
