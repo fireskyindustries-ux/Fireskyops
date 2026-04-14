@@ -9,24 +9,12 @@ import {
   setObjectAclPolicy,
 } from "./objectAcl";
 
-const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
-
+// Uses Application Default Credentials (ADC):
+//   - On Cloud Run: automatically uses the attached service account
+//   - Locally: set GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+//     or run: gcloud auth application-default login
 export const objectStorageClient = new Storage({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
-      },
-    },
-    universe_domain: "googleapis.com",
-  },
-  projectId: "",
+  projectId: process.env.GOOGLE_CLOUD_PROJECT,
 });
 
 export class ObjectNotFoundError extends Error {
@@ -52,8 +40,8 @@ export class ObjectStorageService {
     );
     if (paths.length === 0) {
       throw new Error(
-        "PUBLIC_OBJECT_SEARCH_PATHS not set. Create a bucket in 'Object Storage' " +
-          "tool and set PUBLIC_OBJECT_SEARCH_PATHS env var (comma-separated paths)."
+        "PUBLIC_OBJECT_SEARCH_PATHS not set. Set it as a comma-separated list " +
+          "of GCS paths, e.g. /my-bucket/public"
       );
     }
     return paths;
@@ -63,8 +51,7 @@ export class ObjectStorageService {
     const dir = process.env.PRIVATE_OBJECT_DIR || "";
     if (!dir) {
       throw new Error(
-        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
+        "PRIVATE_OBJECT_DIR not set. Set it to a GCS path, e.g. /my-bucket/private"
       );
     }
     return dir;
@@ -109,10 +96,7 @@ export class ObjectStorageService {
   async getObjectEntityUploadURL(): Promise<string> {
     const privateObjectDir = this.getPrivateObjectDir();
     if (!privateObjectDir) {
-      throw new Error(
-        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
-      );
+      throw new Error("PRIVATE_OBJECT_DIR not set.");
     }
 
     const objectId = randomUUID();
@@ -227,6 +211,9 @@ function parseObjectPath(path: string): {
   };
 }
 
+// Generate a V4 signed URL using the GCS SDK.
+// The service account must have the iam.serviceAccounts.signBlob permission.
+// On Cloud Run this is granted automatically via the attached service account.
 async function signObjectURL({
   bucketName,
   objectName,
@@ -238,30 +225,18 @@ async function signObjectURL({
   method: "GET" | "PUT" | "DELETE" | "HEAD";
   ttlSec: number;
 }): Promise<string> {
-  const request = {
-    bucket_name: bucketName,
-    object_name: objectName,
-    method,
-    expires_at: new Date(Date.now() + ttlSec * 1000).toISOString(),
+  const actionMap: Record<string, "read" | "write" | "delete"> = {
+    GET: "read",
+    HEAD: "read",
+    PUT: "write",
+    DELETE: "delete",
   };
-  const response = await fetch(
-    `${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-      signal: AbortSignal.timeout(30_000),
-    }
-  );
-  if (!response.ok) {
-    throw new Error(
-      `Failed to sign object URL, errorcode: ${response.status}, ` +
-        `make sure you're running on Replit`
-    );
-  }
 
-  const { signed_url: signedURL } = await response.json();
-  return signedURL;
+  const file = objectStorageClient.bucket(bucketName).file(objectName);
+  const [signedUrl] = await file.getSignedUrl({
+    version: "v4",
+    action: actionMap[method] ?? "read",
+    expires: Date.now() + ttlSec * 1000,
+  });
+  return signedUrl;
 }

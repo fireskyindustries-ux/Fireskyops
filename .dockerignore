@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+**/dist
+**/.local
+**/.git
+**/.replit-artifact
+**/data
+**/*.log
+**/tmp
+pnpm-store
+.pnpm-store
