@@ -35,6 +35,12 @@ app.use(cors({ credentials: true, origin: true }));
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
+// Prevent 304 Not Modified on API routes — JSON responses must always have a body
+app.use("/api", (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
+
 // MCP SSE routes — public, mounted before Clerk middleware
 app.use("/api", mcpSseRouter);
 
