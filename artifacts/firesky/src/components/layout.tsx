@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2 } from "lucide-react";
+import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SkyPanel, SkyFloatingButton } from "./sky";
@@ -7,6 +7,8 @@ import { useUser, useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "./NotificationBell";
 import { useDarkMode } from "@/hooks/use-dark-mode";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -71,9 +73,38 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
   const [, setLocation] = useLocation();
   const role = (user?.publicMetadata?.role as string) || "guest";
   const { isDark, toggle: toggleDark } = useDarkMode();
+  const { toast } = useToast();
+  const [claiming, setClaiming] = useState(false);
+
+  async function claimAdmin() {
+    setClaiming(true);
+    try {
+      const res = await fetch("/api/users/claim-admin", { method: "POST", credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      toast({ title: "Admin role granted", description: "Reloading now..." });
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (e: any) {
+      toast({ title: "Could not claim admin", description: e.message, variant: "destructive" });
+      setClaiming(false);
+    }
+  }
 
   return (
     <div className="border-t border-sidebar-border">
+      {role === "guest" && (
+        <div className="px-3 pt-3 pb-1">
+          <button
+            onClick={claimAdmin}
+            disabled={claiming}
+            className="w-full flex items-center gap-3 h-10 px-3 rounded-xl text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer disabled:opacity-60"
+          >
+            {claiming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+            {claiming ? "Setting up..." : "Claim Admin Access"}
+          </button>
+          <p className="text-[10px] text-muted-foreground px-3 mt-1">Only works if no admin exists yet</p>
+        </div>
+      )}
       {role === "admin" && (
         <div className="px-3 pt-3 space-y-1">
           <Link href="/admin/users" onClick={onNavigate}>
