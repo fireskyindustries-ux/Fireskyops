@@ -1,8 +1,8 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2 } from "lucide-react";
+import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { SkyPanel, SkyFloatingButton } from "./sky";
+import { SkyPanel, SkyFloatingButton, useSkyActions, useSkyState } from "./sky";
 import { useUser, useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "./NotificationBell";
@@ -198,6 +198,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isBranchAdmin = role === "branch_admin";
   const isFieldWorker = role === "user" || role === "field_worker";
   const isGuest = role === "guest";
+  const { openSky } = useSkyActions();
+  const { isOpen: skyOpen } = useSkyState();
 
   const navItems = isAdmin ? adminNavItems : isBranchAdmin ? branchAdminNavItems : isFieldWorker ? fieldNavItems : guestNavItems;
 
@@ -230,6 +232,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <header className="md:hidden flex items-center justify-between px-4 py-2 bg-sidebar border-b border-sidebar-border sticky top-0 z-10 shadow-sm">
         <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-12 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
         <div className="flex items-center gap-1">
+          {!isGuest && !skyOpen && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-primary"
+              onClick={() => openSky()}
+              aria-label="Ask Sky"
+            >
+              <Sparkles className="h-5 w-5" />
+            </Button>
+          )}
           {!isGuest && <NotificationBell />}
           <Sheet>
             <SheetTrigger asChild>
@@ -315,7 +328,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
       )}
 
-      <SkyFloatingButton />
+      <div className="hidden md:block"><SkyFloatingButton /></div>
       <SkyPanel />
 
       {/* Desktop Footer */}
