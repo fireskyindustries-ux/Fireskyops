@@ -887,8 +887,9 @@ async function executeTool(name: string, args: Record<string, any>): Promise<Too
       }
 
       case "list_branches": {
-        const [branches, custCounts, enqCounts, jobCounts] = await Promise.all([
-          db.select().from(branchesTable),
+        const branches = await db.select().from(branchesTable);
+        if (!branches.length) return { result: "No branches have been set up yet." };
+        const [custCounts, enqCounts, jobCounts] = await Promise.all([
           db.select({ branchId: customersTable.branchId, c: count() }).from(customersTable).groupBy(customersTable.branchId),
           db.select({ branchId: enquiriesTable.branchId, c: count() }).from(enquiriesTable)
             .where(notInArray(enquiriesTable.status, ["won", "lost", "closed"]))
@@ -908,7 +909,7 @@ async function executeTool(name: string, args: Record<string, any>): Promise<Too
           (b.phone ? `\n  Phone: ${b.phone}` : "") +
           (b.email ? `\n  Email: ${b.email}` : "")
         );
-        return { result: lines.length > 0 ? lines.join("\n\n") : "No branches found." };
+        return { result: lines.join("\n\n") };
       }
 
       case "check_stock": {
