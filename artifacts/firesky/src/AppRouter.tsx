@@ -3,6 +3,7 @@ import { Switch, Route, Redirect } from "wouter";
 import { useUser } from "@clerk/react";
 
 import Dashboard from "./pages/dashboard";
+import BranchDashboard from "./pages/branch-dashboard";
 import CustomersList from "./pages/customers/list";
 import NewCustomer from "./pages/customers/new";
 import CustomerDetail from "./pages/customers/detail";
@@ -50,7 +51,7 @@ export function Router() {
       <Switch>
         {/* Root redirect based on role */}
         <Route path="/">
-          {isAdmin ? <Dashboard /> : (isBranchAdmin || isFieldWorker) ? <Redirect to="/customers" /> : <Redirect to="/enquiries/new" />}
+          {isAdmin ? <Dashboard /> : isBranchAdmin ? <BranchDashboard /> : isFieldWorker ? <Redirect to="/customers" /> : <Redirect to="/enquiries/new" />}
         </Route>
 
         {/* Customers — admin + branch_admin + field worker */}

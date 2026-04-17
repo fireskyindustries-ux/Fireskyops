@@ -21,6 +21,7 @@ const adminNavItems = [
 ];
 
 const branchAdminNavItems = [
+  { href: "/", label: "Dashboard", icon: Home },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/enquiries", label: "Enquiries", icon: FileText },
   { href: "/inspections", label: "Inspections", icon: ClipboardCheck },

@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { desc, inArray, eq, and, lt, notInArray, count, gt, isNull, or, sql } from "drizzle-orm";
-import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable, branchesTable } from "@workspace/db";
+import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable, branchesTable, stockLevelsTable, stockItemsTable } from "@workspace/db";
 import { loadSchedulerState, STALE_MS } from "../lib/scheduler-state";
+import { isAdmin, getBranchId } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
@@ -184,6 +185,135 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     recentEnquiries,
     recentJobs,
     branchBreakdown,
+  });
+});
+
+router.get("/dashboard/branch-summary", async (req, res): Promise<void> => {
+  const adminUser = isAdmin(req);
+  const userBranchId = getBranchId(req);
+  const branchId = adminUser
+    ? Number(req.query.branchId ?? userBranchId ?? 0) || null
+    : userBranchId;
+
+  if (!branchId) {
+    res.status(400).json({ error: "No branch assigned or specified" });
+    return;
+  }
+
+  const staleThreshold = new Date(Date.now() - STALE_MS);
+
+  const [branch, customersRaw, enquiriesRaw, jobsRaw,
+         staleEnquiriesRaw, staleJobsRaw, urgentEnquiriesRaw, urgentJobsRaw,
+         recentEnquiriesRaw, recentJobsRaw, stockSnapshot] = await Promise.all([
+    db.select().from(branchesTable).where(eq(branchesTable.id, branchId)).limit(1),
+
+    db.select({ count: count() }).from(customersTable)
+      .where(eq(customersTable.branchId, branchId)),
+
+    db.select({ count: count() }).from(enquiriesTable)
+      .where(and(
+        eq(enquiriesTable.branchId, branchId),
+        notInArray(enquiriesTable.status, ["won", "lost"]),
+      )),
+
+    db.select({ count: count() }).from(jobsTable)
+      .where(and(
+        eq(jobsTable.branchId, branchId),
+        notInArray(jobsTable.stage, ["won", "lost", "closed"]),
+      )),
+
+    db.select({ count: count() }).from(enquiriesTable)
+      .where(and(
+        eq(enquiriesTable.branchId, branchId),
+        inArray(enquiriesTable.status, ["new", "in_progress"]),
+        lt(enquiriesTable.updatedAt, staleThreshold),
+      )),
+
+    db.select({ count: count() }).from(jobsTable)
+      .where(and(
+        eq(jobsTable.branchId, branchId),
+        notInArray(jobsTable.stage, ["won", "lost", "closed"]),
+        lt(jobsTable.updatedAt, staleThreshold),
+      )),
+
+    db.select({ count: count() }).from(enquiriesTable)
+      .where(and(
+        eq(enquiriesTable.branchId, branchId),
+        notInArray(enquiriesTable.status, ["won", "lost"]),
+        eq(enquiriesTable.priority, "high"),
+      )),
+
+    db.select({ count: count() }).from(jobsTable)
+      .where(and(
+        eq(jobsTable.branchId, branchId),
+        notInArray(jobsTable.stage, ["won", "lost", "closed"]),
+        eq(jobsTable.priority, "high"),
+      )),
+
+    db.select({
+      id: enquiriesTable.id,
+      customerId: enquiriesTable.customerId,
+      customerName: customersTable.name,
+      title: enquiriesTable.title,
+      status: enquiriesTable.status,
+      priority: enquiriesTable.priority,
+      createdAt: enquiriesTable.createdAt,
+    })
+      .from(enquiriesTable)
+      .leftJoin(customersTable, eq(enquiriesTable.customerId, customersTable.id))
+      .where(eq(enquiriesTable.branchId, branchId))
+      .orderBy(desc(enquiriesTable.createdAt))
+      .limit(5),
+
+    db.select({
+      id: jobsTable.id,
+      customerId: jobsTable.customerId,
+      customerName: customersTable.name,
+      title: jobsTable.title,
+      stage: jobsTable.stage,
+      priority: jobsTable.priority,
+      createdAt: jobsTable.createdAt,
+    })
+      .from(jobsTable)
+      .leftJoin(customersTable, eq(jobsTable.customerId, customersTable.id))
+      .where(eq(jobsTable.branchId, branchId))
+      .orderBy(desc(jobsTable.createdAt))
+      .limit(5),
+
+    db.select({
+      id: stockLevelsTable.id,
+      quantity: stockLevelsTable.quantity,
+      itemName: stockItemsTable.name,
+      itemUnit: stockItemsTable.unit,
+      itemCategory: stockItemsTable.category,
+    })
+      .from(stockLevelsTable)
+      .leftJoin(stockItemsTable, eq(stockLevelsTable.itemId, stockItemsTable.id))
+      .where(eq(stockLevelsTable.branchId, branchId))
+      .orderBy(stockLevelsTable.quantity)
+      .limit(8),
+  ]);
+
+  if (!branch[0]) {
+    res.status(404).json({ error: "Branch not found" });
+    return;
+  }
+
+  res.json({
+    branchId,
+    branchName: branch[0].name,
+    branchRegion: branch[0].region,
+    totalCustomers: Number(customersRaw[0].count),
+    totalEnquiries: Number(enquiriesRaw[0].count),
+    totalJobs: Number(jobsRaw[0].count),
+    stockItemsTracked: stockSnapshot.length,
+    staleEnquiries: Number(staleEnquiriesRaw[0].count),
+    staleJobs: Number(staleJobsRaw[0].count),
+    urgentEnquiries: Number(urgentEnquiriesRaw[0].count),
+    urgentJobs: Number(urgentJobsRaw[0].count),
+    recentEnquiries: recentEnquiriesRaw,
+    recentJobs: recentJobsRaw,
+    stockSnapshot,
   });
 });
 
