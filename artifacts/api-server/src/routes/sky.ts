@@ -563,6 +563,48 @@ const GEMINI_FUNCTION_DECLARATIONS = ADMIN_TOOLS.map((t) => ({
   parameters: t.function.parameters as any,
 }));
 
+// Branch admin gets stock tools only — branch_id is always injected server-side
+const BRANCH_ADMIN_STOCK_DECLARATIONS = [
+  {
+    name: "check_stock",
+    description: "Check the current stock levels at your branch. Returns all stock items and their quantities.",
+    parameters: { type: "object", properties: {} },
+  },
+  {
+    name: "list_stock_items",
+    description: "List all items in the stock catalogue (names, units, categories).",
+    parameters: { type: "object", properties: {} },
+  },
+  {
+    name: "record_stock_movement",
+    description: "Record a stock movement at your branch. Type 'in' adds stock, 'out' removes it, 'adjustment' sets the exact quantity. Match the item by name.",
+    parameters: {
+      type: "object",
+      properties: {
+        item_name: { type: "string", description: "Name of the stock item (matched automatically)" },
+        type: { type: "string", enum: ["in", "out", "adjustment"], description: "in = add stock, out = remove stock, adjustment = set exact quantity" },
+        quantity: { type: "number", description: "The quantity to add, remove, or set" },
+        note: { type: "string", description: "Optional note explaining the movement (e.g. 'Received from supplier', 'Used on Job #42')" },
+      },
+      required: ["item_name", "type", "quantity"],
+    },
+  },
+  {
+    name: "create_stock_item",
+    description: "Add a new item to the global stock catalogue so it can be tracked at any branch.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Item name, e.g. '5000L Tank'" },
+        unit: { type: "string", description: "Unit of measurement, e.g. 'units', 'metres', 'kg'" },
+        category: { type: "string", description: "Optional category, e.g. 'Tanks', 'Fittings', 'Pipes'" },
+        description: { type: "string", description: "Optional description of the item" },
+      },
+      required: ["name", "unit"],
+    },
+  },
+];
+
 // ─── Tool execution ──────────────────────────────────────────────────────────
 
 type ToolResult = {
@@ -1332,10 +1374,15 @@ router.post("/sky/chat", async (req, res) => {
     const isGuest = verifiedRole === "guest";
     const ai = getGemini();
 
+    const verifiedBranchId = (req as any).userBranchId as number | null;
+    const isBranchAdmin = verifiedRole === "branch_admin";
+
     const systemInstruction = isGuest
       ? GUEST_SYSTEM_PROMPT + (userName ? `\n\nThe customer's name is ${userName}. Greet them warmly by name.` : "")
       : FIRESKY_SYSTEM_PROMPT + (isAdmin
           ? buildAdminContextBlock(systemSnapshot, currentPage, contextType, contextData, userName)
+          : isBranchAdmin
+          ? `\n\nBRANCH ADMIN CONTEXT:\nYou are assisting ${userName ? userName + ", a" : "a"} branch admin. Their branch ID is ${verifiedBranchId ?? "unknown"}. All stock tool calls are automatically applied to their branch — you never need to ask which branch or specify a branch ID, it is always pre-filled.\n\nYou have access to the following stock tools for your branch:\n- check_stock: see current stock levels at your branch\n- list_stock_items: see the full catalogue of items\n- record_stock_movement: add stock (in), remove stock (out), or set an exact level (adjustment)\n- create_stock_item: add a new item to the catalogue\n\nWhen asked to check stock, update stock, or record a movement, use your tools directly — do not ask the user to do it manually. Always confirm what was done and show the updated quantity.`
           : buildFieldContextBlock(contextType, contextData, userName));
 
     const geminiContents = buildGeminiContents(history, message);
@@ -1414,8 +1461,64 @@ router.post("/sky/chat", async (req, res) => {
         // Add tool results as user turn
         geminiContents.push({ role: "user", parts: toolResultParts });
       }
+    } else if (isBranchAdmin) {
+      // ── Branch admin: stock tool loop, branch ID auto-injected ──────────
+      const branchAdminBranchId = verifiedBranchId;
+      if (!branchAdminBranchId) {
+        sseWrite({ content: "You do not have a branch assigned. Ask your system admin to assign you to a branch." });
+      } else {
+        const MAX_ROUNDS = 4;
+        for (let round = 0; round < MAX_ROUNDS; round++) {
+          const response = await withRetry(() => ai.models.generateContent({
+            model: GEMINI_MODEL,
+            contents: geminiContents,
+            config: {
+              systemInstruction,
+              tools: [{ functionDeclarations: BRANCH_ADMIN_STOCK_DECLARATIONS as any }],
+              maxOutputTokens: 4096,
+            },
+          }));
+
+          const modelParts: any[] = response.candidates?.[0]?.content?.parts ?? [];
+          const functionCalls = modelParts
+            .filter((p: any) => p.functionCall)
+            .map((p: any) => p.functionCall as { name: string; args: Record<string, any> });
+
+          if (!functionCalls || functionCalls.length === 0) {
+            const finalText = response.text ?? "";
+            if (finalText) {
+              const words = finalText.split(" ");
+              for (const word of words) sseWrite({ content: word + " " });
+            }
+            break;
+          }
+
+          geminiContents.push({ role: "model", parts: modelParts });
+
+          const toolResultParts: any[] = [];
+          for (const fc of functionCalls) {
+            const funcName = fc.name ?? "";
+            // Inject the verified branch ID — Sky never needs to know or specify it
+            const args = { ...(fc.args ?? {}), branch_id: branchAdminBranchId };
+
+            sseWrite({ thinking: getThinkingMessage(funcName, args) });
+
+            const { result, action } = await executeTool(funcName, args);
+
+            if (action) sseWrite({ action });
+            toolResultParts.push({
+              functionResponse: {
+                name: funcName,
+                response: { result },
+              },
+            });
+          }
+
+          geminiContents.push({ role: "user", parts: toolResultParts });
+        }
+      }
     } else {
-      // ── Non-admin: plain streaming ────────────────────────────────────────
+      // ── Non-admin (field worker): plain streaming ────────────────────────
       const stream = await withRetry(() => ai.models.generateContentStream({
         model: GEMINI_MODEL,
         contents: geminiContents,
