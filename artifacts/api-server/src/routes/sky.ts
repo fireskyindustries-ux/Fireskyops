@@ -1272,6 +1272,13 @@ router.post("/sky/chat", async (req, res) => {
     return;
   }
 
+  // Always use the server-verified role — never trust the client-supplied userRole
+  const verifiedRole = (req as any).userRole as string | undefined ?? "guest";
+  if (verifiedRole === "guest") {
+    res.status(403).json({ error: "Sky is not available for guest accounts." });
+    return;
+  }
+
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -1279,7 +1286,7 @@ router.post("/sky/chat", async (req, res) => {
   const sseWrite = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
   try {
-    const isAdmin = userRole === "admin";
+    const isAdmin = verifiedRole === "admin";
     const ai = getGemini();
 
     const systemSuffix = isAdmin
