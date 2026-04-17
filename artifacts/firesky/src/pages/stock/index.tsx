@@ -335,21 +335,25 @@ function CataloguePage() {
 }
 
 export default function StockPage() {
-  const { user } = useUser();
+  const { user, isLoaded: clerkLoaded } = useUser();
   const role = (user?.publicMetadata?.role as string) || "guest";
-  const isAdmin = role === "admin";
-  const userBranchId = user?.publicMetadata?.branchId as number | null ?? null;
+  const isAdmin = role === "admin" || role === "branch_admin";
+  const isSuperAdmin = role === "admin";
 
-  const { data: branches, isLoading } = useQuery<Branch[]>({
+  // Fetch branches — server already scopes this to what the user can see
+  const { data: branches, isLoading: branchesLoading } = useQuery<Branch[]>({
     queryKey: ["branches"],
     queryFn: () => apiFetch("/branches"),
+    enabled: clerkLoaded, // wait for Clerk to be ready before fetching
   });
 
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
 
-  if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+  // Wait for both Clerk and branches to load
+  if (!clerkLoaded || branchesLoading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
-  const visibleBranches = isAdmin ? (branches || []) : (branches || []).filter((b) => b.id === userBranchId);
+  // Use all branches returned from API — server handles auth scoping
+  const visibleBranches = branches || [];
   const activeBranch = visibleBranches.find((b) => b.id === (selectedBranchId ?? visibleBranches[0]?.id)) ?? visibleBranches[0];
 
   return (
@@ -363,10 +367,10 @@ export default function StockPage() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <TabsList>
             <TabsTrigger value="inventory" className="gap-2"><Package className="h-4 w-4" /> Inventory</TabsTrigger>
-            {isAdmin && <TabsTrigger value="catalogue" className="gap-2"><List className="h-4 w-4" /> Catalogue</TabsTrigger>}
+            {isSuperAdmin && <TabsTrigger value="catalogue" className="gap-2"><List className="h-4 w-4" /> Catalogue</TabsTrigger>}
           </TabsList>
 
-          {isAdmin && visibleBranches.length > 1 && (
+          {visibleBranches.length > 1 && (
             <Select value={String(activeBranch?.id ?? "")} onValueChange={(v) => setSelectedBranchId(Number(v))}>
               <SelectTrigger className="h-9 w-48">
                 <SelectValue />
@@ -395,12 +399,12 @@ export default function StockPage() {
                   {activeBranch.region && <p className="text-xs text-muted-foreground">{activeBranch.region}</p>}
                 </div>
               </div>
-              <BranchStock branch={activeBranch} isAdmin={isAdmin || role === "branch_admin"} />
+              <BranchStock branch={activeBranch} isAdmin={isAdmin} />
             </>
           )}
         </TabsContent>
 
-        {isAdmin && (
+        {isSuperAdmin && (
           <TabsContent value="catalogue" className="mt-4">
             <CataloguePage />
           </TabsContent>
