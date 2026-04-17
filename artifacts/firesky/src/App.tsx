@@ -15,7 +15,15 @@ import { initDarkMode } from "./hooks/use-dark-mode";
 initDarkMode();
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+
+// Use the env var if explicitly set, otherwise auto-detect in production:
+// In dev (localhost) Clerk works directly; in production (.replit.app etc)
+// we route through our own /api/__clerk proxy so the dev Clerk keys work.
+const isLocalhost = typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+const clerkProxyUrl: string | undefined =
+  import.meta.env.VITE_CLERK_PROXY_URL ||
+  (isLocalhost ? undefined : `${typeof window !== "undefined" ? window.location.origin : ""}/api/__clerk`);
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function stripBase(path: string): string {
