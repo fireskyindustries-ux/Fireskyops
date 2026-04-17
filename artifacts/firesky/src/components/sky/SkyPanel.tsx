@@ -21,6 +21,15 @@ const ADMIN_SUGGESTED_ACTIONS = [
   { label: "Summarise the week", message: "Give me a brief summary of where the business stands right now — customers, pipeline, any urgent items that need action." },
 ];
 
+const BRANCH_ADMIN_SUGGESTED_ACTIONS = [
+  { label: "What's in stock?", message: "Check our current stock levels and tell me what we have and what's running low." },
+  { label: "Record stock received", message: "I need to record stock that just came in. What do we have in the catalogue?" },
+  { label: "Mark stock as used", message: "I need to mark some stock as used on a job. Can you help me record that?" },
+  { label: "What needs attention?", message: "Looking at my branch, what enquiries or jobs need the most attention right now?" },
+  { label: "Add a new stock item", message: "I need to add a new item to the stock catalogue. Can you help me set it up?" },
+  { label: "Set stock to exact level", message: "I've done a stock count and need to set the exact quantity for an item. Can you help?" },
+];
+
 const GUEST_SUGGESTED_ACTIONS = [
   { label: "What size tank do I need?", message: "I need help figuring out what size water tank would suit my property. Can you help me work it out?" },
   { label: "Tanks for a farm", message: "I have a farm and need water storage for livestock and irrigation. What would you recommend?" },
@@ -187,10 +196,13 @@ export function SkyPanel() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isGuest = role === "guest";
+  const isBranchAdmin = role === "branch_admin";
   const suggestedActions = isAdmin
     ? ADMIN_SUGGESTED_ACTIONS
     : isGuest
     ? GUEST_SUGGESTED_ACTIONS
+    : isBranchAdmin
+    ? BRANCH_ADMIN_SUGGESTED_ACTIONS
     : FIELD_SUGGESTED_ACTIONS[context.contextType] || FIELD_SUGGESTED_ACTIONS.general;
 
   useEffect(() => {

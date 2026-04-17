@@ -18,9 +18,10 @@ A mobile-first React web app for Firesky Industries — a field operations tool 
 - **Build**: esbuild (CJS bundle)
 
 ## Environment Variables Required
-- `RESEND_API_KEY` — Resend API key for sending customer notification emails (get from resend.com)
-- `TRACKING_BASE_URL` — Base URL for customer tracking links in emails (e.g. `https://fireskyindustries.co.za/firesky` or `https://{REPLIT_DEV_DOMAIN}/firesky`)
+- `RESEND_API_KEY` — Resend API key for sending customer notification emails
+- `TRACKING_BASE_URL` — Base URL for customer tracking links in emails
 - `SESSION_SECRET` — Already configured via Replit secrets
+- `GEMINI_API_KEY` — Google Gemini API key for Sky AI
 
 ## Multi-Branch Architecture
 - **Branches** — `branches` table: id, name, region, address, phone, email
@@ -36,14 +37,20 @@ A mobile-first React web app for Firesky Industries — a field operations tool 
 - **Frontend pages**: `/stock` (inventory + movements + catalogue tab for admin), `/admin/branches`
 - **Users admin**: branch assignment dropdown per user alongside role selector
 
+## Dashboards
+- **Admin dashboard** (`/`) — cross-branch overview: stat cards, pipeline breakdown, stale/urgent alerts, branch breakdown cards, recent enquiries/jobs
+- **Branch admin dashboard** (`/`) — branch-scoped: stat cards for their branch only, stale/urgent alerts, recent enquiries/jobs, stock snapshot
+
 ## Features
+
 - **Quote Upload & Acceptance Flow** — Full quote lifecycle:
   - Admin uploads quote PDF from enquiry detail page (after inspection done)
-  - PDF stored in GCS via object storage (`objectPath` stored in `quotes` table)
+  - PDF stored via object storage (`objectPath` stored in `quotes` table)
   - Customer emailed with link to `/quote/{quoteToken}` page (no login required)
   - Customer can Accept or Decline quote with optional reason
   - On accept: enquiry advances to `won`, job (if linked) advances to `won`
   - Team notified of customer response via in-app notification
+
 - **Customer Notification System** — Automatic emails via Resend on job stage changes:
   - Email fires automatically when stage changes (enquiry → inspection → quoting → quoted → won)
   - Per-job toggle to enable/disable notifications (on by default if customer has email)
@@ -52,19 +59,28 @@ A mobile-first React web app for Firesky Industries — a field operations tool 
   - WhatsApp tap-to-message button on job and customer records
   - Sender: `info@fireskyindustries.co.za` via Resend (domain must be verified in Resend)
 
-- **Calendar**: Week and list views for inspections/deliveries/installations, with travel-buffer conflict detection and double-booking prevention. Schedule button on job detail page. Accessible to admin and field workers.
+- **Calendar**: Week and list views for inspections/deliveries/installations, with travel-buffer conflict detection and double-booking prevention.
 
-
-- **Sky AI Assistant** — built-in AI assistant powered by OpenAI (via Replit AI Integrations, billed to Replit credits):
+- **Sky AI Assistant** — powered by Google Gemini (`gemini-2.5-flash`):
   - Floating "Ask Sky" button on all pages (mobile and desktop)
   - Inline "Ask Sky" button on each record (inspection, customer, enquiry, job, dashboard)
   - Context-aware: reads the currently open record and uses it in responses
   - Streaming chat interface with conversation history per session
-  - Suggested actions per context: "Review this inspection", "Summarize for quote", "Stand or plinth?", "Check missing details", etc.
-  - Firesky-specific system prompt: knows about tanks, stand/plinth decisions, site access, pipe runs, delivery risks
+  - **4 distinct Sky modes** based on verified server-side role:
+    - **Admin**: full tool-calling agent loop — reads/writes all records, manages all branches and stock
+    - **Branch admin**: stock tool loop scoped to their branch (branch_id auto-injected, cannot touch other branches)
+    - **Field worker**: plain conversational Sky with inspection/job guidance
+    - **Guest/customer**: product guidance only — helps choose tanks, pumps, stands; never sees internal data
+  - Role is always verified server-side — client-supplied role is ignored
+
+- **Stock Management**:
+  - Per-branch stock levels with movement history (in / out / adjustment)
+  - Global stock item catalogue (admin-managed)
+  - Sky can manage stock via natural language for admin and branch admins
+
 - **Dashboard** — summary stats, pipeline stage breakdown, recent enquiries and jobs
 - **Customer CRM** — searchable customer/farm list with full remote location support
-- **New Enquiry Form** — fast capture in the field, JSON-driven field config
+- **New Enquiry Form** — fast capture in the field, GPS/WhatsApp location support
 - **Site Inspection Form** — detailed tank placement & installation prep form:
   - Tank size, quantity, stand/plinth requirements
   - Pipe lengths, distances from road/house
@@ -73,6 +89,7 @@ A mobile-first React web app for Firesky Industries — a field operations tool 
   - Readiness-to-quote flag
   - Remote location fields: farm name, nearest town, manual directions, landmarks, WhatsApp location, access notes
 - **Jobs Pipeline** — kanban-style board with stages: enquiry → inspection → quoting → quoted → won → lost
+- **Delivery Loads** — track loads per job
 - **Draft saving** — forms auto-save to localStorage
 
 ## Key Commands
@@ -87,13 +104,11 @@ A mobile-first React web app for Firesky Industries — a field operations tool 
 ## Architecture
 
 - **lib/api-spec/openapi.yaml** — single source of truth for API contract
-- **lib/db/src/schema/** — Drizzle DB schema (customers, enquiries, inspections, jobs, conversations, messages)
-- **lib/integrations-openai-ai-server/** — OpenAI SDK client wired to Replit AI Integrations
-- **artifacts/api-server/src/routes/sky.ts** — `/api/sky/chat` SSE endpoint with Firesky system prompt
+- **lib/db/src/schema/** — Drizzle DB schema (customers, enquiries, inspections, jobs, branches, stock_items, stock_levels, stock_movements)
+- **artifacts/api-server/src/routes/sky.ts** — `/api/sky/chat` SSE endpoint with Gemini tool-calling
 - **artifacts/firesky/src/components/sky/** — Sky context provider, panel, floating button, inline button
-- **artifacts/api-server/src/routes/** — Express route handlers (customers, enquiries, inspections, jobs, dashboard, sky)
+- **artifacts/api-server/src/routes/** — Express route handlers
 - **artifacts/firesky/src/** — React frontend app
-  - All forms are driven by JSON field config arrays for easy future expansion
 
 ## Data Models
 
@@ -101,5 +116,17 @@ A mobile-first React web app for Firesky Industries — a field operations tool 
 - **Enquiry** — linked to customer, tank requirements, status pipeline
 - **Inspection** — full site assessment (stand/plinth, pipe lengths, distances, access, photos, readiness)
 - **Job** — linked to customer/enquiry/inspection, stage pipeline, estimated value
+- **Branch** — name, region, address, phone, email
+- **StockItem** — global catalogue item (name, unit, category, description)
+- **StockLevel** — quantity per branch per item
+- **StockMovement** — in/out/adjustment record per branch
+
+## Important Notes
+- Do NOT re-add PWA — it breaks publishing
+- Dark theme: orange primary `hsl(24 90% 50%)`, no emojis, rounded-full buttons
+- `apiFetch` is defined inline in each frontend page (no shared lib/api.ts)
+- Gemini model: `gemini-2.5-flash`, withRetry handles 503/429
+- Branch admin role = `"branch_admin"` in Clerk public metadata
+- Field worker legacy role = `"user"` in Clerk public metadata
 
 See `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
