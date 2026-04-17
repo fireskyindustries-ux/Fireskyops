@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, ilike, and, notInArray, count } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 import {
   db,
@@ -8,8 +8,9 @@ import {
   jobsTable,
   inspectionsTable,
   branchesTable,
-  stockLevelsTable,
   stockItemsTable,
+  stockLevelsTable,
+  stockMovementsTable,
 } from "@workspace/db";
 import { requireAdmin, requireAuth } from "../middlewares/requireAuth";
 import { geminiQuery } from "../lib/gemini-query";
@@ -80,7 +81,14 @@ Firesky operates from multiple branches. Each branch has its own stock levels, c
 
 For admin users: You have live access to the entire Firesky database and can take action. When an admin asks you to close a job, update a stage, change a status, add notes, or modify any record, use your available tools to do it directly — do not ask them to do it manually. After taking an action, confirm clearly what was done.
 
-You can also answer questions about branches and stock by using your list_branches tool (shows all branches with their active enquiry, job, and customer counts) and check_stock tool (shows all stock items and quantities at a specific branch).
+You can also answer questions about branches and stock, and take direct action on stock:
+- list_branches: shows all branches with live stats
+- check_stock: shows current stock levels at a branch
+- list_stock_items: shows the global stock catalogue
+- record_stock_movement: adds or removes stock, or sets an exact level (use 'in', 'out', or 'adjustment')
+- create_stock_item: adds a new item to the global catalogue
+
+When someone asks you to add stock, receive stock, or mark stock as used or removed, use record_stock_movement directly without asking them to do it manually. Always confirm what was done and show the new stock level.
 
 Tone and style:
 - Warm, friendly, and welcoming. Greet people by name when you know it.
@@ -458,6 +466,49 @@ const ADMIN_TOOLS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "list_stock_items",
+      description: "List all stock items in the global catalogue (names, units, categories). Use this before recording a movement when you need to confirm the item name or ID.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "record_stock_movement",
+      description: "Record a stock movement (add stock in, remove stock out, or set an adjusted quantity) for a specific item at a specific branch. Use the item name — it will be matched automatically. Type 'in' adds to quantity, 'out' removes, 'adjustment' sets the exact level.",
+      parameters: {
+        type: "object",
+        properties: {
+          branch_id: { type: "integer", description: "The branch ID where the movement occurs" },
+          item_name: { type: "string", description: "Name of the stock item (will be matched by name)" },
+          type: { type: "string", enum: ["in", "out", "adjustment"], description: "in = add stock, out = remove stock, adjustment = set exact quantity" },
+          quantity: { type: "number", description: "The quantity to add, remove, or set" },
+          note: { type: "string", description: "Optional note explaining the movement (e.g. 'Received from supplier', 'Used on Job #42')" },
+        },
+        required: ["branch_id", "item_name", "type", "quantity"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "create_stock_item",
+      description: "Add a new item to the global stock catalogue. Once created, stock can be tracked for it at any branch.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Item name, e.g. '5000L Tank'" },
+          unit: { type: "string", description: "Unit of measurement, e.g. 'units', 'metres', 'kg'" },
+          category: { type: "string", description: "Optional category, e.g. 'Tanks', 'Fittings', 'Pipes'" },
+          description: { type: "string", description: "Optional description of the item" },
+        },
+        required: ["name", "unit"],
+      },
+    },
+  },
 ] as const;
 
 const GEMINI_FUNCTION_DECLARATIONS = ADMIN_TOOLS.map((t) => ({
@@ -748,15 +799,14 @@ async function executeTool(name: string, args: Record<string, any>): Promise<Too
       }
 
       case "list_branches": {
-        const { count: countFn, notInArray: notInArrayFn } = await import("drizzle-orm");
         const [branches, custCounts, enqCounts, jobCounts] = await Promise.all([
           db.select().from(branchesTable),
-          db.select({ branchId: customersTable.branchId, c: countFn() }).from(customersTable).groupBy(customersTable.branchId),
-          db.select({ branchId: enquiriesTable.branchId, c: countFn() }).from(enquiriesTable)
-            .where(notInArrayFn(enquiriesTable.status, ["won", "lost", "closed"]))
+          db.select({ branchId: customersTable.branchId, c: count() }).from(customersTable).groupBy(customersTable.branchId),
+          db.select({ branchId: enquiriesTable.branchId, c: count() }).from(enquiriesTable)
+            .where(notInArray(enquiriesTable.status, ["won", "lost", "closed"]))
             .groupBy(enquiriesTable.branchId),
-          db.select({ branchId: jobsTable.branchId, c: countFn() }).from(jobsTable)
-            .where(notInArrayFn(jobsTable.stage, ["won", "lost", "closed"]))
+          db.select({ branchId: jobsTable.branchId, c: count() }).from(jobsTable)
+            .where(notInArray(jobsTable.stage, ["won", "lost", "closed"]))
             .groupBy(jobsTable.branchId),
         ]);
         const cm = Object.fromEntries(custCounts.map((r) => [r.branchId ?? 0, Number(r.c)]));
@@ -774,7 +824,7 @@ async function executeTool(name: string, args: Record<string, any>): Promise<Too
       }
 
       case "check_stock": {
-        const { bid } = { bid: Number(args.branch_id) };
+        const bid = Number(args.branch_id);
         const branch = await db.select().from(branchesTable).where(eq(branchesTable.id, bid));
         if (!branch.length) return { result: `Branch #${bid} not found.` };
         const levels = await db
@@ -783,16 +833,107 @@ async function executeTool(name: string, args: Record<string, any>): Promise<Too
             itemUnit: stockItemsTable.unit,
             itemCategory: stockItemsTable.category,
             quantity: stockLevelsTable.quantity,
-            updatedAt: stockLevelsTable.updatedAt,
           })
           .from(stockLevelsTable)
           .innerJoin(stockItemsTable, eq(stockLevelsTable.stockItemId, stockItemsTable.id))
           .where(eq(stockLevelsTable.branchId, bid));
-        if (!levels.length) return { result: `No stock recorded for ${branch[0].name} yet.` };
+        if (!levels.length) return { result: `No stock recorded for ${branch[0].name} yet. Use list_stock_items to see the catalogue, then record_stock_movement to add stock.` };
         const lines = levels.map((l) =>
           `- ${l.itemName}: ${l.quantity} ${l.itemUnit}${l.itemCategory ? ` (${l.itemCategory})` : ""}`
         );
         return { result: `Stock levels at ${branch[0].name}:\n${lines.join("\n")}` };
+      }
+
+      case "list_stock_items": {
+        const items = await db
+          .select()
+          .from(stockItemsTable)
+          .orderBy(stockItemsTable.category, stockItemsTable.name);
+        if (!items.length) return { result: "No stock items in the catalogue yet. Use create_stock_item to add items." };
+        const lines = items.map((i) =>
+          `- ID ${i.id}: ${i.name} (${i.unit})${i.category ? ` — ${i.category}` : ""}${i.description ? ` — ${i.description}` : ""}`
+        );
+        return { result: `Stock catalogue:\n${lines.join("\n")}` };
+      }
+
+      case "record_stock_movement": {
+        const { branch_id, item_name, type, quantity, note } = args;
+        const bid = Number(branch_id);
+        const qty = Number(quantity);
+
+        // Verify branch exists
+        const [branch] = await db.select().from(branchesTable).where(eq(branchesTable.id, bid));
+        if (!branch) return { result: `Branch #${bid} not found. Use list_branches to see available branches.` };
+
+        // Resolve item by name (case-insensitive)
+        const matches = await db
+          .select()
+          .from(stockItemsTable)
+          .where(ilike(stockItemsTable.name, `%${item_name}%`));
+        if (!matches.length) return { result: `No stock item matching "${item_name}" found. Use list_stock_items to see available items, or create_stock_item to add a new one.` };
+        if (matches.length > 1) {
+          const opts = matches.map((m) => `- ID ${m.id}: ${m.name}`).join("\n");
+          return { result: `Multiple items match "${item_name}":\n${opts}\n\nPlease be more specific about which item you mean.` };
+        }
+        const item = matches[0];
+
+        if (!["in", "out", "adjustment"].includes(type)) {
+          return { result: `Invalid movement type "${type}". Use: in, out, or adjustment.` };
+        }
+
+        // Record movement
+        await db.insert(stockMovementsTable).values({
+          branchId: bid,
+          stockItemId: item.id,
+          type,
+          quantity: qty,
+          note: note || null,
+          userId: null,
+        });
+
+        // Upsert stock level
+        const existing = await db
+          .select()
+          .from(stockLevelsTable)
+          .where(and(eq(stockLevelsTable.branchId, bid), eq(stockLevelsTable.stockItemId, item.id)));
+
+        let newQty: number;
+        if (existing.length > 0) {
+          newQty = existing[0].quantity;
+          if (type === "in") newQty += qty;
+          else if (type === "out") newQty = Math.max(0, newQty - qty);
+          else newQty = qty;
+          await db
+            .update(stockLevelsTable)
+            .set({ quantity: newQty })
+            .where(and(eq(stockLevelsTable.branchId, bid), eq(stockLevelsTable.stockItemId, item.id)));
+        } else {
+          newQty = type === "out" ? 0 : qty;
+          await db.insert(stockLevelsTable).values({ branchId: bid, stockItemId: item.id, quantity: newQty });
+        }
+
+        const typeLabel = type === "in" ? "added to" : type === "out" ? "removed from" : "set to";
+        return {
+          result: `Done. ${qty} ${item.unit} of ${item.name} ${typeLabel} ${branch.name}. New stock level: ${newQty} ${item.unit}.${note ? ` Note: "${note}".` : ""}`,
+          action: { resource: "stock", id: bid },
+        };
+      }
+
+      case "create_stock_item": {
+        const { name, unit, category, description } = args;
+        // Check for duplicate
+        const existing = await db.select().from(stockItemsTable).where(ilike(stockItemsTable.name, name));
+        if (existing.length > 0) {
+          return { result: `A stock item named "${existing[0].name}" already exists (ID ${existing[0].id}). Use record_stock_movement to update stock levels for it.` };
+        }
+        const [created] = await db
+          .insert(stockItemsTable)
+          .values({ name, unit: unit || "units", category: category || null, description: description || null })
+          .returning();
+        return {
+          result: `Stock item created: "${created.name}" (ID ${created.id}, unit: ${created.unit}${created.category ? `, category: ${created.category}` : ""}). You can now use record_stock_movement to add stock for it at any branch.`,
+          action: { resource: "stock", id: created.id },
+        };
       }
 
       default:
@@ -825,6 +966,9 @@ function getThinkingMessage(name: string, args: Record<string, any>): string {
     case "smart_query": return `Querying the database...`;
     case "list_branches": return `Loading branch overview...`;
     case "check_stock": return `Checking stock levels for Branch #${args.branch_id}...`;
+    case "list_stock_items": return `Loading stock catalogue...`;
+    case "record_stock_movement": return `Recording ${args.type} of ${args.quantity} × ${args.item_name} at Branch #${args.branch_id}...`;
+    case "create_stock_item": return `Creating stock item "${args.name}"...`;
     default: return `Working on it...`;
   }
 }
