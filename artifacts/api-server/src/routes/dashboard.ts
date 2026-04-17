@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { desc, inArray, eq, and, lt, notInArray, count, gt, isNull, or, sql } from "drizzle-orm";
-import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable } from "@workspace/db";
+import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable, branchesTable } from "@workspace/db";
 import { loadSchedulerState, STALE_MS } from "../lib/scheduler-state";
 
 const router: IRouter = Router();
@@ -98,6 +98,18 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     db.select({ count: count() }).from(jobsTable).where(eq(jobsTable.accessRisk, "high")),
   ]);
 
+  // Branch breakdown — run in parallel with enquiry link lookups
+  const [branchList, branchCustomerCounts, branchEnquiryCounts, branchJobCounts] = await Promise.all([
+    db.select().from(branchesTable).orderBy(branchesTable.id),
+    db.select({ branchId: customersTable.branchId, c: count() }).from(customersTable).groupBy(customersTable.branchId),
+    db.select({ branchId: enquiriesTable.branchId, c: count() }).from(enquiriesTable)
+      .where(notInArray(enquiriesTable.status, ["won", "lost", "closed"]))
+      .groupBy(enquiriesTable.branchId),
+    db.select({ branchId: jobsTable.branchId, c: count() }).from(jobsTable)
+      .where(notInArray(jobsTable.stage, ["won", "lost", "closed"]))
+      .groupBy(jobsTable.branchId),
+  ]);
+
   const enquiryIds = recentEnquiriesRaw.map((e) => e.id);
   const [linkedInspections, linkedJobs] = enquiryIds.length > 0
     ? await Promise.all([
@@ -138,6 +150,19 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     enquiryId: j.enquiryId ?? undefined,
   }));
 
+  const custByBranch = Object.fromEntries(branchCustomerCounts.map((r) => [r.branchId ?? 0, Number(r.c)]));
+  const enqByBranch = Object.fromEntries(branchEnquiryCounts.map((r) => [r.branchId ?? 0, Number(r.c)]));
+  const jobsByBranch = Object.fromEntries(branchJobCounts.map((r) => [r.branchId ?? 0, Number(r.c)]));
+
+  const branchBreakdown = branchList.map((b) => ({
+    id: b.id,
+    name: b.name,
+    region: b.region,
+    customers: custByBranch[b.id] ?? 0,
+    activeEnquiries: enqByBranch[b.id] ?? 0,
+    activeJobs: jobsByBranch[b.id] ?? 0,
+  }));
+
   res.json({
     totalCustomers: customers.length,
     totalEnquiries: enquiries.length,
@@ -158,6 +183,7 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     jobsByStage,
     recentEnquiries,
     recentJobs,
+    branchBreakdown,
   });
 });
 

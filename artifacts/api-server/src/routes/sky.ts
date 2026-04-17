@@ -7,6 +7,9 @@ import {
   enquiriesTable,
   jobsTable,
   inspectionsTable,
+  branchesTable,
+  stockLevelsTable,
+  stockItemsTable,
 } from "@workspace/db";
 import { requireAdmin, requireAuth } from "../middlewares/requireAuth";
 import { geminiQuery } from "../lib/gemini-query";
@@ -73,7 +76,11 @@ Your areas of expertise:
 - Quote readiness: determine whether an inspection has enough captured data to generate a quotation
 - Business pipeline analysis: identifying stalled jobs, overdue follow-ups, prioritisation
 
+Firesky operates from multiple branches. Each branch has its own stock levels, customers, enquiries, and jobs. Branch admins manage their own branches. When asked about branch performance, stock levels, or which branch handles a region, use the list_branches or check_stock tools.
+
 For admin users: You have live access to the entire Firesky database and can take action. When an admin asks you to close a job, update a stage, change a status, add notes, or modify any record, use your available tools to do it directly — do not ask them to do it manually. After taking an action, confirm clearly what was done.
+
+You can also answer questions about branches and stock by using your list_branches tool (shows all branches with their active enquiry, job, and customer counts) and check_stock tool (shows all stock items and quantities at a specific branch).
 
 Tone and style:
 - Warm, friendly, and welcoming. Greet people by name when you know it.
@@ -429,6 +436,28 @@ const ADMIN_TOOLS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "list_branches",
+      description: "List all Firesky branches with their live stats — active enquiry count, active job count, and customer count per branch. Use when asked about branches, locations, or how different branches are performing.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "check_stock",
+      description: "Check the current stock levels for a specific branch. Returns all stock items and their current quantities at that branch.",
+      parameters: {
+        type: "object",
+        properties: {
+          branch_id: { type: "integer", description: "The ID of the branch to check stock for" },
+        },
+        required: ["branch_id"],
+      },
+    },
+  },
 ] as const;
 
 const GEMINI_FUNCTION_DECLARATIONS = ADMIN_TOOLS.map((t) => ({
@@ -718,6 +747,54 @@ async function executeTool(name: string, args: Record<string, any>): Promise<Too
         return { result };
       }
 
+      case "list_branches": {
+        const { count: countFn, notInArray: notInArrayFn } = await import("drizzle-orm");
+        const [branches, custCounts, enqCounts, jobCounts] = await Promise.all([
+          db.select().from(branchesTable),
+          db.select({ branchId: customersTable.branchId, c: countFn() }).from(customersTable).groupBy(customersTable.branchId),
+          db.select({ branchId: enquiriesTable.branchId, c: countFn() }).from(enquiriesTable)
+            .where(notInArrayFn(enquiriesTable.status, ["won", "lost", "closed"]))
+            .groupBy(enquiriesTable.branchId),
+          db.select({ branchId: jobsTable.branchId, c: countFn() }).from(jobsTable)
+            .where(notInArrayFn(jobsTable.stage, ["won", "lost", "closed"]))
+            .groupBy(jobsTable.branchId),
+        ]);
+        const cm = Object.fromEntries(custCounts.map((r) => [r.branchId ?? 0, Number(r.c)]));
+        const em = Object.fromEntries(enqCounts.map((r) => [r.branchId ?? 0, Number(r.c)]));
+        const jm = Object.fromEntries(jobCounts.map((r) => [r.branchId ?? 0, Number(r.c)]));
+        const lines = branches.map((b) =>
+          `Branch #${b.id} — ${b.name}${b.region ? ` (${b.region})` : ""}:\n` +
+          `  Customers: ${cm[b.id] ?? 0}\n` +
+          `  Active enquiries: ${em[b.id] ?? 0}\n` +
+          `  Active jobs: ${jm[b.id] ?? 0}` +
+          (b.phone ? `\n  Phone: ${b.phone}` : "") +
+          (b.email ? `\n  Email: ${b.email}` : "")
+        );
+        return { result: lines.length > 0 ? lines.join("\n\n") : "No branches found." };
+      }
+
+      case "check_stock": {
+        const { bid } = { bid: Number(args.branch_id) };
+        const branch = await db.select().from(branchesTable).where(eq(branchesTable.id, bid));
+        if (!branch.length) return { result: `Branch #${bid} not found.` };
+        const levels = await db
+          .select({
+            itemName: stockItemsTable.name,
+            itemUnit: stockItemsTable.unit,
+            itemCategory: stockItemsTable.category,
+            quantity: stockLevelsTable.quantity,
+            updatedAt: stockLevelsTable.updatedAt,
+          })
+          .from(stockLevelsTable)
+          .innerJoin(stockItemsTable, eq(stockLevelsTable.stockItemId, stockItemsTable.id))
+          .where(eq(stockLevelsTable.branchId, bid));
+        if (!levels.length) return { result: `No stock recorded for ${branch[0].name} yet.` };
+        const lines = levels.map((l) =>
+          `- ${l.itemName}: ${l.quantity} ${l.itemUnit}${l.itemCategory ? ` (${l.itemCategory})` : ""}`
+        );
+        return { result: `Stock levels at ${branch[0].name}:\n${lines.join("\n")}` };
+      }
+
       default:
         return { result: `Unknown tool: ${name}` };
     }
@@ -746,6 +823,8 @@ function getThinkingMessage(name: string, args: Record<string, any>): string {
     case "update_job_full": return `Updating Job #${args.job_id}...`;
     case "update_inspection_full": return `Updating Inspection #${args.inspection_id}...`;
     case "smart_query": return `Querying the database...`;
+    case "list_branches": return `Loading branch overview...`;
+    case "check_stock": return `Checking stock levels for Branch #${args.branch_id}...`;
     default: return `Working on it...`;
   }
 }
@@ -864,6 +943,16 @@ function buildAdminContextBlock(
 
       const unconverted = s.inspections?.notYetConvertedToJob ?? 0;
       if (unconverted > 0) snap.push(`\nInspections not yet converted to a job: ${unconverted}`);
+
+      // Branch overview from snapshot if available
+      const branchBreakdown = (s.branchBreakdown || []) as any[];
+      if (branchBreakdown.length > 0) {
+        snap.push(`\nBranch overview:`);
+        for (const b of branchBreakdown) {
+          snap.push(`  - ${b.name}${b.region ? ` (${b.region})` : ""}: ${b.customers} customers, ${b.activeEnquiries} active enquiries, ${b.activeJobs} active jobs`);
+        }
+        snap.push(`  Use list_branches or check_stock tools for live branch/stock data.`);
+      }
 
       snap.push(`\n---`);
       parts.push(snap.join("\n"));

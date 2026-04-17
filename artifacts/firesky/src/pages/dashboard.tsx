@@ -2,7 +2,7 @@ import { useGetDashboardSummary } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Users, FileText, Briefcase, Plus, ArrowRight, ChevronRight, Clock, AlertTriangle, Sparkles, CalendarX, CircleSlash, ShieldAlert, Download } from "lucide-react";
+import { Users, FileText, Briefcase, Plus, ArrowRight, ChevronRight, Clock, AlertTriangle, Sparkles, CalendarX, CircleSlash, ShieldAlert, Download, Building2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
 import { SkyInlineButton } from "@/components/sky";
@@ -446,6 +446,56 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Branch overview — admin only, shown when multiple branches exist */}
+      {isAdmin && (() => {
+        const branches: Array<{ id: number; name: string; region: string | null; customers: number; activeEnquiries: number; activeJobs: number }> =
+          (summary as any).branchBreakdown ?? [];
+        if (branches.length === 0) return null;
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Branch Overview</p>
+              <Link href="/admin/branches">
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-primary">
+                  Manage <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {branches.map((b) => (
+                <Card key={b.id} className="shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                        <Building2 className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold leading-tight truncate">{b.name}</p>
+                        {b.region && <p className="text-xs text-muted-foreground">{b.region}</p>}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 mt-3">
+                      <div className="text-center">
+                        <p className="text-xl font-bold tabular-nums">{b.customers}</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">Customers</p>
+                      </div>
+                      <div className="text-center">
+                        <p className={cn("text-xl font-bold tabular-nums", b.activeEnquiries > 0 ? "text-amber-600" : "")}>{b.activeEnquiries}</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">Enquiries</p>
+                      </div>
+                      <div className="text-center">
+                        <p className={cn("text-xl font-bold tabular-nums", b.activeJobs > 0 ? "text-primary" : "")}>{b.activeJobs}</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">Active Jobs</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
