@@ -292,7 +292,7 @@ router.get("/dashboard/branch-summary", async (req, res): Promise<void> => {
       itemUnit: stockItemsTable.unit,
       itemCategory: stockItemsTable.category,
     }).from(stockLevelsTable)
-      .leftJoin(stockItemsTable, eq(stockLevelsTable.itemId, stockItemsTable.id))
+      .leftJoin(stockItemsTable, eq(stockLevelsTable.stockItemId, stockItemsTable.id))
       .where(eq(stockLevelsTable.branchId, branchId))
       .orderBy(stockLevelsTable.quantity)
       .limit(8),
