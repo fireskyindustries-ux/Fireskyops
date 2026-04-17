@@ -9,6 +9,9 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// Disable ETag — prevents Express returning empty 304 responses which break JSON parsing
+app.disable("etag");
+
 app.use(
   pinoHttp({
     logger,
