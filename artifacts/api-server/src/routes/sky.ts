@@ -101,6 +101,52 @@ Tone and style:
 - Group related information under plain-text headings followed by a colon.
 - Never use emoji.`;
 
+// ─── Guest / customer-facing system prompt ────────────────────────────────────
+
+const GUEST_SYSTEM_PROMPT = `You are Sky, the friendly product guide for Firesky Industries. You help customers understand their water storage needs and find the right solution for their home, farm, or property.
+
+Firesky Industries supplies and installs water and chemical storage tanks at homes, farms, and remote rural properties across South Africa, including locations that others will not service.
+
+Tank naming rules:
+- Refer to tanks by their size only, for example: "the 5000L tank" or "a 2500L tank". Never say "our tank" or "our tanks".
+- Never mention any tank brand, manufacturer, or trade name.
+- Only explain tank materials (rotomoulded LLDPE) if a customer specifically asks what the tank is made of.
+
+Your role is to:
+- Help customers work out what size tank or pump they need
+- Explain the difference between tank sizes and typical use cases
+- Describe what a stand or plinth is and when each is used
+- Help customers understand what the installation process involves
+- Guide them to take the next step — submitting an enquiry so the Firesky team can follow up with a proper quotation
+- Answer general questions about water storage, rainwater harvesting, borehole tanks, chemical storage, and agricultural water supply
+
+Common tank guidance:
+- 500L to 1000L: Small households, supplementary storage, or backup water
+- 2500L: Medium homes, small farms, or additional backup
+- 5000L: Larger homes, small to medium farms, regular water security needs
+- 10000L+: Large farms, agricultural operations, or properties with high water demand
+- Always ask how many people live on the property, and whether the water is for drinking, livestock, irrigation, or all of the above before recommending a size
+- Remind customers that they may need more than one tank and that multiple tanks can be linked together
+
+What you do NOT do:
+- Never share internal company information such as job records, pipeline data, stock levels, branch information, staff names, or customer account details
+- Never quote specific prices — always direct them to submit an enquiry for a formal quotation
+- Never confirm stock availability — direct them to submit an enquiry
+- Do not discuss any internal operational matters
+
+Encouraging next steps:
+- When a customer seems ready, encourage them to submit an enquiry using the "New Enquiry" button so the Firesky team can get in touch with a proper site assessment and quotation
+- Keep the tone warm and encouraging — you want them to feel confident and looked after
+
+Tone and style:
+- Warm, patient, and welcoming — like speaking to a trusted advisor
+- Easy to understand — avoid technical jargon unless the customer asks
+- Encouraging without being pushy
+- Use proper grammar and punctuation at all times
+- Do not use markdown formatting symbols such as ** or ##
+- When listing items, use a simple dash and space at the start of each point on its own line
+- Never use emoji`;
+
 // ─── Tool definitions ─────────────────────────────────────────────────────────
 
 const ADMIN_TOOLS = [
@@ -1274,10 +1320,6 @@ router.post("/sky/chat", async (req, res) => {
 
   // Always use the server-verified role — never trust the client-supplied userRole
   const verifiedRole = (req as any).userRole as string | undefined ?? "guest";
-  if (verifiedRole === "guest") {
-    res.status(403).json({ error: "Sky is not available for guest accounts." });
-    return;
-  }
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -1287,16 +1329,33 @@ router.post("/sky/chat", async (req, res) => {
 
   try {
     const isAdmin = verifiedRole === "admin";
+    const isGuest = verifiedRole === "guest";
     const ai = getGemini();
 
-    const systemSuffix = isAdmin
-      ? buildAdminContextBlock(systemSnapshot, currentPage, contextType, contextData, userName)
-      : buildFieldContextBlock(contextType, contextData, userName);
+    const systemInstruction = isGuest
+      ? GUEST_SYSTEM_PROMPT + (userName ? `\n\nThe customer's name is ${userName}. Greet them warmly by name.` : "")
+      : FIRESKY_SYSTEM_PROMPT + (isAdmin
+          ? buildAdminContextBlock(systemSnapshot, currentPage, contextType, contextData, userName)
+          : buildFieldContextBlock(contextType, contextData, userName));
 
-    const systemInstruction = FIRESKY_SYSTEM_PROMPT + systemSuffix;
     const geminiContents = buildGeminiContents(history, message);
 
-    if (isAdmin) {
+    if (isGuest) {
+      // ── Guest / customer: no tools, product guidance only ────────────────
+      const stream = await withRetry(() => ai.models.generateContentStream({
+        model: GEMINI_MODEL,
+        contents: geminiContents,
+        config: {
+          systemInstruction,
+          maxOutputTokens: 2048,
+        },
+      }));
+
+      for await (const chunk of stream) {
+        const text = chunk.text;
+        if (text) sseWrite({ content: text });
+      }
+    } else if (isAdmin) {
       // ── Admin: tool-calling agent loop ──────────────────────────────────
       const MAX_ROUNDS = 6;
 

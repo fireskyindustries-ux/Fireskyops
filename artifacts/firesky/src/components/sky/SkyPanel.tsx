@@ -21,6 +21,15 @@ const ADMIN_SUGGESTED_ACTIONS = [
   { label: "Summarise the week", message: "Give me a brief summary of where the business stands right now — customers, pipeline, any urgent items that need action." },
 ];
 
+const GUEST_SUGGESTED_ACTIONS = [
+  { label: "What size tank do I need?", message: "I need help figuring out what size water tank would suit my property. Can you help me work it out?" },
+  { label: "Tanks for a farm", message: "I have a farm and need water storage for livestock and irrigation. What would you recommend?" },
+  { label: "Home backup water", message: "I want backup water storage for my home in case of outages. What are my options?" },
+  { label: "What is a stand or plinth?", message: "What is the difference between a tank stand and a concrete plinth? Which one would I need?" },
+  { label: "How does installation work?", message: "How does the installation process work? What should I expect from start to finish?" },
+  { label: "Chemical storage", message: "I need to store chemicals on my property. Do you have tanks suitable for that?" },
+];
+
 const FIELD_SUGGESTED_ACTIONS: Record<SkyContextType, { label: string; message: string }[]> = {
   inspection: [
     { label: "Review this inspection", message: "Review this inspection record and tell me if anything looks incomplete or unusual." },
@@ -177,8 +186,11 @@ export function SkyPanel() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const isGuest = role === "guest";
   const suggestedActions = isAdmin
     ? ADMIN_SUGGESTED_ACTIONS
+    : isGuest
+    ? GUEST_SUGGESTED_ACTIONS
     : FIELD_SUGGESTED_ACTIONS[context.contextType] || FIELD_SUGGESTED_ACTIONS.general;
 
   useEffect(() => {

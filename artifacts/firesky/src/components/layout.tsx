@@ -282,8 +282,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
       )}
 
-      {!isGuest && <SkyFloatingButton />}
-      {!isGuest && <SkyPanel />}
+      <SkyFloatingButton />
+      <SkyPanel />
 
       {/* Desktop Footer */}
       <div className="hidden md:block fixed bottom-0 left-0 w-64 text-center py-2 border-t border-sidebar-border bg-sidebar">
