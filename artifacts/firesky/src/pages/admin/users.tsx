@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, UserPlus, Trash2, Shield, User, Building2 } from "lucide-react";
+import { Loader2, Trash2, Shield, User, Building2, MessageCircle } from "lucide-react";
 
 interface Branch { id: number; name: string; }
 interface AppUser {
@@ -52,9 +52,8 @@ const ROLE_LABELS: Record<string, string> = {
 export default function AdminUsers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
   const [inviteRole, setInviteRole] = useState("user");
-  const [inviting, setInviting] = useState(false);
 
   const { data: users, isLoading } = useQuery<AppUser[]>({
     queryKey: ["admin-users"],
@@ -95,21 +94,22 @@ export default function AdminUsers() {
     onError: (err: any) => toast({ title: "Failed to remove user", description: err.message, variant: "destructive" }),
   });
 
-  const handleInvite = async () => {
-    if (!inviteEmail.trim()) return;
-    setInviting(true);
-    try {
-      await apiFetch("/users/invite", {
-        method: "POST",
-        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
-      });
-      toast({ title: "Invitation sent", description: `Invite sent to ${inviteEmail}` });
-      setInviteEmail("");
-    } catch (err: any) {
-      toast({ title: "Failed to send invite", description: err.message, variant: "destructive" });
-    } finally {
-      setInviting(false);
-    }
+  const handleWhatsAppInvite = () => {
+    const raw = invitePhone.trim().replace(/[\s\-()]/g, "");
+    if (!raw) return;
+    // Normalise to international format — strip leading 0 and prepend +27 if local SA number
+    const number = raw.startsWith("+")
+      ? raw.replace("+", "")
+      : raw.startsWith("0")
+      ? `27${raw.slice(1)}`
+      : raw;
+    const roleLabel =
+      inviteRole === "branch_admin" ? "Branch Admin" : "Field Worker";
+    const appUrl = window.location.origin;
+    const message = encodeURIComponent(
+      `Hi! You've been invited to join Firesky Industries Field Ops as a ${roleLabel}.\n\nOpen the link below and sign in with your Google account to get started:\n${appUrl}`
+    );
+    window.open(`https://wa.me/${number}?text=${message}`, "_blank");
   };
 
   const branchName = (id: number | null) => branches?.find((b) => b.id === id)?.name ?? null;
@@ -124,20 +124,20 @@ export default function AdminUsers() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <UserPlus className="h-4 w-4 text-primary" /> Invite a New User
+            <MessageCircle className="h-4 w-4 text-[#25D366]" /> Invite via WhatsApp
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 space-y-1">
-              <Label className="text-xs text-muted-foreground">Email address</Label>
+              <Label className="text-xs text-muted-foreground">Phone number</Label>
               <Input
-                type="email"
-                placeholder="jane@example.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
+                type="tel"
+                placeholder="083 123 4567 or +27 83 123 4567"
+                value={invitePhone}
+                onChange={(e) => setInvitePhone(e.target.value)}
                 className="h-11"
-                onKeyDown={(e) => e.key === "Enter" && handleInvite()}
+                onKeyDown={(e) => e.key === "Enter" && handleWhatsAppInvite()}
               />
             </div>
             <div className="space-y-1">
@@ -149,18 +149,21 @@ export default function AdminUsers() {
                 <SelectContent>
                   <SelectItem value="user">Field Worker</SelectItem>
                   <SelectItem value="branch_admin">Branch Admin</SelectItem>
-                  <SelectItem value="admin">Super Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground invisible">Send</Label>
-              <Button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()} className="h-11 px-6">
-                {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserPlus className="mr-2 h-4 w-4" /> Send Invite</>}
+              <Button
+                onClick={handleWhatsAppInvite}
+                disabled={!invitePhone.trim()}
+                className="h-11 px-6 bg-[#25D366] hover:bg-[#1ebe5d] text-white"
+              >
+                <MessageCircle className="mr-2 h-4 w-4" /> Send on WhatsApp
               </Button>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">They will receive an email invitation to create their account.</p>
+          <p className="text-xs text-muted-foreground mt-2">Opens WhatsApp with a pre-written invite message containing the app link. South African numbers (083…, 072…, etc.) are handled automatically.</p>
         </CardContent>
       </Card>
 
