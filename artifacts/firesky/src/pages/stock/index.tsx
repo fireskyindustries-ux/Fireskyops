@@ -363,6 +363,15 @@ export default function StockPage() {
         <p className="text-muted-foreground">Track stock levels per branch</p>
       </div>
 
+      {/* TEMP DEBUG - remove after fix */}
+      <div className="text-xs bg-yellow-100 text-yellow-900 rounded p-3 space-y-1 font-mono">
+        <p>role: {role}</p>
+        <p>isAdmin: {String(isAdmin)}</p>
+        <p>branches count: {(branches || []).length}</p>
+        <p>branches: {JSON.stringify(branches?.map(b => b.name))}</p>
+        <p>activeBranch: {activeBranch?.name ?? "none"}</p>
+      </div>
+
       <Tabs defaultValue="inventory">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <TabsList>
