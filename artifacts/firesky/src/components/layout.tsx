@@ -147,7 +147,9 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
           <p className="text-xs font-semibold truncate">
             {user?.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : user?.emailAddresses?.[0]?.emailAddress}
           </p>
-          <p className="text-[10px] text-muted-foreground capitalize">{role}</p>
+          <p className="text-[10px] text-muted-foreground">
+            {role === "admin" ? "Super Admin" : role === "branch_admin" ? "Branch Admin" : role === "field_worker" || role === "user" ? "Field Worker" : "Guest"}
+          </p>
         </div>
         {role !== "guest" && <NotificationBell />}
         <Button

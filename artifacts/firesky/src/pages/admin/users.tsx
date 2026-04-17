@@ -42,7 +42,7 @@ function initials(u: AppUser) {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  admin: "Admin",
+  admin: "Super Admin",
   branch_admin: "Branch Admin",
   user: "Field Worker",
   field_worker: "Field Worker",
@@ -149,7 +149,7 @@ export default function AdminUsers() {
                 <SelectContent>
                   <SelectItem value="user">Field Worker</SelectItem>
                   <SelectItem value="branch_admin">Branch Admin</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="admin">Super Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -221,7 +221,7 @@ export default function AdminUsers() {
                         <SelectContent>
                           <SelectItem value="user">Field Worker</SelectItem>
                           <SelectItem value="branch_admin">Branch Admin</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="admin">Super Admin</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
