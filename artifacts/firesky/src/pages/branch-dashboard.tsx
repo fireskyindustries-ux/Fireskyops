@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import {
-  Users, FileText, Briefcase, ArrowRight, ChevronRight, Clock,
-  AlertTriangle, Package, Building2, Plus,
+  Users, FileText, Briefcase, Plus, ArrowRight, ChevronRight,
+  Clock, AlertTriangle, Sparkles, CalendarX, CircleSlash, ShieldAlert,
+  Package, Building2,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SkyInlineButton } from "@/components/sky";
 
@@ -20,12 +21,12 @@ async function apiFetch(path: string) {
 }
 
 const ENQUIRY_STATUS_STYLES: Record<string, { dot: string; badge: string; label: string }> = {
-  new:             { dot: "bg-blue-500",   badge: "bg-blue-50 text-blue-700 border-blue-200",    label: "New" },
-  in_progress:     { dot: "bg-amber-500",  badge: "bg-amber-50 text-amber-700 border-amber-200",  label: "In Progress" },
-  inspection_done: { dot: "bg-violet-500", badge: "bg-violet-50 text-violet-700 border-violet-200", label: "Inspection Done" },
-  quoted:          { dot: "bg-cyan-600",   badge: "bg-cyan-50 text-cyan-700 border-cyan-200",     label: "Quoted" },
-  won:             { dot: "bg-green-600",  badge: "bg-green-50 text-green-700 border-green-200",  label: "Won" },
-  lost:            { dot: "bg-red-500",    badge: "bg-red-50 text-red-700 border-red-200",        label: "Lost" },
+  new:             { dot: "bg-blue-500",   badge: "bg-blue-50 text-blue-700 border-blue-200",       label: "New" },
+  in_progress:     { dot: "bg-amber-500",  badge: "bg-amber-50 text-amber-700 border-amber-200",     label: "In Progress" },
+  inspection_done: { dot: "bg-violet-500", badge: "bg-violet-50 text-violet-700 border-violet-200",  label: "Inspection Done" },
+  quoted:          { dot: "bg-cyan-600",   badge: "bg-cyan-50 text-cyan-700 border-cyan-200",        label: "Quoted" },
+  won:             { dot: "bg-green-600",  badge: "bg-green-50 text-green-700 border-green-200",     label: "Won" },
+  lost:            { dot: "bg-red-500",    badge: "bg-red-50 text-red-700 border-red-200",           label: "Lost" },
 };
 
 const JOB_STAGE_STYLES: Record<string, { dot: string; badge: string }> = {
@@ -37,6 +38,75 @@ const JOB_STAGE_STYLES: Record<string, { dot: string; badge: string }> = {
   lost:       { dot: "bg-red-400",    badge: "bg-red-50 text-red-700 border-red-200" },
   closed:     { dot: "bg-gray-400",   badge: "bg-gray-50 text-gray-600 border-gray-200" },
 };
+
+const PIPELINE_STAGE_BAR: Record<string, string> = {
+  enquiry:    "bg-blue-400",
+  inspection: "bg-violet-400",
+  quoting:    "bg-amber-400",
+  quoted:     "bg-cyan-500",
+  won:        "bg-green-500",
+  lost:       "bg-red-400",
+  closed:     "bg-gray-400",
+};
+
+const ENQUIRY_PIPELINE_LABELS = ["Enquiry", "Inspection", "Quote", "Job"];
+
+function EnquiryPipelineTracker({ status, inspectionId, jobId }: { status: string; inspectionId?: number | null; jobId?: number | null }) {
+  const isLost = status === "lost" || status === "closed";
+  if (isLost) return null;
+
+  const statusStep: Record<string, number> = { new: 0, in_progress: 0, inspection_done: 1, quoted: 2, won: 3 };
+  const statusReached = statusStep[status] ?? 0;
+  const stepReached = (i: number) => {
+    if (i === 0) return true;
+    if (i === 1) return !!inspectionId || statusReached >= 1;
+    if (i === 2) return statusReached >= 2;
+    if (i === 3) return !!jobId || statusReached >= 3;
+    return false;
+  };
+  const currentStep = ENQUIRY_PIPELINE_LABELS.reduce((acc, _, i) => (stepReached(i) ? i : acc), 0);
+
+  return (
+    <div className="flex items-center gap-0.5 mt-1">
+      {ENQUIRY_PIPELINE_LABELS.map((label, i) => {
+        const past = i < currentStep;
+        const active = i === currentStep;
+        return (
+          <div key={label} className="flex items-center gap-0.5">
+            <div className={cn(
+              "text-[8px] font-semibold px-1 py-0.5 rounded-full border leading-none",
+              past ? "bg-green-500 text-white border-green-500"
+                : active ? "bg-primary text-primary-foreground border-primary"
+                : "bg-muted/60 text-muted-foreground/60 border-muted-foreground/15",
+            )}>{label}</div>
+            {i < ENQUIRY_PIPELINE_LABELS.length - 1 && (
+              <div className={cn("w-1.5 h-px shrink-0", past ? "bg-green-400" : "bg-muted-foreground/20")} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function HudTile({ count, label, icon: Icon, activeClass, href }: {
+  count: number; label: string; icon: React.ElementType; activeClass: string; href?: string;
+}) {
+  const active = count > 0;
+  const inner = (
+    <div className={cn(
+      "flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 text-center transition-colors",
+      active ? activeClass : "border-transparent bg-muted/40 text-muted-foreground",
+      href && active && "cursor-pointer hover:opacity-80",
+    )}>
+      <Icon className="h-4 w-4 opacity-70" />
+      <span className="text-2xl font-bold leading-none tabular-nums">{count}</span>
+      <span className="text-[10px] leading-tight font-medium">{label}</span>
+    </div>
+  );
+  if (href && active) return <Link href={href}>{inner}</Link>;
+  return inner;
+}
 
 function StatCard({ label, value, icon: Icon, iconBg, iconColor, sub, href }: {
   label: string; value: number; icon: React.ElementType;
@@ -60,27 +130,11 @@ function StatCard({ label, value, icon: Icon, iconBg, iconColor, sub, href }: {
   return card;
 }
 
-function AlertTile({ count, label, icon: Icon, activeClass }: {
-  count: number; label: string; icon: React.ElementType; activeClass: string;
-}) {
-  const active = count > 0;
-  return (
-    <div className={cn(
-      "flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 text-center",
-      active ? activeClass : "border-transparent bg-muted/40 text-muted-foreground",
-    )}>
-      <Icon className="h-4 w-4 opacity-70" />
-      <span className="text-2xl font-bold leading-none tabular-nums">{count}</span>
-      <span className="text-[10px] leading-tight font-medium">{label}</span>
-    </div>
-  );
-}
-
 export default function BranchDashboard() {
   const { user } = useUser();
   const branchId = user?.publicMetadata?.branchId as number | null ?? null;
 
-  const { data: summary, isLoading, error } = useQuery({
+  const { data: s, isLoading, error } = useQuery({
     queryKey: ["branch-dashboard", branchId],
     queryFn: () => apiFetch("/dashboard/branch-summary"),
     enabled: branchId != null,
@@ -103,19 +157,19 @@ export default function BranchDashboard() {
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
           {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-28 w-full rounded-2xl" />)}
         </div>
+        <Skeleton className="h-36 w-full rounded-2xl" />
         <div className="grid gap-4 md:grid-cols-2">
           <Skeleton className="h-64 w-full rounded-2xl" />
           <Skeleton className="h-64 w-full rounded-2xl" />
         </div>
+        <Skeleton className="h-36 w-full rounded-2xl" />
       </div>
     );
   }
 
-  if (error || !summary) {
+  if (error || !s) {
     return <div className="text-destructive py-8 text-center">Failed to load branch dashboard</div>;
   }
-
-  const s = summary as any;
 
   return (
     <div className="space-y-6">
@@ -126,7 +180,7 @@ export default function BranchDashboard() {
             <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
               <Building2 className="h-4 w-4 text-primary" />
             </div>
-            <Badge variant="secondary" className="text-xs">{s.branchRegion || "Branch"}</Badge>
+            {s.branchRegion && <Badge variant="secondary" className="text-xs">{s.branchRegion}</Badge>}
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{s.branchName}</h1>
           <p className="text-sm text-muted-foreground">Branch operations overview</p>
@@ -149,60 +203,64 @@ export default function BranchDashboard() {
 
       {/* Stat cards */}
       <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
-        <StatCard
-          label="Customers"
-          value={s.totalCustomers}
-          icon={Users}
-          iconBg="bg-blue-50"
-          iconColor="text-blue-600"
-          sub="In this branch"
-          href="/customers"
-        />
-        <StatCard
-          label="Open Enquiries"
-          value={s.totalEnquiries}
-          icon={FileText}
-          iconBg="bg-amber-50"
-          iconColor="text-amber-600"
-          sub="Active requests"
-          href="/enquiries"
-        />
-        <StatCard
-          label="Active Jobs"
-          value={s.totalJobs}
-          icon={Briefcase}
-          iconBg="bg-primary/10"
-          iconColor="text-primary"
-          sub="In pipeline"
-          href="/jobs"
-        />
-        <StatCard
-          label="Stock Items"
-          value={s.stockItemsTracked}
-          icon={Package}
-          iconBg="bg-green-50"
-          iconColor="text-green-600"
-          sub="Lines tracked"
-          href="/stock"
-        />
+        <StatCard label="Customers" value={s.totalCustomers} icon={Users} iconBg="bg-blue-50" iconColor="text-blue-600" sub="In this branch" href="/customers" />
+        <StatCard label="Active Enquiries" value={s.totalEnquiries} icon={FileText} iconBg="bg-amber-50" iconColor="text-amber-600" sub="Open requests" href="/enquiries" />
+        <StatCard label="Active Jobs" value={s.totalJobs} icon={Briefcase} iconBg="bg-primary/10" iconColor="text-primary" sub="In pipeline" href="/jobs" />
+        <StatCard label="Stock Items" value={s.stockItemsTracked} icon={Package} iconBg="bg-green-50" iconColor="text-green-600" sub="Lines tracked" href="/stock" />
       </div>
 
-      {/* Alert HUD */}
-      {(s.staleEnquiries > 0 || s.staleJobs > 0 || s.urgentEnquiries > 0 || s.urgentJobs > 0) && (
-        <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Needs Attention</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <AlertTile count={s.staleEnquiries} label="Stale Enquiries" icon={Clock}
-              activeClass="bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400" />
-            <AlertTile count={s.staleJobs} label="Stale Jobs" icon={Clock}
-              activeClass="bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400" />
-            <AlertTile count={s.urgentEnquiries} label="Urgent Enquiries" icon={AlertTriangle}
-              activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400" />
-            <AlertTile count={s.urgentJobs} label="Urgent Jobs" icon={AlertTriangle}
-              activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400" />
-          </div>
+      {/* Admin-style HUD */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Branch Summary</p>
+          {s.lastChecked && (
+            <p className="text-[10px] text-muted-foreground">
+              Last check: {formatDistanceToNow(new Date(s.lastChecked), { addSuffix: true })}
+            </p>
+          )}
         </div>
-      )}
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+          <HudTile count={s.newRecords} label="New Records" icon={Sparkles}
+            activeClass="bg-primary/8 border-primary/20 text-primary dark:bg-primary/15 dark:border-primary/30" />
+          <HudTile count={s.staleEnquiries} label="Stale Enquiries" icon={Clock}
+            activeClass="bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400"
+            href="/enquiries?filter=stale" />
+          <HudTile count={s.staleJobs} label="Stale Jobs" icon={Clock}
+            activeClass="bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400"
+            href="/jobs?filter=stale" />
+          <HudTile count={s.urgentEnquiries} label="Urgent Enquiries" icon={AlertTriangle}
+            activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
+            href="/enquiries?filter=urgent" />
+          <HudTile count={s.urgentJobs} label="Urgent Jobs" icon={AlertTriangle}
+            activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
+            href="/jobs?filter=urgent" />
+        </div>
+
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground pt-1">Data Quality</p>
+        <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
+          <HudTile count={s.overdueFollowUpEnquiries} label="Overdue Enq" icon={CalendarX}
+            activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
+            href="/enquiries?filter=overdue_followup" />
+          <HudTile count={s.overdueFollowUpJobs} label="Overdue Jobs" icon={CalendarX}
+            activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
+            href="/jobs?filter=overdue_followup" />
+          <HudTile count={s.noNextActionEnquiries} label="No Action Enq" icon={CircleSlash}
+            activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
+            href="/enquiries?filter=no_next_action" />
+          <HudTile count={s.noNextActionJobs} label="No Action Jobs" icon={CircleSlash}
+            activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
+            href="/jobs?filter=no_next_action" />
+          <HudTile count={s.quotedNoFollowUp} label="Quoted, No Date" icon={CalendarX}
+            activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
+            href="/jobs?filter=quoted_no_followup" />
+          <HudTile count={s.lostNoReason} label="Lost, No Reason" icon={CircleSlash}
+            activeClass="bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-950/40 dark:border-violet-800 dark:text-violet-400"
+            href="/jobs?filter=lost_no_reason" />
+          <HudTile count={s.highAccessRiskJobs} label="High Risk Jobs" icon={ShieldAlert}
+            activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
+            href="/jobs?filter=high_access_risk" />
+        </div>
+      </div>
 
       {/* Recent cards */}
       <div className="grid gap-6 md:grid-cols-2">
@@ -211,7 +269,7 @@ export default function BranchDashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div>
               <CardTitle className="text-base">Recent Enquiries</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">Latest from {s.branchName}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Latest inbound requests</p>
             </div>
             <Link href="/enquiries">
               <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 text-primary">
@@ -221,7 +279,7 @@ export default function BranchDashboard() {
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-2">
             {s.recentEnquiries?.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-6 text-center">No enquiries yet</p>
+              <p className="text-sm text-muted-foreground py-6 text-center">No recent enquiries</p>
             ) : (
               s.recentEnquiries?.map((enquiry: any) => {
                 const st = ENQUIRY_STATUS_STYLES[enquiry.status] ?? ENQUIRY_STATUS_STYLES.new;
@@ -232,12 +290,13 @@ export default function BranchDashboard() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold leading-tight line-clamp-1">{enquiry.title}</p>
                         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{enquiry.customerName || `Customer #${enquiry.customerId}`}</p>
+                        <EnquiryPipelineTracker status={enquiry.status} inspectionId={enquiry.inspectionId} jobId={enquiry.jobId} />
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full border", st.badge)}>{st.label}</span>
                         <span className="text-[10px] text-muted-foreground">{format(new Date(enquiry.createdAt), "MMM d")}</span>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground shrink-0" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors flex-shrink-0" />
                     </div>
                   </Link>
                 );
@@ -251,7 +310,7 @@ export default function BranchDashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div>
               <CardTitle className="text-base">Recent Jobs</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">Active pipeline</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Active pipeline updates</p>
             </div>
             <Link href="/jobs">
               <Button variant="ghost" size="sm" className="h-8 text-xs gap-1 text-primary">
@@ -261,7 +320,7 @@ export default function BranchDashboard() {
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-2">
             {s.recentJobs?.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-6 text-center">No jobs yet</p>
+              <p className="text-sm text-muted-foreground py-6 text-center">No recent jobs</p>
             ) : (
               s.recentJobs?.map((job: any) => {
                 const st = JOB_STAGE_STYLES[job.stage] ?? JOB_STAGE_STYLES.enquiry;
@@ -279,7 +338,7 @@ export default function BranchDashboard() {
                           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border bg-red-50 text-red-700 border-red-200 uppercase">High</span>
                         )}
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground shrink-0" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors flex-shrink-0" />
                     </div>
                   </Link>
                 );
@@ -288,6 +347,25 @@ export default function BranchDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Pipeline breakdown */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Pipeline Breakdown</CardTitle>
+          <p className="text-xs text-muted-foreground">Jobs by current stage</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {Object.entries(s.jobsByStage ?? {}).map(([stage, cnt]) => (
+              <div key={stage} className="flex flex-col rounded-xl border bg-card p-3 gap-2">
+                <div className={cn("h-1 w-full rounded-full", PIPELINE_STAGE_BAR[stage] ?? "bg-muted")} />
+                <span className="text-2xl font-bold leading-none">{cnt as number}</span>
+                <span className="text-xs text-muted-foreground capitalize leading-tight">{stage.replace("_", " ")}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stock snapshot */}
       {s.stockSnapshot?.length > 0 && (

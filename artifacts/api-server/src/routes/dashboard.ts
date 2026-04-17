@@ -200,56 +200,59 @@ router.get("/dashboard/branch-summary", async (req, res): Promise<void> => {
     return;
   }
 
+  const schedulerState = loadSchedulerState();
+  const since = new Date(schedulerState.lastSuccessfulCheck);
   const staleThreshold = new Date(Date.now() - STALE_MS);
+  const today = new Date().toISOString().slice(0, 10);
 
-  const [branch, customersRaw, enquiriesRaw, jobsRaw,
-         staleEnquiriesRaw, staleJobsRaw, urgentEnquiriesRaw, urgentJobsRaw,
-         recentEnquiriesRaw, recentJobsRaw, stockSnapshot] = await Promise.all([
+  const B = (col: any) => eq(col, branchId);
+
+  const [
+    branch,
+    allJobsRaw,
+    customersRaw, enquiriesRaw,
+    staleEnquiriesRaw, staleJobsRaw,
+    urgentEnquiriesRaw, urgentJobsRaw,
+    newCustomersRaw, newEnquiriesRaw, newJobsRaw, newInspectionsRaw,
+    overdueFollowUpEnqRaw, overdueFollowUpJobsRaw,
+    noNextActionEnqRaw, noNextActionJobsRaw,
+    quotedNoFollowUpRaw, lostNoReasonRaw, highRiskJobsRaw,
+    recentEnquiriesRaw, recentJobsRaw,
+    stockSnapshot,
+  ] = await Promise.all([
     db.select().from(branchesTable).where(eq(branchesTable.id, branchId)).limit(1),
 
-    db.select({ count: count() }).from(customersTable)
-      .where(eq(customersTable.branchId, branchId)),
+    // All jobs for this branch (for stage breakdown)
+    db.select({ stage: jobsTable.stage }).from(jobsTable).where(B(jobsTable.branchId)),
 
-    db.select({ count: count() }).from(enquiriesTable)
-      .where(and(
-        eq(enquiriesTable.branchId, branchId),
-        notInArray(enquiriesTable.status, ["won", "lost"]),
-      )),
+    // Stat counts
+    db.select({ count: count() }).from(customersTable).where(B(customersTable.branchId)),
+    db.select({ count: count() }).from(enquiriesTable).where(and(B(enquiriesTable.branchId), notInArray(enquiriesTable.status, ["won", "lost"]))),
 
-    db.select({ count: count() }).from(jobsTable)
-      .where(and(
-        eq(jobsTable.branchId, branchId),
-        notInArray(jobsTable.stage, ["won", "lost", "closed"]),
-      )),
+    // Stale
+    db.select({ count: count() }).from(enquiriesTable).where(and(B(enquiriesTable.branchId), inArray(enquiriesTable.status, ["new", "in_progress"]), lt(enquiriesTable.updatedAt, staleThreshold))),
+    db.select({ count: count() }).from(jobsTable).where(and(B(jobsTable.branchId), notInArray(jobsTable.stage, ["won", "lost", "closed"]), lt(jobsTable.updatedAt, staleThreshold))),
 
-    db.select({ count: count() }).from(enquiriesTable)
-      .where(and(
-        eq(enquiriesTable.branchId, branchId),
-        inArray(enquiriesTable.status, ["new", "in_progress"]),
-        lt(enquiriesTable.updatedAt, staleThreshold),
-      )),
+    // Urgent
+    db.select({ count: count() }).from(enquiriesTable).where(and(B(enquiriesTable.branchId), notInArray(enquiriesTable.status, ["won", "lost"]), eq(enquiriesTable.priority, "high"))),
+    db.select({ count: count() }).from(jobsTable).where(and(B(jobsTable.branchId), notInArray(jobsTable.stage, ["won", "lost", "closed"]), eq(jobsTable.priority, "high"))),
 
-    db.select({ count: count() }).from(jobsTable)
-      .where(and(
-        eq(jobsTable.branchId, branchId),
-        notInArray(jobsTable.stage, ["won", "lost", "closed"]),
-        lt(jobsTable.updatedAt, staleThreshold),
-      )),
+    // New since last check
+    db.select({ count: count() }).from(customersTable).where(and(B(customersTable.branchId), gt(customersTable.createdAt, since))),
+    db.select({ count: count() }).from(enquiriesTable).where(and(B(enquiriesTable.branchId), gt(enquiriesTable.createdAt, since))),
+    db.select({ count: count() }).from(jobsTable).where(and(B(jobsTable.branchId), gt(jobsTable.createdAt, since))),
+    db.select({ count: count() }).from(inspectionsTable).where(and(B(inspectionsTable.branchId), gt(inspectionsTable.createdAt, since))),
 
-    db.select({ count: count() }).from(enquiriesTable)
-      .where(and(
-        eq(enquiriesTable.branchId, branchId),
-        notInArray(enquiriesTable.status, ["won", "lost"]),
-        eq(enquiriesTable.priority, "high"),
-      )),
+    // Data quality
+    db.select({ count: count() }).from(enquiriesTable).where(and(B(enquiriesTable.branchId), notInArray(enquiriesTable.status, ["won", "lost", "closed"]), sql`${enquiriesTable.followUpDueDate} is not null`, sql`${enquiriesTable.followUpDueDate} < ${today}`)),
+    db.select({ count: count() }).from(jobsTable).where(and(B(jobsTable.branchId), notInArray(jobsTable.stage, ["won", "lost", "closed"]), sql`${jobsTable.followUpDueDate} is not null`, sql`${jobsTable.followUpDueDate} < ${today}`)),
+    db.select({ count: count() }).from(enquiriesTable).where(and(B(enquiriesTable.branchId), notInArray(enquiriesTable.status, ["won", "lost", "closed"]), or(isNull(enquiriesTable.nextAction), eq(enquiriesTable.nextAction, "")))),
+    db.select({ count: count() }).from(jobsTable).where(and(B(jobsTable.branchId), notInArray(jobsTable.stage, ["won", "lost", "closed"]), or(isNull(jobsTable.nextAction), eq(jobsTable.nextAction, "")))),
+    db.select({ count: count() }).from(jobsTable).where(and(B(jobsTable.branchId), eq(jobsTable.stage, "quoted"), isNull(jobsTable.followUpDueDate))),
+    db.select({ count: count() }).from(jobsTable).where(and(B(jobsTable.branchId), eq(jobsTable.stage, "lost"), isNull(jobsTable.lostReason))),
+    db.select({ count: count() }).from(jobsTable).where(and(B(jobsTable.branchId), eq(jobsTable.accessRisk, "high"))),
 
-    db.select({ count: count() }).from(jobsTable)
-      .where(and(
-        eq(jobsTable.branchId, branchId),
-        notInArray(jobsTable.stage, ["won", "lost", "closed"]),
-        eq(jobsTable.priority, "high"),
-      )),
-
+    // Recent enquiries
     db.select({
       id: enquiriesTable.id,
       customerId: enquiriesTable.customerId,
@@ -258,13 +261,13 @@ router.get("/dashboard/branch-summary", async (req, res): Promise<void> => {
       status: enquiriesTable.status,
       priority: enquiriesTable.priority,
       createdAt: enquiriesTable.createdAt,
-    })
-      .from(enquiriesTable)
+    }).from(enquiriesTable)
       .leftJoin(customersTable, eq(enquiriesTable.customerId, customersTable.id))
-      .where(eq(enquiriesTable.branchId, branchId))
+      .where(B(enquiriesTable.branchId))
       .orderBy(desc(enquiriesTable.createdAt))
       .limit(5),
 
+    // Recent jobs
     db.select({
       id: jobsTable.id,
       customerId: jobsTable.customerId,
@@ -272,22 +275,23 @@ router.get("/dashboard/branch-summary", async (req, res): Promise<void> => {
       title: jobsTable.title,
       stage: jobsTable.stage,
       priority: jobsTable.priority,
+      enquiryId: jobsTable.enquiryId,
+      inspectionId: jobsTable.inspectionId,
       createdAt: jobsTable.createdAt,
-    })
-      .from(jobsTable)
+    }).from(jobsTable)
       .leftJoin(customersTable, eq(jobsTable.customerId, customersTable.id))
-      .where(eq(jobsTable.branchId, branchId))
+      .where(B(jobsTable.branchId))
       .orderBy(desc(jobsTable.createdAt))
       .limit(5),
 
+    // Stock snapshot
     db.select({
       id: stockLevelsTable.id,
       quantity: stockLevelsTable.quantity,
       itemName: stockItemsTable.name,
       itemUnit: stockItemsTable.unit,
       itemCategory: stockItemsTable.category,
-    })
-      .from(stockLevelsTable)
+    }).from(stockLevelsTable)
       .leftJoin(stockItemsTable, eq(stockLevelsTable.itemId, stockItemsTable.id))
       .where(eq(stockLevelsTable.branchId, branchId))
       .orderBy(stockLevelsTable.quantity)
@@ -299,20 +303,66 @@ router.get("/dashboard/branch-summary", async (req, res): Promise<void> => {
     return;
   }
 
+  // Jobs by stage
+  const jobsByStage: Record<string, number> = {};
+  for (const j of allJobsRaw) {
+    jobsByStage[j.stage] = (jobsByStage[j.stage] ?? 0) + 1;
+  }
+
+  // Enquiry pipeline tracker linkage
+  const enquiryIds = recentEnquiriesRaw.map((e) => e.id);
+  const [linkedInspections, linkedJobs] = enquiryIds.length > 0
+    ? await Promise.all([
+        db.select({ id: inspectionsTable.id, enquiryId: inspectionsTable.enquiryId }).from(inspectionsTable).where(inArray(inspectionsTable.enquiryId, enquiryIds)),
+        db.select({ id: jobsTable.id, enquiryId: jobsTable.enquiryId }).from(jobsTable).where(inArray(jobsTable.enquiryId, enquiryIds)),
+      ])
+    : [[], []];
+
+  const inspectionByEnquiry: Record<number, number> = {};
+  for (const i of linkedInspections) { if (i.enquiryId != null) inspectionByEnquiry[i.enquiryId] = i.id; }
+  const jobByEnquiry: Record<number, number> = {};
+  for (const j of linkedJobs) { if (j.enquiryId != null) jobByEnquiry[j.enquiryId] = j.id; }
+
+  const recentEnquiries = recentEnquiriesRaw.map((e) => ({
+    ...e,
+    customerName: e.customerName ?? undefined,
+    inspectionId: inspectionByEnquiry[e.id] ?? undefined,
+    jobId: jobByEnquiry[e.id] ?? undefined,
+  }));
+
+  const recentJobs = recentJobsRaw.map((j) => ({
+    ...j,
+    customerName: j.customerName ?? undefined,
+    inspectionId: j.inspectionId ?? undefined,
+    enquiryId: j.enquiryId ?? undefined,
+  }));
+
+  const activeJobCount = allJobsRaw.filter((j) => !["won", "lost", "closed"].includes(j.stage)).length;
+
   res.json({
     branchId,
     branchName: branch[0].name,
     branchRegion: branch[0].region,
     totalCustomers: Number(customersRaw[0].count),
     totalEnquiries: Number(enquiriesRaw[0].count),
-    totalJobs: Number(jobsRaw[0].count),
+    totalJobs: activeJobCount,
     stockItemsTracked: stockSnapshot.length,
     staleEnquiries: Number(staleEnquiriesRaw[0].count),
     staleJobs: Number(staleJobsRaw[0].count),
     urgentEnquiries: Number(urgentEnquiriesRaw[0].count),
     urgentJobs: Number(urgentJobsRaw[0].count),
-    recentEnquiries: recentEnquiriesRaw,
-    recentJobs: recentJobsRaw,
+    newRecords: Number(newCustomersRaw[0].count) + Number(newEnquiriesRaw[0].count) + Number(newJobsRaw[0].count) + Number(newInspectionsRaw[0].count),
+    overdueFollowUpEnquiries: Number(overdueFollowUpEnqRaw[0].count),
+    overdueFollowUpJobs: Number(overdueFollowUpJobsRaw[0].count),
+    noNextActionEnquiries: Number(noNextActionEnqRaw[0].count),
+    noNextActionJobs: Number(noNextActionJobsRaw[0].count),
+    quotedNoFollowUp: Number(quotedNoFollowUpRaw[0].count),
+    lostNoReason: Number(lostNoReasonRaw[0].count),
+    highAccessRiskJobs: Number(highRiskJobsRaw[0].count),
+    lastChecked: schedulerState.lastSuccessfulCheck,
+    jobsByStage,
+    recentEnquiries,
+    recentJobs,
     stockSnapshot,
   });
 });
