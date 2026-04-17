@@ -48,46 +48,29 @@ const clerkAppearance = {
 function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      {/* ── Mobile: tanks BG hero + logo, form below ─────────────────────── */}
+      {/* ── Mobile: stacked — full image on top, form below ─────────────── */}
       <div className="md:hidden min-h-[100dvh] flex flex-col bg-gray-950">
-        <div
-          className="relative w-full min-h-[42vh] flex items-center justify-center"
-          style={{
-            backgroundImage: `url(${basePath}/tanks-bg.jpg)`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/35 to-black/85 pointer-events-none" />
-          <img
-            src={`${basePath}/firesky-logo.png`}
-            alt="Firesky Industries"
-            className="relative z-10 h-36 w-auto object-contain"
-            style={{ mixBlendMode: "screen" }}
-          />
-        </div>
-        <div className="flex-1 flex items-start justify-center px-4 pt-6 pb-8 bg-gray-950">
+        <img
+          src={`${basePath}/firesky-splash.png`}
+          alt="Firesky Industries"
+          className="w-full h-auto object-contain"
+        />
+        <div className="flex-1 flex items-start justify-center px-4 pt-4 pb-8">
           {children}
         </div>
       </div>
 
-      {/* ── Desktop: full-screen tanks BG, logo above centred form ────────── */}
+      {/* ── Desktop: full-screen background with form centred ────────────── */}
       <div
         className="hidden md:flex min-h-[100dvh] items-center justify-center relative overflow-hidden"
         style={{
-          backgroundImage: `url(${basePath}/tanks-bg.jpg)`,
+          backgroundImage: `url(${basePath}/firesky-splash.png)`,
           backgroundSize: "cover",
           backgroundPosition: "center top",
         }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/30 to-black/70 pointer-events-none" />
-        <div className="relative z-10 flex flex-col items-center gap-4 w-full max-w-sm px-4 py-8">
-          <img
-            src={`${basePath}/firesky-logo.png`}
-            alt="Firesky Industries"
-            className="h-28 w-auto object-contain"
-            style={{ mixBlendMode: "screen" }}
-          />
+        <div className="relative z-10 w-full max-w-sm px-4 py-8">
           {children}
         </div>
       </div>
