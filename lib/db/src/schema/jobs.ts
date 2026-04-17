@@ -5,9 +5,11 @@ import { z } from "zod/v4";
 import { customersTable } from "./customers";
 import { enquiriesTable } from "./enquiries";
 import { inspectionsTable } from "./inspections";
+import { branchesTable } from "./branches";
 
 export const jobsTable = pgTable("jobs", {
   id: serial("id").primaryKey(),
+  branchId: integer("branch_id").references(() => branchesTable.id),
   customerId: integer("customer_id").notNull().references(() => customersTable.id),
   enquiryId: integer("enquiry_id").references(() => enquiriesTable.id),
   inspectionId: integer("inspection_id").references(() => inspectionsTable.id),

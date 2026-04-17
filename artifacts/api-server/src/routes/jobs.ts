@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, jobsTable, customersTable } from "@workspace/db";
+import { isAdmin as checkAdmin, getBranchId } from "../middlewares/requireAuth";
 import {
   ListJobsQueryParams,
   CreateJobBody,
@@ -76,14 +77,16 @@ router.get("/jobs", requireAuth, async (req, res): Promise<void> => {
 
   const role = (req as any).userRole;
   const userId = (req as any).userId;
+  const branchId = checkAdmin(req) ? null : getBranchId(req);
 
   let rows = await db
     .select(SELECT_FIELDS)
     .from(jobsTable)
     .leftJoin(customersTable, eq(jobsTable.customerId, customersTable.id))
+    .where(branchId ? eq(jobsTable.branchId, branchId) : undefined)
     .orderBy(jobsTable.createdAt);
 
-  if (role === "user") {
+  if (role === "user" || role === "field_worker") {
     rows = rows.filter((r) => r.assignedToId === userId);
   }
   if (query.data.stage) {
@@ -103,7 +106,8 @@ router.post("/jobs", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const [job] = await db.insert(jobsTable).values(parsed.data).returning();
+  const branchId = getBranchId(req) ?? undefined;
+  const [job] = await db.insert(jobsTable).values({ ...parsed.data, branchId }).returning();
 
   const [customer] = await db
     .select()

@@ -20,6 +20,8 @@ import pushRouter from "./push";
 import websiteRouter from "./website";
 import emailLogsRouter from "./email_logs";
 import exportRouter from "./export";
+import branchesRouter from "./branches";
+import stockRouter from "./stock";
 
 const router: IRouter = Router();
 
@@ -49,5 +51,7 @@ router.use(pushRouter);
 router.use(websiteRouter);
 router.use(emailLogsRouter);
 router.use(exportRouter);
+router.use("/branches", branchesRouter);
+router.use("/stock", stockRouter);
 
 export default router;

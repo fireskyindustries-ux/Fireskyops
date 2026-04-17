@@ -22,6 +22,20 @@ A mobile-first React web app for Firesky Industries — a field operations tool 
 - `TRACKING_BASE_URL` — Base URL for customer tracking links in emails (e.g. `https://fireskyindustries.co.za/firesky` or `https://{REPLIT_DEV_DOMAIN}/firesky`)
 - `SESSION_SECRET` — Already configured via Replit secrets
 
+## Multi-Branch Architecture
+- **Branches** — `branches` table: id, name, region, address, phone, email
+- **Stock Catalogue** — `stock_items` table: global item catalogue (admin-managed)
+- **Stock Levels** — `stock_levels` table: quantity per branch per item, updated by movements
+- **Stock Movements** — `stock_movements` table: in/out/adjustment records per branch
+- **Branch scoping** — customers, enquiries, jobs, inspections all have nullable `branchId`
+  - Admins see all records across branches; branch_admin/user see only their branch
+- **Roles**: `admin` (full access), `branch_admin` (branch-scoped admin), `user` (field worker), `guest`
+  - Field workers have legacy role `"user"` in Clerk metadata
+  - Branch assigned via `public_metadata.branchId` in Clerk
+- **Default branch**: id=1 ("Main Branch / Head Office") — all pre-existing data assigned here
+- **Frontend pages**: `/stock` (inventory + movements + catalogue tab for admin), `/admin/branches`
+- **Users admin**: branch assignment dropdown per user alongside role selector
+
 ## Features
 - **Quote Upload & Acceptance Flow** — Full quote lifecycle:
   - Admin uploads quote PDF from enquiry detail page (after inspection done)

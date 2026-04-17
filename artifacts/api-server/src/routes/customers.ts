@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, ilike, or } from "drizzle-orm";
+import { eq, ilike, or, and } from "drizzle-orm";
 import { db, customersTable, type Customer } from "@workspace/db";
+import { isAdmin, getBranchId } from "../middlewares/requireAuth";
 
 function normalizeCustomer(c: Customer) {
   return {
@@ -40,23 +41,28 @@ router.get("/customers", async (req, res): Promise<void> => {
     return;
   }
 
+  const branchId = isAdmin(req) ? null : getBranchId(req);
+
   let customers;
   if (query.data.search) {
     const s = `%${query.data.search}%`;
+    const searchCondition = or(
+      ilike(customersTable.name, s),
+      ilike(customersTable.farmName, s),
+      ilike(customersTable.nearestTown, s),
+      ilike(customersTable.contactName, s),
+    );
     customers = await db
       .select()
       .from(customersTable)
-      .where(
-        or(
-          ilike(customersTable.name, s),
-          ilike(customersTable.farmName, s),
-          ilike(customersTable.nearestTown, s),
-          ilike(customersTable.contactName, s),
-        ),
-      )
+      .where(branchId ? and(searchCondition, eq(customersTable.branchId, branchId)) : searchCondition)
       .orderBy(customersTable.createdAt);
   } else {
-    customers = await db.select().from(customersTable).orderBy(customersTable.createdAt);
+    customers = await db
+      .select()
+      .from(customersTable)
+      .where(branchId ? eq(customersTable.branchId, branchId) : undefined)
+      .orderBy(customersTable.createdAt);
   }
 
   res.json(ListCustomersResponse.parse(customers.map(normalizeCustomer)));
@@ -69,7 +75,8 @@ router.post("/customers", async (req, res): Promise<void> => {
     return;
   }
 
-  const [customer] = await db.insert(customersTable).values(parsed.data).returning();
+  const branchId = getBranchId(req) ?? undefined;
+  const [customer] = await db.insert(customersTable).values({ ...parsed.data, branchId }).returning();
   res.status(201).json(GetCustomerResponse.parse(normalizeCustomer(customer)));
 });
 

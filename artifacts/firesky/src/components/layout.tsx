@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon } from "lucide-react";
+import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SkyPanel, SkyFloatingButton } from "./sky";
@@ -16,6 +16,16 @@ const adminNavItems = [
   { href: "/enquiries", label: "Enquiries", icon: FileText },
   { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/stock", label: "Stock", icon: Package },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
+];
+
+const branchAdminNavItems = [
+  { href: "/customers", label: "Customers", icon: Users },
+  { href: "/enquiries", label: "Enquiries", icon: FileText },
+  { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
+  { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/stock", label: "Stock", icon: Package },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
 ];
 
@@ -23,6 +33,7 @@ const fieldNavItems = [
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/stock", label: "Stock", icon: Package },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
 ];
 
@@ -68,6 +79,12 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
             <div className="flex items-center gap-3 h-10 px-3 rounded-xl text-sm font-medium text-primary hover:bg-primary/5 transition-colors cursor-pointer">
               <Shield className="h-4 w-4" />
               Manage Users
+            </div>
+          </Link>
+          <Link href="/admin/branches" onClick={onNavigate}>
+            <div className="flex items-center gap-3 h-10 px-3 rounded-xl text-sm font-medium text-primary hover:bg-primary/5 transition-colors cursor-pointer">
+              <Building2 className="h-4 w-4" />
+              Branches
             </div>
           </Link>
           <Link href="/admin/email-log" onClick={onNavigate}>
@@ -144,13 +161,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
   const role = (user?.publicMetadata?.role as string) || "guest";
   const isAdmin = role === "admin";
-  const isFieldWorker = role === "user";
+  const isBranchAdmin = role === "branch_admin";
+  const isFieldWorker = role === "user" || role === "field_worker";
   const isGuest = role === "guest";
 
-  const navItems = isAdmin ? adminNavItems : isFieldWorker ? fieldNavItems : guestNavItems;
+  const navItems = isAdmin ? adminNavItems : isBranchAdmin ? branchAdminNavItems : isFieldWorker ? fieldNavItems : guestNavItems;
 
-  const ctaLink = isAdmin ? "/enquiries/new" : isFieldWorker ? "/inspections/new" : "/enquiries/new";
-  const ctaLabel = isAdmin ? "New Enquiry" : isFieldWorker ? "New Inspection" : "New Enquiry";
+  const ctaLink = isAdmin || isBranchAdmin ? "/enquiries/new" : isFieldWorker ? "/inspections/new" : "/enquiries/new";
+  const ctaLabel = isAdmin || isBranchAdmin ? "New Enquiry" : isFieldWorker ? "New Inspection" : "New Enquiry";
 
   return (
     <div className="min-h-[100dvh] flex flex-col md:flex-row bg-muted/30">

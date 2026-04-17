@@ -53,6 +53,7 @@ router.get("/users", requireAdmin, async (_req, res) => {
       email: u.email_addresses?.[0]?.email_address,
       imageUrl: u.image_url,
       role: u.public_metadata?.role || "user",
+      branchId: u.public_metadata?.branchId ?? null,
       createdAt: u.created_at,
       lastSignInAt: u.last_sign_in_at,
     }));
@@ -67,14 +68,34 @@ router.patch("/users/:userId/role", requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
     const { role } = req.body;
-    if (!["admin", "user"].includes(role)) {
-      return res.status(400).json({ error: "Role must be 'admin' or 'user'" });
+    if (!["admin", "branch_admin", "field_worker", "user"].includes(role)) {
+      return res.status(400).json({ error: "Invalid role" });
     }
+    // Preserve existing metadata when updating role
+    const existing = await clerkFetch(`/users/${userId}`);
+    const currentMeta = existing.public_metadata ?? {};
     const user = await clerkFetch(`/users/${userId}`, {
       method: "PATCH",
-      body: JSON.stringify({ public_metadata: { role } }),
+      body: JSON.stringify({ public_metadata: { ...currentMeta, role } }),
     });
-    res.json({ id: user.id, role: user.public_metadata?.role });
+    res.json({ id: user.id, role: user.public_metadata?.role, branchId: user.public_metadata?.branchId ?? null });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update a user's branch (admin only)
+router.patch("/users/:userId/branch", requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { branchId } = req.body;
+    const existing = await clerkFetch(`/users/${userId}`);
+    const currentMeta = existing.public_metadata ?? {};
+    const user = await clerkFetch(`/users/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ public_metadata: { ...currentMeta, branchId: branchId ?? null } }),
+    });
+    res.json({ id: user.id, role: user.public_metadata?.role, branchId: user.public_metadata?.branchId ?? null });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

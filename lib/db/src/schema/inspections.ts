@@ -3,9 +3,11 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { customersTable } from "./customers";
 import { enquiriesTable } from "./enquiries";
+import { branchesTable } from "./branches";
 
 export const inspectionsTable = pgTable("inspections", {
   id: serial("id").primaryKey(),
+  branchId: integer("branch_id").references(() => branchesTable.id),
   enquiryId: integer("enquiry_id").references(() => enquiriesTable.id),
   customerId: integer("customer_id").notNull().references(() => customersTable.id),
   farmName: text("farm_name"),

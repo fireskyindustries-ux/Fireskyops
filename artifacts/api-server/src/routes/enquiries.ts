@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, enquiriesTable, customersTable, inspectionsTable, jobsTable, quotesTable } from "@workspace/db";
+import { isAdmin, getBranchId } from "../middlewares/requireAuth";
 import {
   ListEnquiriesQueryParams,
   ListEnquiriesResponse,
@@ -21,6 +22,8 @@ router.get("/enquiries", async (req, res): Promise<void> => {
     res.status(400).json({ error: query.error.message });
     return;
   }
+
+  const branchId = isAdmin(req) ? null : getBranchId(req);
 
   let rows = await db
     .select({
@@ -43,6 +46,7 @@ router.get("/enquiries", async (req, res): Promise<void> => {
     })
     .from(enquiriesTable)
     .leftJoin(customersTable, eq(enquiriesTable.customerId, customersTable.id))
+    .where(branchId ? eq(enquiriesTable.branchId, branchId) : undefined)
     .orderBy(enquiriesTable.createdAt);
 
   if (query.data.customerId) {
@@ -74,7 +78,8 @@ router.post("/enquiries", async (req, res): Promise<void> => {
     return;
   }
 
-  const [enquiry] = await db.insert(enquiriesTable).values(parsed.data).returning();
+  const branchId = getBranchId(req) ?? undefined;
+  const [enquiry] = await db.insert(enquiriesTable).values({ ...parsed.data, branchId }).returning();
 
   const [customer] = await db
     .select()

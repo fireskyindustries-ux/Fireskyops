@@ -17,12 +17,14 @@ import NewJob from "./pages/jobs/new";
 import JobDetail from "./pages/jobs/detail";
 import CalendarPage from "./pages/calendar/index";
 import AdminUsers from "./pages/admin/users";
+import AdminBranches from "./pages/admin/branches";
 import EmailLog from "./pages/admin/email-log";
+import StockPage from "./pages/stock/index";
 import NotFound from "./pages/not-found";
 
 function useRole() {
   const { user } = useUser();
-  return ((user?.publicMetadata?.role as string) || "guest") as "admin" | "user" | "guest";
+  return (user?.publicMetadata?.role as string) || "guest";
 }
 
 function AdminRoute({ component: Component }: { component: React.ComponentType }) {
@@ -30,21 +32,28 @@ function AdminRoute({ component: Component }: { component: React.ComponentType }
   return role === "admin" ? <Component /> : <Redirect to="/customers" />;
 }
 
+function AdminOrBranchAdminRoute({ component: Component }: { component: React.ComponentType }) {
+  const role = useRole();
+  return (role === "admin" || role === "branch_admin") ? <Component /> : <Redirect to="/customers" />;
+}
+
 export function Router() {
   const role = useRole();
   const isAdmin = role === "admin";
-  const isFieldWorker = role === "user";
+  const isBranchAdmin = role === "branch_admin";
+  const isFieldWorker = role === "user" || role === "field_worker";
   const isGuest = role === "guest";
+  const hasAccess = isAdmin || isBranchAdmin || isFieldWorker;
 
   return (
     <Layout>
       <Switch>
         {/* Root redirect based on role */}
         <Route path="/">
-          {isAdmin ? <Dashboard /> : isFieldWorker ? <Redirect to="/customers" /> : <Redirect to="/enquiries/new" />}
+          {isAdmin ? <Dashboard /> : (isBranchAdmin || isFieldWorker) ? <Redirect to="/customers" /> : <Redirect to="/enquiries/new" />}
         </Route>
 
-        {/* Customers — admin + field worker */}
+        {/* Customers — admin + branch_admin + field worker */}
         <Route path="/customers">
           {isGuest ? <Redirect to="/enquiries/new" /> : <CustomersList />}
         </Route>
@@ -55,16 +64,16 @@ export function Router() {
           {isGuest ? <Redirect to="/enquiries/new" /> : <CustomerDetail />}
         </Route>
 
-        {/* Enquiries — admin only (guests can submit via the new form) */}
+        {/* Enquiries — admin + branch_admin */}
         <Route path="/enquiries">
-          <AdminRoute component={EnquiriesList} />
+          {isAdmin || isBranchAdmin ? <EnquiriesList /> : isFieldWorker ? <Redirect to="/customers" /> : <Redirect to="/enquiries/new" />}
         </Route>
         <Route path="/enquiries/new" component={NewEnquiry} />
         <Route path="/enquiries/:id">
-          <AdminRoute component={EnquiryDetail} />
+          {isAdmin || isBranchAdmin ? <EnquiryDetail /> : <Redirect to="/customers" />}
         </Route>
 
-        {/* Inspections — admin + field worker */}
+        {/* Inspections — all authenticated users */}
         <Route path="/inspections">
           {isGuest ? <Redirect to="/enquiries/new" /> : <InspectionsList />}
         </Route>
@@ -75,25 +84,33 @@ export function Router() {
           {isGuest ? <Redirect to="/enquiries/new" /> : <InspectionDetail />}
         </Route>
 
-        {/* Jobs — admin + field worker */}
+        {/* Jobs — all authenticated users */}
         <Route path="/jobs">
           {isGuest ? <Redirect to="/enquiries/new" /> : <JobsPipeline />}
         </Route>
         <Route path="/jobs/new">
-          <AdminRoute component={NewJob} />
+          <AdminOrBranchAdminRoute component={NewJob} />
         </Route>
         <Route path="/jobs/:id">
           {isGuest ? <Redirect to="/enquiries/new" /> : <JobDetail />}
         </Route>
 
-        {/* Calendar — admin + field worker */}
+        {/* Stock — all authenticated users */}
+        <Route path="/stock">
+          {isGuest ? <Redirect to="/enquiries/new" /> : <StockPage />}
+        </Route>
+
+        {/* Calendar — all authenticated users */}
         <Route path="/calendar">
           {isGuest ? <Redirect to="/enquiries/new" /> : <CalendarPage />}
         </Route>
 
-        {/* Admin panel */}
+        {/* Admin panel — super admin only */}
         <Route path="/admin/users">
           <AdminRoute component={AdminUsers} />
+        </Route>
+        <Route path="/admin/branches">
+          <AdminRoute component={AdminBranches} />
         </Route>
         <Route path="/admin/email-log">
           <AdminRoute component={EmailLog} />

@@ -7,15 +7,17 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, UserPlus, Trash2, Shield, User } from "lucide-react";
+import { Loader2, UserPlus, Trash2, Shield, User, Building2 } from "lucide-react";
 
+interface Branch { id: number; name: string; }
 interface AppUser {
   id: string;
   firstName: string | null;
   lastName: string | null;
   email: string;
   imageUrl: string | null;
-  role: "admin" | "user";
+  role: string;
+  branchId: number | null;
   createdAt: number;
   lastSignInAt: number | null;
 }
@@ -39,16 +41,29 @@ function initials(u: AppUser) {
   return (f + l).toUpperCase() || u.email[0].toUpperCase();
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  branch_admin: "Branch Admin",
+  user: "Field Worker",
+  field_worker: "Field Worker",
+  guest: "Guest",
+};
+
 export default function AdminUsers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"user" | "admin">("user");
+  const [inviteRole, setInviteRole] = useState("user");
   const [inviting, setInviting] = useState(false);
 
   const { data: users, isLoading } = useQuery<AppUser[]>({
     queryKey: ["admin-users"],
     queryFn: () => apiFetch("/users"),
+  });
+
+  const { data: branches } = useQuery<Branch[]>({
+    queryKey: ["branches"],
+    queryFn: () => apiFetch("/branches"),
   });
 
   const updateRole = useMutation({
@@ -59,6 +74,16 @@ export default function AdminUsers() {
       toast({ title: "Role updated" });
     },
     onError: (err: any) => toast({ title: "Failed to update role", description: err.message, variant: "destructive" }),
+  });
+
+  const updateBranch = useMutation({
+    mutationFn: ({ userId, branchId }: { userId: string; branchId: number | null }) =>
+      apiFetch(`/users/${userId}/branch`, { method: "PATCH", body: JSON.stringify({ branchId }) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast({ title: "Branch updated" });
+    },
+    onError: (err: any) => toast({ title: "Failed to update branch", description: err.message, variant: "destructive" }),
   });
 
   const deleteUser = useMutation({
@@ -87,6 +112,8 @@ export default function AdminUsers() {
     }
   };
 
+  const branchName = (id: number | null) => branches?.find((b) => b.id === id)?.name ?? null;
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
@@ -94,7 +121,6 @@ export default function AdminUsers() {
         <p className="text-muted-foreground">Manage who has access to Firesky Field Ops</p>
       </div>
 
-      {/* Invite Section */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -116,23 +142,20 @@ export default function AdminUsers() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Role</Label>
-              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as any)}>
-                <SelectTrigger className="h-11 w-32">
+              <Select value={inviteRole} onValueChange={setInviteRole}>
+                <SelectTrigger className="h-11 w-36">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="user">Field Worker</SelectItem>
+                  <SelectItem value="branch_admin">Branch Admin</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground invisible">Send</Label>
-              <Button
-                onClick={handleInvite}
-                disabled={inviting || !inviteEmail.trim()}
-                className="h-11 px-6"
-              >
+              <Button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()} className="h-11 px-6">
                 {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserPlus className="mr-2 h-4 w-4" /> Send Invite</>}
               </Button>
             </div>
@@ -141,7 +164,6 @@ export default function AdminUsers() {
         </CardContent>
       </Card>
 
-      {/* Users List */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Active Users</CardTitle>
@@ -154,9 +176,8 @@ export default function AdminUsers() {
           ) : (
             <div className="divide-y">
               {users?.map((user) => (
-                <div key={user.id} className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 sm:px-6 py-4">
-                  {/* Avatar + name/email */}
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div key={user.id} className="px-4 sm:px-6 py-4 space-y-3">
+                  <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
                       {user.imageUrl ? (
                         <img src={user.imageUrl} alt="" className="h-full w-full object-cover" />
@@ -169,36 +190,56 @@ export default function AdminUsers() {
                         {[user.firstName, user.lastName].filter(Boolean).join(" ") || "—"}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      {user.branchId && (
+                        <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
+                          <Building2 className="h-3 w-3" />
+                          {branchName(user.branchId) ?? `Branch #${user.branchId}`}
+                        </p>
+                      )}
                     </div>
-                  </div>
-                  {/* Actions — indented on mobile to align under name */}
-                  <div className="flex items-center gap-2 pl-[52px] sm:pl-0 shrink-0">
-                    <Badge variant={user.role === "admin" ? "default" : "secondary"} className="gap-1 text-xs hidden sm:flex">
-                      {user.role === "admin" ? <Shield className="h-3 w-3" /> : <User className="h-3 w-3" />}
-                      {user.role}
+                    <Badge variant={user.role === "admin" ? "default" : "secondary"} className="text-xs hidden sm:flex">
+                      {user.role === "admin" ? <Shield className="h-3 w-3 mr-1" /> : <User className="h-3 w-3 mr-1" />}
+                      {ROLE_LABELS[user.role] ?? user.role}
                     </Badge>
-                    <Select
-                      value={user.role}
-                      onValueChange={(role) => updateRole.mutate({ userId: user.id, role })}
-                    >
-                      <SelectTrigger className="h-9 w-28 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">User</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                      className="h-9 w-9 text-muted-foreground hover:text-destructive shrink-0"
                       onClick={() => {
                         if (confirm(`Remove ${user.email}?`)) deleteUser.mutate(user.id);
                       }}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pl-[52px] sm:pl-[52px]">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Role</p>
+                      <Select value={user.role} onValueChange={(role) => updateRole.mutate({ userId: user.id, role })}>
+                        <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="user">Field Worker</SelectItem>
+                          <SelectItem value="branch_admin">Branch Admin</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {branches && branches.length > 0 && (
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Branch</p>
+                        <Select
+                          value={user.branchId ? String(user.branchId) : "none"}
+                          onValueChange={(v) => updateBranch.mutate({ userId: user.id, branchId: v === "none" ? null : Number(v) })}
+                        >
+                          <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="No branch" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No branch</SelectItem>
+                            {branches.map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

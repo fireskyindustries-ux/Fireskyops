@@ -11,7 +11,7 @@ import {
   UpdateInspectionBody,
   UpdateInspectionResponse,
 } from "@workspace/api-zod";
-import { requireAuth, getRole } from "../middlewares/requireAuth";
+import { requireAuth, getRole, isAdmin, getBranchId } from "../middlewares/requireAuth";
 import { getAuth } from "@clerk/express";
 
 const router: IRouter = Router();
@@ -92,14 +92,16 @@ router.get("/inspections", requireAuth, async (req, res): Promise<void> => {
 
   const role = (req as any).userRole;
   const userId = (req as any).userId;
+  const branchId = isAdmin(req) ? null : getBranchId(req);
 
   let rows = await db
     .select(SELECT_FIELDS)
     .from(inspectionsTable)
     .leftJoin(customersTable, eq(inspectionsTable.customerId, customersTable.id))
+    .where(branchId ? eq(inspectionsTable.branchId, branchId) : undefined)
     .orderBy(inspectionsTable.createdAt);
 
-  if (role === "user") {
+  if (role === "user" || role === "field_worker") {
     rows = rows.filter((r) => r.assignedToId === userId);
   }
   if (query.data.customerId) {
@@ -119,7 +121,8 @@ router.post("/inspections", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const [inspection] = await db.insert(inspectionsTable).values(parsed.data).returning();
+  const branchId = getBranchId(req) ?? undefined;
+  const [inspection] = await db.insert(inspectionsTable).values({ ...parsed.data, branchId }).returning();
 
   const [customer] = await db
     .select()
