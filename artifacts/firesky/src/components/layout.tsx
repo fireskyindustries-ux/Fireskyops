@@ -209,7 +209,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border pb-8">
         <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-sidebar">
-          <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-20 w-auto object-contain" />
+          <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-20 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto pt-4">
           {navItems.map((item) => (
@@ -228,7 +228,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Header */}
       <header className="md:hidden flex items-center justify-between px-4 py-2 bg-sidebar border-b border-sidebar-border sticky top-0 z-10 shadow-sm">
-        <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-12 w-auto object-contain" />
+        <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-12 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
         <div className="flex items-center gap-1">
           {!isGuest && <NotificationBell />}
           <Sheet>
@@ -239,7 +239,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0 flex flex-col bg-sidebar">
             <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-sidebar">
-              <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-16 w-auto object-contain" />
+              <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-16 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
             </div>
             <nav className="p-3 space-y-1 flex-1 overflow-y-auto pt-4">
               {navItems.map((item) => (

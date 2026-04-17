@@ -10,6 +10,7 @@ export default function SignInPage() {
           src={`${basePath}/firesky-logo.png`}
           alt="Firesky Industries"
           className="h-16 w-auto object-contain mx-auto"
+          style={{ mixBlendMode: "screen" }}
         />
       </div>
       <SignIn
