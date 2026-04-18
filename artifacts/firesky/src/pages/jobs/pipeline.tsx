@@ -1,12 +1,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { useListJobs, useUpdateJob, getListJobsQueryKey } from "@workspace/api-client-react";
 import { Link, useSearch, useLocation } from "wouter";
-import { Plus, ArrowRight, ArrowLeft, X, Trophy, ChevronRight, LayoutList, Columns } from "lucide-react";
+import { Plus, ArrowRight, ArrowLeft, X, Trophy, ChevronRight, LayoutList, Columns, CheckSquare, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, subHours } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 const STAGES = [
@@ -58,6 +60,16 @@ const QUICK_FILTER_LABELS: Record<string, string> = {
   high_access_risk:   "High Access Risk",
 };
 
+const BULK_STAGE_OPTIONS = [
+  { value: "enquiry",    label: "Move to Enquiry" },
+  { value: "inspection", label: "Move to Inspection" },
+  { value: "quoting",    label: "Move to Quoting" },
+  { value: "quoted",     label: "Move to Quoted" },
+  { value: "won",        label: "Mark Won" },
+  { value: "lost",       label: "Mark Lost" },
+  { value: "closed",     label: "Mark Cancelled" },
+];
+
 function applyJobFilter(jobs: any[], filter: string): any[] {
   const staleThreshold = subHours(new Date(), 48);
   const today = new Date().toISOString().slice(0, 10);
@@ -99,6 +111,7 @@ export default function JobsPipeline() {
   const { data: jobs, isLoading, error } = useListJobs();
   const queryClient = useQueryClient();
   const updateJob = useUpdateJob();
+  const { toast } = useToast();
   const [closePrompt, setClosePrompt] = useState<CloseState>(null);
 
   const search = useSearch();
@@ -106,6 +119,9 @@ export default function JobsPipeline() {
   const quickFilter = new URLSearchParams(search).get("filter");
 
   const [viewMode, setViewMode] = useState<ViewMode>("pipeline");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkStage, setBulkStage] = useState<string>("");
+  const [bulkPending, setBulkPending] = useState(false);
 
   useEffect(() => {
     if (quickFilter) setViewMode("list");
@@ -143,6 +159,48 @@ export default function JobsPipeline() {
       }
     );
   };
+
+  function toggleSelect(id: number, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === filteredJobs.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredJobs.map(j => j.id)));
+    }
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+    setBulkStage("");
+  }
+
+  async function applyBulk() {
+    if (!bulkStage || selectedIds.size === 0) return;
+    setBulkPending(true);
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map(id =>
+          updateJob.mutateAsync({ id, data: { stage: bulkStage as any } })
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+      toast({ title: `Updated ${selectedIds.size} job${selectedIds.size === 1 ? "" : "s"}` });
+      clearSelection();
+    } catch {
+      toast({ title: "Some updates failed", variant: "destructive" });
+    } finally {
+      setBulkPending(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -232,8 +290,10 @@ export default function JobsPipeline() {
     );
   };
 
+  const allSelected = filteredJobs.length > 0 && selectedIds.size === filteredJobs.length;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-28">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -244,7 +304,7 @@ export default function JobsPipeline() {
           {/* Pipeline / List toggle */}
           <div className="flex items-center rounded-full border bg-muted/40 p-0.5 gap-0.5">
             <button
-              onClick={() => { setViewMode("pipeline"); if (quickFilter) navigate("/jobs"); }}
+              onClick={() => { setViewMode("pipeline"); clearSelection(); if (quickFilter) navigate("/jobs"); }}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
                 viewMode === "pipeline"
@@ -299,6 +359,19 @@ export default function JobsPipeline() {
             </div>
           )}
 
+          {/* Select all row */}
+          {filteredJobs.length > 0 && (
+            <button
+              onClick={toggleSelectAll}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors ml-auto"
+            >
+              {allSelected
+                ? <CheckSquare className="h-4 w-4 text-primary" />
+                : <Square className="h-4 w-4" />}
+              {allSelected ? "Deselect all" : "Select all"}
+            </button>
+          )}
+
           {filteredJobs.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground border rounded-xl bg-card">
               <p className="font-medium">No jobs found</p>
@@ -315,46 +388,62 @@ export default function JobsPipeline() {
             <div className="space-y-2">
               {filteredJobs.map((job) => {
                 const s = STAGE_STYLES[job.stage] ?? STAGE_STYLES.enquiry;
+                const checked = selectedIds.has(job.id);
                 return (
-                  <Link key={job.id} href={`/jobs/${job.id}`}>
-                    <Card className="cursor-pointer hover:shadow-md transition-all hover:border-primary/30 group">
-                      <CardContent className="p-0">
-                        <div className="flex items-center gap-0">
-                          <div className={cn("w-1 self-stretch rounded-l-xl flex-shrink-0", s.dot)} />
-                          <div className="flex-1 flex items-center gap-4 p-4 min-w-0">
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-base leading-tight line-clamp-1">{job.title}</h3>
-                              <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
-                                {job.customerName || `Customer #${job.customerId}`}
-                              </p>
-                              {job.nextAction && (
-                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 italic">
-                                  Next: {job.nextAction}
+                  <div key={job.id}>
+                    <Link href={`/jobs/${job.id}`}>
+                      <Card className={cn(
+                        "cursor-pointer hover:shadow-md transition-all hover:border-primary/30 group",
+                        checked && "border-primary/50 shadow-sm"
+                      )}>
+                        <CardContent className="p-0">
+                          <div className="flex items-center gap-0">
+                            <div className={cn("w-1 self-stretch rounded-l-xl flex-shrink-0", s.dot)} />
+                            {/* Checkbox */}
+                            <button
+                              onClick={(e) => toggleSelect(job.id, e)}
+                              className="flex-shrink-0 flex items-center justify-center w-10 self-stretch hover:bg-muted/50 transition-colors"
+                              aria-label={checked ? "Deselect" : "Select"}
+                            >
+                              {checked
+                                ? <CheckSquare className="h-4 w-4 text-primary" />
+                                : <Square className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground/70 transition-colors" />}
+                            </button>
+                            <div className="flex-1 flex items-center gap-4 py-4 pr-4 min-w-0">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-base leading-tight line-clamp-1">{job.title}</h3>
+                                <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
+                                  {job.customerName || `Customer #${job.customerId}`}
                                 </p>
-                              )}
-                            </div>
-                            <div className="flex flex-col items-end gap-1.5 shrink-0">
-                              <span className={cn("text-[11px] font-medium px-2.5 py-0.5 rounded-full border capitalize", s.badge)}>
-                                {s.label}
-                              </span>
-                              {job.priority && (
-                                <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full border uppercase", PRIORITY_BADGE[job.priority] ?? "")}>
-                                  {job.priority}
+                                {job.nextAction && (
+                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 italic">
+                                    Next: {job.nextAction}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                <span className={cn("text-[11px] font-medium px-2.5 py-0.5 rounded-full border capitalize", s.badge)}>
+                                  {s.label}
                                 </span>
-                              )}
-                              {job.accessRisk && (
-                                <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full border capitalize", ACCESS_RISK_BADGE[job.accessRisk] ?? "")}>
-                                  {job.accessRisk} risk
-                                </span>
-                              )}
-                              <span className="text-[10px] text-muted-foreground">{format(new Date(job.createdAt), "MMM d, yyyy")}</span>
+                                {job.priority && (
+                                  <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full border uppercase", PRIORITY_BADGE[job.priority] ?? "")}>
+                                    {job.priority}
+                                  </span>
+                                )}
+                                {job.accessRisk && (
+                                  <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full border capitalize", ACCESS_RISK_BADGE[job.accessRisk] ?? "")}>
+                                    {job.accessRisk} risk
+                                  </span>
+                                )}
+                                <span className="text-[10px] text-muted-foreground">{format(new Date(job.createdAt), "MMM d, yyyy")}</span>
+                              </div>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors flex-shrink-0" />
                             </div>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors flex-shrink-0" />
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  </div>
                 );
               })}
             </div>
@@ -411,6 +500,38 @@ export default function JobsPipeline() {
             </div>
           )}
         </>
+      )}
+
+      {/* Floating bulk action bar — list view only */}
+      {viewMode === "list" && selectedIds.size > 0 && (
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-lg">
+          <div className="bg-card border shadow-2xl rounded-2xl px-4 py-3 flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-semibold text-primary shrink-0">
+              {selectedIds.size} selected
+            </span>
+            <Select value={bulkStage} onValueChange={setBulkStage}>
+              <SelectTrigger className="flex-1 h-9 text-sm min-w-[160px]">
+                <SelectValue placeholder="Choose action..." />
+              </SelectTrigger>
+              <SelectContent>
+                {BULK_STAGE_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              className="h-9 px-4 shrink-0"
+              disabled={!bulkStage || bulkPending}
+              onClick={applyBulk}
+            >
+              {bulkPending ? "Updating..." : "Apply"}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-9 px-3 shrink-0" onClick={clearSelection}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );
