@@ -5,6 +5,34 @@ import { requireAdmin, requireBranchAdmin } from "../middlewares/requireAuth";
 
 const router = Router();
 
+// ─── Geocoding helper (Nominatim / OpenStreetMap — free, no API key) ─────────
+
+async function geocodeAddress(query: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=za`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "FireskyFieldOps/1.0 (field-ops-management)" },
+    });
+    if (!res.ok) return null;
+    const data: any[] = await res.json();
+    if (data[0]?.lat && data[0]?.lon) {
+      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    }
+  } catch {
+    // Geocoding is best-effort — never block saving
+  }
+  return null;
+}
+
+function buildGeoQuery(address?: string | null, region?: string | null, name?: string | null): string | null {
+  if (address?.trim()) return address.trim();
+  if (region?.trim()) return region.trim() + ", South Africa";
+  if (name?.trim()) return name.trim() + ", South Africa";
+  return null;
+}
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
+
 // List all branches — any admin/branch_admin can view
 router.get("/", requireBranchAdmin, async (req, res) => {
   try {
@@ -35,6 +63,17 @@ router.post("/", requireAdmin, async (req, res) => {
   if (!name) return res.status(400).json({ error: "name is required" });
   try {
     const [branch] = await db.insert(branchesTable).values({ name, region, address, phone, email }).returning();
+
+    // Geocode in the background — update coords if found
+    const geoQuery = buildGeoQuery(address, region, name);
+    if (geoQuery) {
+      geocodeAddress(geoQuery).then(async (coords) => {
+        if (coords) {
+          await db.update(branchesTable).set({ lat: coords.lat, lng: coords.lng }).where(eq(branchesTable.id, branch.id));
+        }
+      }).catch(() => {});
+    }
+
     res.status(201).json(branch);
   } catch (err) {
     console.error("branches POST /", err);
@@ -53,6 +92,17 @@ router.patch("/:id", requireAdmin, async (req, res) => {
       .where(eq(branchesTable.id, id))
       .returning();
     if (!branch) return res.status(404).json({ error: "Not found" });
+
+    // Re-geocode when address/region/name changes
+    const geoQuery = buildGeoQuery(address, region, name);
+    if (geoQuery) {
+      geocodeAddress(geoQuery).then(async (coords) => {
+        if (coords) {
+          await db.update(branchesTable).set({ lat: coords.lat, lng: coords.lng }).where(eq(branchesTable.id, id));
+        }
+      }).catch(() => {});
+    }
+
     res.json(branch);
   } catch (err) {
     console.error("branches PATCH /:id", err);

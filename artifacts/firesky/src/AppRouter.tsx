@@ -22,6 +22,7 @@ import AdminBranches from "./pages/admin/branches";
 import EmailLog from "./pages/admin/email-log";
 import StockPage from "./pages/stock/index";
 import ReportsPage from "./pages/reports";
+import MapPage from "./pages/map";
 import NotFound from "./pages/not-found";
 
 function useRole() {
@@ -110,6 +111,11 @@ export function Router() {
         {/* Reports — admin + branch admin only */}
         <Route path="/reports">
           <AdminOrBranchAdminRoute component={ReportsPage} />
+        </Route>
+
+        {/* Branch Map — admin only */}
+        <Route path="/map">
+          <AdminRoute component={MapPage} />
         </Route>
 
         {/* Admin panel — super admin only */}
