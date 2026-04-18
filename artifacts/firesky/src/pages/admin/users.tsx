@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { brand } from "@/brand.config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trash2, Shield, User, Building2, MessageCircle } from "lucide-react";
+import { Loader2, Trash2, Shield, User, Building2, MessageCircle, BookUser, Search } from "lucide-react";
 
 interface Branch { id: number; name: string; }
 interface AppUser {
@@ -50,11 +52,51 @@ const ROLE_LABELS: Record<string, string> = {
   guest: "Guest",
 };
 
+interface Customer { id: number; name: string; phone: string | null; whatsapp: string | null; }
+
 export default function AdminUsers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteRole, setInviteRole] = useState("user");
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState("");
+
+  const { data: customers } = useQuery<Customer[]>({
+    queryKey: ["customers-for-invite"],
+    queryFn: () => apiFetch("/customers"),
+    enabled: showPicker,
+  });
+
+  const pickerResults = useMemo(() => {
+    if (!customers) return [];
+    const q = pickerSearch.toLowerCase();
+    return customers
+      .filter((c) => (c.phone || c.whatsapp) && (!q || c.name.toLowerCase().includes(q)))
+      .slice(0, 50);
+  }, [customers, pickerSearch]);
+
+  async function openContactPicker() {
+    if ("contacts" in navigator && "ContactsManager" in window) {
+      try {
+        const contacts = await (navigator as any).contacts.select(["tel", "name"], { multiple: false });
+        if (contacts?.[0]?.tel?.[0]) {
+          setInvitePhone(contacts[0].tel[0]);
+          return;
+        }
+      } catch {
+        // user dismissed or API unavailable — fall through to customer picker
+      }
+    }
+    setPickerSearch("");
+    setShowPicker(true);
+  }
+
+  function pickCustomer(c: Customer) {
+    const num = c.whatsapp || c.phone || "";
+    setInvitePhone(num);
+    setShowPicker(false);
+  }
 
   const { data: users, isLoading } = useQuery<AppUser[]>({
     queryKey: ["admin-users"],
@@ -132,14 +174,25 @@ export default function AdminUsers() {
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 space-y-1">
               <Label className="text-xs text-muted-foreground">Phone number</Label>
-              <Input
-                type="tel"
-                placeholder="083 123 4567 or +27 83 123 4567"
-                value={invitePhone}
-                onChange={(e) => setInvitePhone(e.target.value)}
-                className="h-11"
-                onKeyDown={(e) => e.key === "Enter" && handleWhatsAppInvite()}
-              />
+              <div className="flex gap-2">
+                <Input
+                  type="tel"
+                  placeholder="083 123 4567 or +27 83 123 4567"
+                  value={invitePhone}
+                  onChange={(e) => setInvitePhone(e.target.value)}
+                  className="h-11 flex-1"
+                  onKeyDown={(e) => e.key === "Enter" && handleWhatsAppInvite()}
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-11 w-11 shrink-0"
+                  onClick={openContactPicker}
+                  title="Pick from contacts"
+                >
+                  <BookUser className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Role</Label>
@@ -164,8 +217,62 @@ export default function AdminUsers() {
               </Button>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">Opens WhatsApp with a pre-written invite message containing the app link. South African numbers (083…, 072…, etc.) are handled automatically.</p>
+          <p className="text-xs text-muted-foreground mt-2">
+            Tap <BookUser className="inline h-3 w-3 mx-0.5 relative -top-px" /> to choose from your device contacts (Android) or pick from existing customers. South African numbers (083…, 072…, etc.) are handled automatically.
+          </p>
         </CardContent>
+
+        {/* Customer picker dialog */}
+        <Dialog open={showPicker} onOpenChange={setShowPicker}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <BookUser className="h-4 w-4 text-primary" /> Pick a Contact
+              </DialogTitle>
+            </DialogHeader>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search customers…"
+                value={pickerSearch}
+                onChange={(e) => setPickerSearch(e.target.value)}
+                className="pl-9 h-10"
+                autoFocus
+              />
+            </div>
+            <ScrollArea className="max-h-72 -mx-1">
+              {!customers ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : pickerResults.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  {pickerSearch ? "No customers match your search." : "No customers with phone numbers found."}
+                </p>
+              ) : (
+                <div className="space-y-0.5 px-1">
+                  {pickerResults.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => pickCustomer(c)}
+                      className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <span className="text-xs font-bold text-primary">{c.name[0]?.toUpperCase()}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{c.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{c.whatsapp || c.phone}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
       </Card>
 
       <Card>
