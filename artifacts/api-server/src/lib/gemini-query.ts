@@ -1,6 +1,8 @@
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 import { pool } from "@workspace/db";
 import { brand } from "../brand.config";
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const DB_SCHEMA = `
 PostgreSQL database schema for ${brand.name} field operations:
@@ -124,17 +126,6 @@ Rules:
 - Limit results to 50 rows unless the question implies a count or aggregate.
 - Current date is ${new Date().toISOString().split("T")[0]}.`;
 
-let genAI: GoogleGenAI | null = null;
-
-function getClient(): GoogleGenAI {
-  if (!genAI) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
-    genAI = new GoogleGenAI({ apiKey });
-  }
-  return genAI;
-}
-
 function isSafeQuery(sql: string): boolean {
   const upper = sql.trim().toUpperCase();
   if (!upper.startsWith("SELECT")) return false;
@@ -142,24 +133,23 @@ function isSafeQuery(sql: string): boolean {
   return !dangerous.some((kw) => upper.includes(kw));
 }
 
-export async function geminiQuery(question: string): Promise<string> {
-  const client = getClient();
-
-  const response = await client.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [
-      { role: "user", parts: [{ text: `Database schema:\n${DB_SCHEMA}\n\nQuestion: ${question}` }] },
+export async function smartQuery(question: string): Promise<string> {
+  const response = await openai.chat.completions.create({
+    model: "gpt-5",
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: `Database schema:\n${DB_SCHEMA}\n\nQuestion: ${question}` },
     ],
-    config: {
-      systemInstruction: SYSTEM_PROMPT,
-      maxOutputTokens: 512,
-    },
+    max_tokens: 512,
   });
 
-  const rawSql = (response.text ?? "").trim().replace(/^```sql\n?/i, "").replace(/```$/, "").trim();
+  const rawSql = (response.choices[0]?.message?.content ?? "").trim()
+    .replace(/^```sql\n?/i, "")
+    .replace(/```$/, "")
+    .trim();
 
   if (!rawSql || !isSafeQuery(rawSql)) {
-    return `Gemini returned an unsafe or empty query for: "${question}"`;
+    return `Could not generate a safe query for: "${question}"`;
   }
 
   try {

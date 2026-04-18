@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq, desc, ilike, and, notInArray, count } from "drizzle-orm";
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 import {
   db,
   customersTable,
@@ -13,22 +13,13 @@ import {
   stockMovementsTable,
 } from "@workspace/db";
 import { requireAdmin, requireAuth } from "../middlewares/requireAuth";
-import { geminiQuery } from "../lib/gemini-query";
+import { smartQuery } from "../lib/gemini-query";
 import { brand } from "../brand.config";
 
-let _gemini: GoogleGenAI | null = null;
-function getGemini(): GoogleGenAI {
-  if (!_gemini) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
-    _gemini = new GoogleGenAI({ apiKey });
-  }
-  return _gemini;
-}
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const GPT_MODEL = "gpt-5";
 
-const GEMINI_MODEL = "gemini-2.5-flash";
-
-// Retry wrapper for Gemini calls — handles transient 503 overload errors
+// Retry wrapper — handles transient 429 / 503 errors
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -37,10 +28,9 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
     } catch (err: any) {
       lastErr = err;
       const status = err?.status ?? err?.error?.code;
-      const isRetryable = status === 503 || status === 429 ||
-        (typeof err?.message === "string" && (err.message.includes("503") || err.message.includes("high demand") || err.message.includes("UNAVAILABLE")));
+      const isRetryable = status === 503 || status === 429;
       if (!isRetryable || attempt === maxRetries) throw err;
-      const delay = (attempt + 1) * 2000; // 2s, 4s, 6s
+      const delay = (attempt + 1) * 2000;
       await new Promise((r) => setTimeout(r, delay));
     }
   }
@@ -558,50 +548,58 @@ const ADMIN_TOOLS = [
   },
 ] as const;
 
-const GEMINI_FUNCTION_DECLARATIONS = ADMIN_TOOLS.map((t) => ({
-  name: t.function.name,
-  description: t.function.description,
-  parameters: t.function.parameters as any,
-}));
+// ADMIN_TOOLS is already in OpenAI function-calling format — used directly.
 
 // Branch admin gets stock tools only — branch_id is always injected server-side
-const BRANCH_ADMIN_STOCK_DECLARATIONS = [
+const BRANCH_ADMIN_STOCK_TOOLS = [
   {
-    name: "check_stock",
-    description: "Check the current stock levels at your branch. Returns all stock items and their quantities.",
-    parameters: { type: "object", properties: {} },
-  },
-  {
-    name: "list_stock_items",
-    description: "List all items in the stock catalogue (names, units, categories).",
-    parameters: { type: "object", properties: {} },
-  },
-  {
-    name: "record_stock_movement",
-    description: "Record a stock movement at your branch. Type 'in' adds stock, 'out' removes it, 'adjustment' sets the exact quantity. Match the item by name.",
-    parameters: {
-      type: "object",
-      properties: {
-        item_name: { type: "string", description: "Name of the stock item (matched automatically)" },
-        type: { type: "string", enum: ["in", "out", "adjustment"], description: "in = add stock, out = remove stock, adjustment = set exact quantity" },
-        quantity: { type: "number", description: "The quantity to add, remove, or set" },
-        note: { type: "string", description: "Optional note explaining the movement (e.g. 'Received from supplier', 'Used on Job #42')" },
-      },
-      required: ["item_name", "type", "quantity"],
+    type: "function" as const,
+    function: {
+      name: "check_stock",
+      description: "Check the current stock levels at your branch. Returns all stock items and their quantities.",
+      parameters: { type: "object", properties: {} },
     },
   },
   {
-    name: "create_stock_item",
-    description: "Add a new item to the global stock catalogue so it can be tracked at any branch.",
-    parameters: {
-      type: "object",
-      properties: {
-        name: { type: "string", description: "Item name, e.g. '5000L Tank'" },
-        unit: { type: "string", description: "Unit of measurement, e.g. 'units', 'metres', 'kg'" },
-        category: { type: "string", description: "Optional category, e.g. 'Tanks', 'Fittings', 'Pipes'" },
-        description: { type: "string", description: "Optional description of the item" },
+    type: "function" as const,
+    function: {
+      name: "list_stock_items",
+      description: "List all items in the stock catalogue (names, units, categories).",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "record_stock_movement",
+      description: "Record a stock movement at your branch. Type 'in' adds stock, 'out' removes it, 'adjustment' sets the exact quantity. Match the item by name.",
+      parameters: {
+        type: "object",
+        properties: {
+          item_name: { type: "string", description: "Name of the stock item (matched automatically)" },
+          type: { type: "string", enum: ["in", "out", "adjustment"], description: "in = add stock, out = remove stock, adjustment = set exact quantity" },
+          quantity: { type: "number", description: "The quantity to add, remove, or set" },
+          note: { type: "string", description: "Optional note explaining the movement (e.g. 'Received from supplier', 'Used on Job #42')" },
+        },
+        required: ["item_name", "type", "quantity"],
       },
-      required: ["name", "unit"],
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "create_stock_item",
+      description: "Add a new item to the global stock catalogue so it can be tracked at any branch.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Item name, e.g. '5000L Tank'" },
+          unit: { type: "string", description: "Unit of measurement, e.g. 'units', 'metres', 'kg'" },
+          category: { type: "string", description: "Optional category, e.g. 'Tanks', 'Fittings', 'Pipes'" },
+          description: { type: "string", description: "Optional description of the item" },
+        },
+        required: ["name", "unit"],
+      },
     },
   },
 ];
@@ -883,7 +881,7 @@ async function executeTool(name: string, args: Record<string, any>): Promise<Too
       }
 
       case "smart_query": {
-        const result = await geminiQuery(args.question);
+        const result = await smartQuery(args.question);
         return { result };
       }
 
@@ -1320,20 +1318,21 @@ router.get("/sky/context", requireAdmin, async (_req, res): Promise<void> => {
 
 type SkyChatMessage = { role: "user" | "assistant"; content: string };
 
-function buildGeminiContents(history: SkyChatMessage[] | undefined, message: string): any[] {
-  const contents: any[] = [];
+function buildMessages(
+  systemInstruction: string,
+  history: SkyChatMessage[] | undefined,
+  message: string,
+): any[] {
+  const messages: any[] = [{ role: "system", content: systemInstruction }];
   if (Array.isArray(history)) {
     for (const msg of history) {
       if (msg.role === "user" || msg.role === "assistant") {
-        contents.push({
-          role: msg.role === "assistant" ? "model" : "user",
-          parts: [{ text: msg.content }],
-        });
+        messages.push({ role: msg.role, content: msg.content });
       }
     }
   }
-  contents.push({ role: "user", parts: [{ text: message }] });
-  return contents;
+  messages.push({ role: "user", content: message });
+  return messages;
 }
 
 router.post("/sky/chat", async (req, res) => {
@@ -1374,8 +1373,6 @@ router.post("/sky/chat", async (req, res) => {
   try {
     const isAdmin = verifiedRole === "admin";
     const isGuest = verifiedRole === "guest";
-    const ai = getGemini();
-
     const verifiedBranchId = (req as any).userBranchId as number | null;
     const isBranchAdmin = verifiedRole === "branch_admin";
 
@@ -1387,64 +1384,54 @@ router.post("/sky/chat", async (req, res) => {
           ? `\n\nBRANCH ADMIN CONTEXT:\nYou are assisting ${userName ? userName + ", a" : "a"} branch admin. Their branch ID is ${verifiedBranchId ?? "unknown"}. All stock tool calls are automatically applied to their branch — you never need to ask which branch or specify a branch ID, it is always pre-filled.\n\nYou have access to the following stock tools for your branch:\n- check_stock: see current stock levels at your branch\n- list_stock_items: see the full catalogue of items\n- record_stock_movement: add stock (in), remove stock (out), or set an exact level (adjustment)\n- create_stock_item: add a new item to the catalogue\n\nWhen asked to check stock, update stock, or record a movement, use your tools directly — do not ask the user to do it manually. Always confirm what was done and show the updated quantity.`
           : buildFieldContextBlock(contextType, contextData, userName));
 
-    const geminiContents = buildGeminiContents(history, message);
+    const messages = buildMessages(systemInstruction, history, message);
 
     if (isGuest) {
-      // ── Guest / customer: no tools, product guidance only ────────────────
-      const stream = await withRetry(() => ai.models.generateContentStream({
-        model: GEMINI_MODEL,
-        contents: geminiContents,
-        config: {
-          systemInstruction,
-          maxOutputTokens: 2048,
-        },
+      // ── Guest / customer: no tools, streaming ────────────────────────────
+      const stream = await withRetry(() => openai.chat.completions.create({
+        model: GPT_MODEL,
+        messages,
+        max_tokens: 2048,
+        stream: true,
       }));
 
       for await (const chunk of stream) {
-        const text = chunk.text;
+        const text = chunk.choices[0]?.delta?.content ?? "";
         if (text) sseWrite({ content: text });
       }
     } else if (isAdmin) {
-      // ── Admin: tool-calling agent loop ──────────────────────────────────
+      // ── Admin: tool-calling agent loop ───────────────────────────────────
       const MAX_ROUNDS = 6;
 
       for (let round = 0; round < MAX_ROUNDS; round++) {
-        const response = await withRetry(() => ai.models.generateContent({
-          model: GEMINI_MODEL,
-          contents: geminiContents,
-          config: {
-            systemInstruction,
-            tools: [{ functionDeclarations: GEMINI_FUNCTION_DECLARATIONS }],
-            maxOutputTokens: 8192,
-          },
+        const response = await withRetry(() => openai.chat.completions.create({
+          model: GPT_MODEL,
+          messages,
+          tools: ADMIN_TOOLS as any,
+          tool_choice: "auto",
+          max_tokens: 8192,
         }));
 
-        // Extract function calls from the candidate parts (SDK v1.x)
-        const modelParts: any[] = response.candidates?.[0]?.content?.parts ?? [];
-        const functionCalls = modelParts
-          .filter((p: any) => p.functionCall)
-          .map((p: any) => p.functionCall as { name: string; args: Record<string, any> });
+        const choice = response.choices[0];
+        const toolCalls = choice.message.tool_calls;
 
-        if (!functionCalls || functionCalls.length === 0) {
-          // Final text response — stream it word by word
-          const finalText = response.text ?? "";
+        if (!toolCalls || toolCalls.length === 0) {
+          // Final text response — stream word by word
+          const finalText = choice.message.content ?? "";
           if (finalText) {
             const words = finalText.split(" ");
-            for (const word of words) {
-              sseWrite({ content: word + " " });
-            }
+            for (const word of words) sseWrite({ content: word + " " });
           }
           break;
         }
 
-        // Add model's turn (with function call parts) to contents
-        geminiContents.push({ role: "model", parts: modelParts });
+        // Add the assistant message (with tool_calls) to the thread
+        messages.push(choice.message);
 
-        // Execute each tool call and collect results
-        const toolResultParts: any[] = [];
-        for (const fc of functionCalls) {
-          const funcName = fc.name ?? "";
-          const args = (fc.args ?? {}) as Record<string, any>;
+        // Execute each tool call and add results
+        for (const tc of toolCalls) {
+          const funcName = tc.function.name;
+          const args = JSON.parse(tc.function.arguments || "{}") as Record<string, any>;
 
           sseWrite({ thinking: getThinkingMessage(funcName, args) });
 
@@ -1452,42 +1439,34 @@ router.post("/sky/chat", async (req, res) => {
 
           if (action) sseWrite({ action });
 
-          toolResultParts.push({
-            functionResponse: {
-              name: funcName,
-              response: { result },
-            },
+          messages.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify(result),
           });
         }
-
-        // Add tool results as user turn
-        geminiContents.push({ role: "user", parts: toolResultParts });
       }
     } else if (isBranchAdmin) {
-      // ── Branch admin: stock tool loop, branch ID auto-injected ──────────
+      // ── Branch admin: stock tool loop, branch ID auto-injected ───────────
       const branchAdminBranchId = verifiedBranchId;
       if (!branchAdminBranchId) {
         sseWrite({ content: "You do not have a branch assigned. Ask your system admin to assign you to a branch." });
       } else {
         const MAX_ROUNDS = 4;
         for (let round = 0; round < MAX_ROUNDS; round++) {
-          const response = await withRetry(() => ai.models.generateContent({
-            model: GEMINI_MODEL,
-            contents: geminiContents,
-            config: {
-              systemInstruction,
-              tools: [{ functionDeclarations: BRANCH_ADMIN_STOCK_DECLARATIONS as any }],
-              maxOutputTokens: 4096,
-            },
+          const response = await withRetry(() => openai.chat.completions.create({
+            model: GPT_MODEL,
+            messages,
+            tools: BRANCH_ADMIN_STOCK_TOOLS as any,
+            tool_choice: "auto",
+            max_tokens: 4096,
           }));
 
-          const modelParts: any[] = response.candidates?.[0]?.content?.parts ?? [];
-          const functionCalls = modelParts
-            .filter((p: any) => p.functionCall)
-            .map((p: any) => p.functionCall as { name: string; args: Record<string, any> });
+          const choice = response.choices[0];
+          const toolCalls = choice.message.tool_calls;
 
-          if (!functionCalls || functionCalls.length === 0) {
-            const finalText = response.text ?? "";
+          if (!toolCalls || toolCalls.length === 0) {
+            const finalText = choice.message.content ?? "";
             if (finalText) {
               const words = finalText.split(" ");
               for (const word of words) sseWrite({ content: word + " " });
@@ -1495,43 +1474,38 @@ router.post("/sky/chat", async (req, res) => {
             break;
           }
 
-          geminiContents.push({ role: "model", parts: modelParts });
+          messages.push(choice.message);
 
-          const toolResultParts: any[] = [];
-          for (const fc of functionCalls) {
-            const funcName = fc.name ?? "";
+          for (const tc of toolCalls) {
+            const funcName = tc.function.name;
             // Inject the verified branch ID — Sky never needs to know or specify it
-            const args = { ...(fc.args ?? {}), branch_id: branchAdminBranchId };
+            const args = { ...JSON.parse(tc.function.arguments || "{}"), branch_id: branchAdminBranchId };
 
             sseWrite({ thinking: getThinkingMessage(funcName, args) });
 
             const { result, action } = await executeTool(funcName, args);
 
             if (action) sseWrite({ action });
-            toolResultParts.push({
-              functionResponse: {
-                name: funcName,
-                response: { result },
-              },
+
+            messages.push({
+              role: "tool",
+              tool_call_id: tc.id,
+              content: JSON.stringify(result),
             });
           }
-
-          geminiContents.push({ role: "user", parts: toolResultParts });
         }
       }
     } else {
-      // ── Non-admin (field worker): plain streaming ────────────────────────
-      const stream = await withRetry(() => ai.models.generateContentStream({
-        model: GEMINI_MODEL,
-        contents: geminiContents,
-        config: {
-          systemInstruction,
-          maxOutputTokens: 8192,
-        },
+      // ── Field worker: plain streaming ─────────────────────────────────────
+      const stream = await withRetry(() => openai.chat.completions.create({
+        model: GPT_MODEL,
+        messages,
+        max_tokens: 8192,
+        stream: true,
       }));
 
       for await (const chunk of stream) {
-        const text = chunk.text;
+        const text = chunk.choices[0]?.delta?.content ?? "";
         if (text) sseWrite({ content: text });
       }
     }
@@ -1579,40 +1553,33 @@ router.post("/sky/vision", requireAuth, async (req, res): Promise<void> => {
     question?.trim() ||
     `What do you see? Describe what you observe and flag anything relevant to a ${brand.name} site inspection or installation.`;
 
-  const ai = getGemini();
-
-  // Build Gemini contents with history
-  const visionContents: any[] = [];
+  // Build OpenAI messages with history
+  const visionMessages: any[] = [{ role: "system", content: VISION_SYSTEM_PROMPT }];
   for (const turn of history) {
-    visionContents.push({
-      role: turn.role === "assistant" ? "model" : "user",
-      parts: [{ text: turn.content }],
-    });
+    visionMessages.push({ role: turn.role === "assistant" ? "assistant" : "user", content: turn.content });
   }
 
   // Current turn with image + question
-  visionContents.push({
+  visionMessages.push({
     role: "user",
-    parts: [
-      { inlineData: { mimeType, data: imageBase64 } },
-      { text: userQuestion },
+    content: [
+      { type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+      { type: "text", text: userQuestion },
     ],
   });
 
   try {
     // Stream the main analysis
-    const stream = await withRetry(() => ai.models.generateContentStream({
-      model: GEMINI_MODEL,
-      contents: visionContents,
-      config: {
-        systemInstruction: VISION_SYSTEM_PROMPT,
-        maxOutputTokens: 512,
-      },
+    const stream = await withRetry(() => openai.chat.completions.create({
+      model: GPT_MODEL,
+      messages: visionMessages,
+      max_tokens: 512,
+      stream: true,
     }));
 
     let fullResponse = "";
     for await (const chunk of stream) {
-      const text = chunk.text;
+      const text = chunk.choices[0]?.delta?.content ?? "";
       if (text) {
         fullResponse += text;
         sseWrite({ content: text });
@@ -1621,20 +1588,20 @@ router.post("/sky/vision", requireAuth, async (req, res): Promise<void> => {
 
     // Generate contextual suggestions (non-streaming)
     try {
-      const suggestionContents = [
-        ...visionContents,
-        { role: "model", parts: [{ text: fullResponse }] },
+      const sugMessages = [
+        ...visionMessages,
+        { role: "assistant", content: fullResponse },
         {
           role: "user",
-          parts: [{ text: 'Based on what you just observed, give me exactly 3 very short suggestions for what to look at or check next on site. Reply ONLY with a JSON array of strings. Example: ["Check the inlet pipe","Show the overflow outlet","Inspect the stand base"]' }],
+          content: 'Based on what you just observed, give me exactly 3 very short suggestions for what to look at or check next on site. Reply ONLY with a JSON array of strings. Example: ["Check the inlet pipe","Show the overflow outlet","Inspect the stand base"]',
         },
       ];
-      const sugResp = await withRetry(() => ai.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: suggestionContents,
-        config: { maxOutputTokens: 120 },
+      const sugResp = await withRetry(() => openai.chat.completions.create({
+        model: GPT_MODEL,
+        messages: sugMessages,
+        max_tokens: 120,
       }));
-      const raw = sugResp.text ?? "";
+      const raw = sugResp.choices[0]?.message?.content ?? "";
       const match = raw.match(/\[[\s\S]*\]/);
       if (match) {
         const suggestions = JSON.parse(match[0]);
