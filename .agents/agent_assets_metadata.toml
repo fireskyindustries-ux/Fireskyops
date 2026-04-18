@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "LiKEitS1bFX8jQ3KTj_9O"
@@ -24,3 +23,9 @@ id = "rcaDTiEs1c2ReQV9D94DX"
 uri = "file://artifacts/firesky-website/src/assets/septic-tank.png"
 type = "image"
 title = "Septic tank"
+
+[[outputs]]
+id = "R2srRQagbmx7UNx9mc2ZD"
+uri = "file://Firesky_Field_Ops_Manual.md"
+type = "text"
+title = "Firesky Field Ops Manager — User Manual"
