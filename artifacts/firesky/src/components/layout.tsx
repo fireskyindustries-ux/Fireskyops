@@ -205,6 +205,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isGuest = role === "guest";
   const { openSky } = useSkyActions();
   const { isOpen: skyOpen } = useSkyState();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const userBranchId = (user?.publicMetadata?.branchId as number) ?? null;
   const { data: branches } = useQuery<{ id: number; name: string; region: string | null }[]>({
@@ -264,7 +265,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Button>
           )}
           {!isGuest && <NotificationBell />}
-          <Sheet>
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9">
                 <Menu className="h-5 w-5" />
@@ -282,11 +283,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <nav className="p-3 space-y-1 flex-1 overflow-y-auto pt-4">
               {navItems.map((item) => (
-                <NavItem key={item.href} item={item} location={location} />
+                <NavItem key={item.href} item={item} location={location} onClick={() => setMobileOpen(false)} />
               ))}
             </nav>
             <div className="px-3 pb-3 pt-2">
-              <Link href={ctaLink}>
+              <Link href={ctaLink} onClick={() => setMobileOpen(false)}>
                 <Button className="w-full h-11 px-6 font-semibold text-sm">
                   <Plus className="mr-2 h-4 w-4" /> {ctaLabel}
                 </Button>
