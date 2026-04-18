@@ -1,4 +1,5 @@
 import { SignIn } from "@clerk/react";
+import { brand } from "@/brand.config";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -7,8 +8,8 @@ export default function SignInPage() {
     <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-muted/30 p-4">
       <div className="mb-6 text-center">
         <img
-          src={`${basePath}/firesky-logo.png`}
-          alt="Firesky Industries"
+          src={`${basePath}/${brand.logoFile}`}
+          alt={brand.name}
           className="h-16 w-auto object-contain mx-auto"
           style={{ mixBlendMode: "screen" }}
         />

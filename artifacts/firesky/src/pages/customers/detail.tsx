@@ -1,4 +1,5 @@
 import { useGetCustomer, getGetCustomerQueryKey } from "@workspace/api-client-react";
+import { brand } from "@/brand.config";
 import { useParams, Link } from "wouter";
 import { MapPin, Phone, Mail, Map, Navigation, AlignLeft, Info, Plus, LocateFixed, ExternalLink, ChevronLeft, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,7 @@ export default function CustomerDetail() {
                   <div className="flex items-center gap-3 flex-wrap mt-0.5">
                     <a href={`tel:${customer.phone}`} className="text-sm text-primary hover:underline">{customer.phone}</a>
                     <a
-                      href={`https://wa.me/${customer.phone.replace(/\D/g, "").replace(/^0/, "27")}?text=${encodeURIComponent(`Hi, this is Firesky Industries reaching out regarding your account.`)}`}
+                      href={`https://wa.me/${customer.phone.replace(/\D/g, "").replace(/^0/, "27")}?text=${encodeURIComponent(brand.whatsapp.customerGreeting())}`}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full hover:bg-green-100 transition-colors"

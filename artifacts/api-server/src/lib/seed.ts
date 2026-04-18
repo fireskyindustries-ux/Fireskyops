@@ -7,9 +7,10 @@ import {
   stockMovementsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
+import { brand } from "../brand.config";
 
 const DEFAULT_BRANCH = {
-  name: "The Factory",
+  name: brand.defaultBranchName,
   region: "Head Office",
 };
 

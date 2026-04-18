@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import { brand } from "@/brand.config";
 
 const ORANGE = [232, 93, 4] as const;
 const DARK = [17, 24, 39] as const;
@@ -19,10 +20,10 @@ function header(doc: jsPDF, title: string, refNo: string) {
   setColor(doc, WHITE, "text");
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text("FIRESKY INDUSTRIES", 14, 12);
+  doc.text(brand.name.toUpperCase(), 14, 12);
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  doc.text("Field Ops Platform", 14, 18);
+  doc.text(brand.appTitle, 14, 18);
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.text(title, pw - 14, 11, { align: "right" });
@@ -207,7 +208,7 @@ export async function generateInspectionPDF(inspection: any, customerName?: stri
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   const readyStatus = inspection.siteReadyToQuote ? "Ready to Quote" : "Not Ready to Quote";
-  doc.text(`Firesky Industries  ·  ${refNo}  ·  ${readyStatus}`, pw / 2, y, { align: "center" });
+  doc.text(`${brand.name}  ·  ${refNo}  ·  ${readyStatus}`, pw / 2, y, { align: "center" });
 
   doc.save(`${refNo}_${(customerName || inspection.customerName || "inspection").replace(/\s+/g, "_")}.pdf`);
 }
@@ -301,7 +302,7 @@ export async function generateJobPDF(job: any) {
   setColor(doc, GRAY, "text");
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
-  doc.text(`Firesky Industries  ·  ${refNo}  ·  ${job.stage || ""}`, pw / 2, y, { align: "center" });
+  doc.text(`${brand.name}  ·  ${refNo}  ·  ${job.stage || ""}`, pw / 2, y, { align: "center" });
 
   doc.save(`${refNo}_${(job.customerName || "job").replace(/\s+/g, "_")}.pdf`);
 }

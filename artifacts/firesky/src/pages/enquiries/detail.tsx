@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { brand } from "@/brand.config";
 import { useGetEnquiry, useUpdateEnquiry, getGetEnquiryQueryKey } from "@workspace/api-client-react";
 import { useParams, Link, useLocation } from "wouter";
 import { ClipboardCheck, Briefcase, AlignLeft, Info, Calendar, ChevronLeft, Pencil, Save, X, CheckCircle2, ExternalLink, FileText, Send, Upload, Clock, ThumbsUp, ThumbsDown, MessageCircle } from "lucide-react";
@@ -260,7 +261,7 @@ function SendQuoteSection({
               {quoteToken && (
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(
-                    `Hi${customerName ? ` ${customerName}` : ""}, your quote from Firesky Industries is ready. View and accept it here: ${window.location.origin}${BASE}/quote/${quoteToken}`
+                    brand.whatsapp.quoteReady(customerName, `${window.location.origin}${BASE}/quote/${quoteToken}`)
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"

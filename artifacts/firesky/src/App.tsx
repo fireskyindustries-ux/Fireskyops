@@ -11,6 +11,7 @@ import { ErrorBoundary } from "./components/error-boundary";
 import TrackPage from "./pages/track";
 import QuoteAcceptPage from "./pages/quotes/accept";
 import { initDarkMode } from "./hooks/use-dark-mode";
+import { brand } from "./brand.config";
 
 initDarkMode();
 
@@ -35,14 +36,15 @@ function stripBase(path: string): string {
 const queryClient = new QueryClient();
 
 const clerkAppearance = {
+  variables: {
+    colorPrimary: brand.primaryColor,
+  },
   elements: {
     card: "shadow-2xl border-0 rounded-2xl",
     headerTitle: "text-[#222] font-bold",
     headerSubtitle: "text-gray-500",
-    formButtonPrimary: "bg-[#E85D04] hover:bg-[#d45200] text-white font-semibold rounded-none",
-    footerActionLink: "text-[#E85D04] font-semibold",
     socialButtonsBlockButton: "border border-gray-200 hover:bg-gray-50",
-  }
+  },
 };
 
 function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -52,7 +54,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
       <div className="md:hidden min-h-[100dvh] flex flex-col bg-gray-950">
         <img
           src={`${basePath}/firesky-splash.png`}
-          alt="Firesky Industries"
+          alt={brand.name}
           className="w-full h-auto object-contain"
         />
         <div className="flex-1 flex items-start justify-center px-4 pt-4 pb-8">

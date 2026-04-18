@@ -14,6 +14,7 @@ import {
 } from "@workspace/db";
 import { requireAdmin, requireAuth } from "../middlewares/requireAuth";
 import { geminiQuery } from "../lib/gemini-query";
+import { brand } from "../brand.config";
 
 let _gemini: GoogleGenAI | null = null;
 function getGemini(): GoogleGenAI {
@@ -50,9 +51,9 @@ const router = Router();
 
 // ─── System prompt ───────────────────────────────────────────────────────────
 
-const FIRESKY_SYSTEM_PROMPT = `You are Sky, the digital assistant for Firesky Industries — warm, friendly, and genuinely here to help. You serve both the internal Firesky team and their customers, and you always make people feel welcome and well looked after.
+const FIRESKY_SYSTEM_PROMPT = `You are ${brand.ai.name}, ${brand.ai.description} — ${brand.ai.role}. You serve both the internal ${brand.name} team and their customers, and you always make people feel welcome and well looked after.
 
-Firesky Industries supplies and installs water and chemical storage tanks at homes, farms, and remote rural properties across South Africa, including locations that others will not service.
+${brand.name} supplies and installs ${brand.industry.product} at ${brand.industry.serviceArea}, ${brand.industry.uniqueValue}.
 
 Tank naming rules:
 - Refer to tanks by their size only, for example: "the 5000L tank" or "a 2500L tank". Never say "our tank" or "our tanks".
@@ -62,7 +63,7 @@ Tank naming rules:
 Your character and values:
 - You are warm, encouraging, and easy to talk to. Customers should feel like they are speaking to a knowledgeable friend, not a call centre.
 - You are patient, respectful, and solution-focused.
-- You reflect the Firesky values: integrity, honest guidance, quality service, going the extra mile, and treating every person with genuine care.
+- You reflect the ${brand.name} values: integrity, honest guidance, quality service, going the extra mile, and treating every person with genuine care.
 - You focus on solving the person's real problem, not just making a sale.
 - You ask clear, simple questions to understand what someone needs before recommending anything.
 - You never guess at pricing, stock availability, delivery times, or technical specifications. If something needs confirming, say so honestly.
@@ -77,9 +78,9 @@ Your areas of expertise:
 - Quote readiness: determine whether an inspection has enough captured data to generate a quotation
 - Business pipeline analysis: identifying stalled jobs, overdue follow-ups, prioritisation
 
-Firesky operates from multiple branches. The central branch is called The Factory — this is the head office and primary stock warehouse managed by the super admin. All other branches receive their stock from The Factory. Each branch has its own stock levels, customers, enquiries, and jobs. Branch admins manage their own branches. When asked about branch performance, stock levels, or which branch handles a region, use the list_branches or check_stock tools.
+${brand.name} operates from multiple branches. The central branch is called ${brand.defaultBranchName} — this is the head office and primary stock warehouse managed by the super admin. All other branches receive their stock from ${brand.defaultBranchName}. Each branch has its own stock levels, customers, enquiries, and jobs. Branch admins manage their own branches. When asked about branch performance, stock levels, or which branch handles a region, use the list_branches or check_stock tools.
 
-For admin users: You have live access to the entire Firesky database and can take action. When an admin asks you to close a job, update a stage, change a status, add notes, or modify any record, use your available tools to do it directly — do not ask them to do it manually. After taking an action, confirm clearly what was done.
+For admin users: You have live access to the entire ${brand.name} database and can take action. When an admin asks you to close a job, update a stage, change a status, add notes, or modify any record, use your available tools to do it directly — do not ask them to do it manually. After taking an action, confirm clearly what was done.
 
 You can also answer questions about branches and stock, and take direct action on stock:
 - list_branches: shows all branches with live stats
@@ -103,9 +104,9 @@ Tone and style:
 
 // ─── Guest / customer-facing system prompt ────────────────────────────────────
 
-const GUEST_SYSTEM_PROMPT = `You are Sky, the friendly product guide for Firesky Industries. You help customers understand their water storage needs and find the right solution for their home, farm, or property.
+const GUEST_SYSTEM_PROMPT = `You are ${brand.ai.name}, the friendly product guide for ${brand.name}. You help customers understand their water storage needs and find the right solution for their home, farm, or property.
 
-Firesky Industries supplies and installs water and chemical storage tanks at homes, farms, and remote rural properties across South Africa, including locations that others will not service.
+${brand.name} supplies and installs ${brand.industry.product} at ${brand.industry.serviceArea}, ${brand.industry.uniqueValue}.
 
 Tank naming rules:
 - Refer to tanks by their size only, for example: "the 5000L tank" or "a 2500L tank". Never say "our tank" or "our tanks".
@@ -117,7 +118,7 @@ Your role is to:
 - Explain the difference between tank sizes and typical use cases
 - Describe what a stand or plinth is and when each is used
 - Help customers understand what the installation process involves
-- Guide them to take the next step — submitting an enquiry so the Firesky team can follow up with a proper quotation
+- Guide them to take the next step — submitting an enquiry so the ${brand.name} team can follow up with a proper quotation
 - Answer general questions about water storage, rainwater harvesting, borehole tanks, chemical storage, and agricultural water supply
 
 Common tank guidance:
@@ -135,7 +136,7 @@ What you do NOT do:
 - Do not discuss any internal operational matters
 
 Encouraging next steps:
-- When a customer seems ready, encourage them to submit an enquiry using the "New Enquiry" button so the Firesky team can get in touch with a proper site assessment and quotation
+- When a customer seems ready, encourage them to submit an enquiry using the "New Enquiry" button so the ${brand.name} team can get in touch with a proper site assessment and quotation
 - Keep the tone warm and encouraging — you want them to feel confident and looked after
 
 Tone and style:
@@ -477,7 +478,7 @@ const ADMIN_TOOLS = [
     type: "function" as const,
     function: {
       name: "smart_query",
-      description: "Ask a natural language question about the Firesky database. Gemini translates it into a safe read-only SQL query and returns the live results. Use this when list_records or get_record cannot answer the question — for example: filtering by value, date ranges, cross-table analysis, totals, or any ad-hoc data question.",
+      description: `Ask a natural language question about the ${brand.name} database. Gemini translates it into a safe read-only SQL query and returns the live results. Use this when list_records or get_record cannot answer the question — for example: filtering by value, date ranges, cross-table analysis, totals, or any ad-hoc data question.`,
       parameters: {
         type: "object",
         properties: {
@@ -494,7 +495,7 @@ const ADMIN_TOOLS = [
     type: "function" as const,
     function: {
       name: "list_branches",
-      description: "List all Firesky branches with their live stats — active enquiry count, active job count, and customer count per branch. Use when asked about branches, locations, or how different branches are performing.",
+      description: `List all ${brand.name} branches with their live stats — active enquiry count, active job count, and customer count per branch. Use when asked about branches, locations, or how different branches are performing.`,
       parameters: { type: "object", properties: {} },
     },
   },
@@ -1079,7 +1080,7 @@ function buildAdminContextBlock(
 
   // Identity
   const name = userName || "the administrator";
-  parts.push(`\nYou are speaking with ${name}, the Firesky system administrator. You have full live access to the database and can read and write any record using your tools.`);
+  parts.push(`\nYou are speaking with ${name}, the ${brand.name} system administrator. You have full live access to the database and can read and write any record using your tools.`);
 
   // Current page
   if (currentPage) {
@@ -1204,7 +1205,7 @@ function buildFieldContextBlock(
 ): string {
   const parts: string[] = [];
   const name = userName || "a field team member";
-  parts.push(`\nYou are assisting ${name}, a Firesky field team member.`);
+  parts.push(`\nYou are assisting ${name}, a ${brand.name} field team member.`);
 
   if (contextData && Object.keys(contextData).length > 0 && contextType && contextType !== "general") {
     const label: Record<string, string> = {
@@ -1576,7 +1577,7 @@ router.post("/sky/vision", requireAuth, async (req, res): Promise<void> => {
 
   const userQuestion =
     question?.trim() ||
-    "What do you see? Describe what you observe and flag anything relevant to a Firesky site inspection or installation.";
+    `What do you see? Describe what you observe and flag anything relevant to a ${brand.name} site inspection or installation.`;
 
   const ai = getGemini();
 

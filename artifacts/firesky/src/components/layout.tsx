@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { brand } from "@/brand.config";
 import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2, Sparkles, BarChart2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -223,7 +224,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border pb-8">
         <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-sidebar">
-          <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-20 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
+          <img src={`${BASE}/${brand.logoFile}`} alt={brand.name} className="h-20 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
           {userBranchName && (
             <div className="mt-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
               <Building2 className="h-3 w-3 text-primary shrink-0" />
@@ -248,7 +249,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Header */}
       <header className="md:hidden flex items-center justify-between px-4 py-2 bg-sidebar border-b border-sidebar-border sticky top-0 z-10 shadow-sm">
-        <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-12 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
+        <img src={`${BASE}/${brand.logoFile}`} alt={brand.name} className="h-12 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
         <div className="flex items-center gap-1">
           {!isGuest && !skyOpen && (
             <Button
@@ -270,7 +271,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0 flex flex-col bg-sidebar">
             <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-sidebar">
-              <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-16 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
+              <img src={`${BASE}/${brand.logoFile}`} alt={brand.name} className="h-16 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
               {userBranchName && (
                 <div className="mt-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
                   <Building2 className="h-3 w-3 text-primary shrink-0" />
@@ -358,7 +359,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Desktop Footer */}
       <div className="hidden md:block fixed bottom-0 left-0 w-64 text-center py-2 border-t border-sidebar-border bg-sidebar">
         <p className="text-[10px] text-muted-foreground">
-          Designed &amp; implemented by Leon Mouton &mdash; Firesky Industries
+          {brand.credits}
         </p>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
+import { brand } from "../brand.config";
 
 const router = Router();
 
@@ -19,7 +20,7 @@ function createMcpServer(): McpServer {
 
   server.tool(
     "submit_firevision_enquiry",
-    "Submit a customer enquiry captured by Fire Vision to Firesky Industries",
+    `Submit a customer enquiry captured by Fire Vision to ${brand.name}`,
     {
       name:                 z.string().describe("Customer full name (required)"),
       email:                z.string().describe("Customer email address (required)"),

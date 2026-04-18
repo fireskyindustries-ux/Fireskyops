@@ -1,8 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import { pool } from "@workspace/db";
+import { brand } from "../brand.config";
 
 const DB_SCHEMA = `
-PostgreSQL database schema for Firesky Industries field operations:
+PostgreSQL database schema for ${brand.name} field operations:
 
 TABLE customers (
   id SERIAL PRIMARY KEY,
@@ -113,7 +114,7 @@ TABLE appointments (
 )
 `.trim();
 
-const SYSTEM_PROMPT = `You are a read-only SQL query generator for a PostgreSQL database used by Firesky Industries.
+const SYSTEM_PROMPT = `You are a read-only SQL query generator for a PostgreSQL database used by ${brand.name}.
 Given a natural language question, generate a safe SELECT query that answers it.
 Rules:
 - Only generate SELECT statements. Never INSERT, UPDATE, DELETE, DROP, TRUNCATE, or ALTER.

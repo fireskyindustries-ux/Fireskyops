@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "wouter";
 import { CheckCircle, Circle, Loader2, AlertTriangle, Flame, Package } from "lucide-react";
 import { format } from "date-fns";
+import { brand } from "@/brand.config";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -113,7 +114,7 @@ export default function TrackPage() {
             <Flame className="h-5 w-5 text-white" />
           </div>
           <div>
-            <p className="text-white font-bold text-base leading-tight">Firesky Industries</p>
+            <p className="text-white font-bold text-base leading-tight">{brand.name}</p>
             <p className="text-orange-200 text-xs">Job progress tracker</p>
           </div>
         </div>
@@ -254,8 +255,8 @@ export default function TrackPage() {
             <p className="font-semibold text-gray-700">This job has been closed.</p>
             <p className="text-sm text-gray-500 mt-1">
               For any questions, contact us at{" "}
-              <a href="mailto:info@fireskyindustries.co.za" className="text-orange-600 font-medium">
-                info@fireskyindustries.co.za
+              <a href={`mailto:${brand.contact.email}`} className="text-orange-600 font-medium">
+                {brand.contact.email}
               </a>
             </p>
           </div>
@@ -264,9 +265,9 @@ export default function TrackPage() {
         {/* Footer */}
         <div className="text-center pt-2 pb-6">
           <p className="text-xs text-gray-400">
-            Firesky Industries &nbsp;·&nbsp;{" "}
-            <a href="mailto:info@fireskyindustries.co.za" className="text-orange-500">
-              info@fireskyindustries.co.za
+            {brand.name} &nbsp;·&nbsp;{" "}
+            <a href={`mailto:${brand.contact.email}`} className="text-orange-500">
+              {brand.contact.email}
             </a>
           </p>
         </div>

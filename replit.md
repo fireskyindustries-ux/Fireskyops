@@ -4,6 +4,30 @@
 
 A mobile-first React web app for Firesky Industries — a field operations tool for capturing customer enquiries, remote farm location details, site inspection and installation-prep information, and managing jobs through a pipeline toward quoting.
 
+## White-Label / Brand Config System
+
+The codebase is white-label ready. When cloning for a new client, edit **two files only**:
+
+- `artifacts/firesky/src/brand.config.ts` — all frontend brand config
+- `artifacts/api-server/src/brand.config.ts` — all backend brand config
+
+Both files are thoroughly commented and cover:
+- Business name, short name, tagline, app title
+- Primary colour (used in Clerk auth UI, buttons, charts, PDFs, emails)
+- Logo and splash image filenames (assets go in `/public`)
+- Contact email and website
+- Industry / product language (e.g. "tank" → "panel", "borehole")
+- Sky AI persona name and description
+- Email FROM address and all email subject lines / body text
+- WhatsApp message templates
+- PDF report header and footer
+- Default branch name (seed data)
+- Footer credit line
+
+Also update manually per clone:
+- `artifacts/firesky/index.html` — `<title>` and `apple-mobile-web-app-title`
+- `/public/` — replace logo.png and splash.png with client assets
+
 ## Stack
 
 - **Monorepo tool**: pnpm workspaces

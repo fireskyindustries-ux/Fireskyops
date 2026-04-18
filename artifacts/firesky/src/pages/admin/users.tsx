@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { brand } from "@/brand.config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,7 +108,7 @@ export default function AdminUsers() {
       inviteRole === "branch_admin" ? "Branch Admin" : "Field Worker";
     const appUrl = window.location.origin;
     const message = encodeURIComponent(
-      `Hi! You've been invited to join Firesky Industries Field Ops as a ${roleLabel}.\n\nOpen the link below and sign in with your Google account to get started:\n${appUrl}`
+      `Hi! You've been invited to join ${brand.name} Field Ops as a ${roleLabel}.\n\nOpen the link below and sign in with your Google account to get started:\n${appUrl}`
     );
     window.open(`https://wa.me/${number}?text=${message}`, "_blank");
   };
@@ -118,7 +119,7 @@ export default function AdminUsers() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-        <p className="text-muted-foreground">Manage who has access to Firesky Field Ops</p>
+        <p className="text-muted-foreground">Manage who has access to {brand.shortName} Field Ops</p>
       </div>
 
       <Card>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { brand } from "@/brand.config";
 import { useCreateEnquiry, useCreateCustomer, useListCustomers, getListEnquiriesQueryKey, getListCustomersQueryKey } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -186,12 +187,12 @@ export default function NewEnquiry() {
         <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">Request Received</h1>
           <p className="text-muted-foreground">
-            Thank you — your enquiry has been submitted. The Firesky Industries team will be in touch with you shortly.
+            Thank you — your enquiry has been submitted. The {brand.name} team will be in touch with you shortly.
           </p>
         </div>
         <Button
           className="h-12 px-10 font-semibold text-base"
-          onClick={() => { window.location.href = "https://www.fireskyindustries.co.za"; }}
+          onClick={() => { window.location.href = `https://www.${brand.contact.website}`; }}
         >
           Done
         </Button>

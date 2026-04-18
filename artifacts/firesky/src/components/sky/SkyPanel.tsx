@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, type KeyboardEvent } from "react";
+import { brand } from "@/brand.config";
 import { Sparkles, X, Send, RotateCcw, ChevronRight, Database, RefreshCw, AlertCircle, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -73,7 +74,7 @@ const FIELD_SUGGESTED_ACTIONS: Record<SkyContextType, { label: string; message: 
   general: [
     { label: "How do I choose a tank size?", message: "How do I choose the right tank size for a residential or farm application?" },
     { label: "Stand vs plinth?", message: "When should I use a steel stand versus a concrete plinth for tank installation?" },
-    { label: "What does a site inspection cover?", message: "Walk me through what a thorough Firesky site inspection should cover." },
+    { label: "What does a site inspection cover?", message: `Walk me through what a thorough ${brand.name} site inspection should cover.` },
     { label: "Delivery and access tips", message: "What should I check on site before a tank delivery to avoid problems on the day?" },
   ],
 };
@@ -251,7 +252,7 @@ export function SkyPanel() {
           <div className="flex items-center gap-2.5">
             <Sparkles className="h-5 w-5" />
             <div>
-              <span className="font-bold text-lg tracking-tight">Sky</span>
+              <span className="font-bold text-lg tracking-tight">{brand.ai.name}</span>
               <div className="flex items-center gap-1 -mt-0.5">
                 <ChevronRight className="h-3 w-3 opacity-60" />
                 <span className="text-xs opacity-80 font-medium">{contextLabel}</span>
@@ -302,7 +303,7 @@ export function SkyPanel() {
                   {isAdmin ? (
                     <>
                       <p className="font-semibold text-foreground">
-                        Hi{user?.firstName ? `, ${user.firstName}` : ""}. Sky is ready.
+                        Hi{user?.firstName ? `, ${user.firstName}` : ""}. {brand.ai.name} is ready.
                       </p>
                       <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
                         I have live access to your entire business — customers, pipeline, quotes, inspections. Ask me anything.
@@ -310,7 +311,7 @@ export function SkyPanel() {
                     </>
                   ) : (
                     <>
-                      <p className="font-semibold text-foreground">Sky is ready</p>
+                      <p className="font-semibold text-foreground">{brand.ai.name} is ready</p>
                       <p className="text-sm text-muted-foreground mt-1">
                         Ask anything about this {CONTEXT_LABELS[context.contextType].toLowerCase()}, or choose a suggested action below.
                       </p>
@@ -355,7 +356,7 @@ export function SkyPanel() {
                 variant="outline"
                 className="h-10 w-10 rounded-xl flex-shrink-0"
                 onClick={() => setCameraOpen(true)}
-                title="Sky Vision — point camera at a site or installation"
+                title={`${brand.ai.name} Vision — point camera at a site or installation`}
               >
                 <Camera className="h-4 w-4" />
               </Button>
@@ -364,7 +365,7 @@ export function SkyPanel() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask Sky a question..."
+                placeholder={`Ask ${brand.ai.name} a question...`}
                 className="min-h-[40px] max-h-[100px] resize-none text-sm rounded-xl"
                 rows={1}
                 disabled={isStreaming}
@@ -380,8 +381,8 @@ export function SkyPanel() {
             </div>
             <p className="text-[10px] text-muted-foreground text-center mt-2">
               {isAdmin
-                ? "Sky reads live system data and provides business intelligence"
-                : "Sky reads the current record and provides field guidance"}
+                ? `${brand.ai.name} reads live system data and provides business intelligence`
+                : `${brand.ai.name} reads the current record and provides field guidance`}
             </p>
           </div>
         </div>

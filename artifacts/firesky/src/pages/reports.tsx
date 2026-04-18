@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { brand } from "@/brand.config";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import {
@@ -13,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 // ── Colour palette ────────────────────────────────────────────
 const COLOURS = {
-  primary:    "#E85D04",
+  primary:    brand.primaryColor,
   blue:       "#3b82f6",
   violet:     "#8b5cf6",
   amber:      "#f59e0b",

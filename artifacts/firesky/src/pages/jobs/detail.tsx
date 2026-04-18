@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { brand } from "@/brand.config";
 import { useGetJob, useUpdateJob, getGetJobQueryKey, useListJobLoads, useCreateJobLoad, useUpdateJobLoad, useDeleteJobLoad } from "@workspace/api-client-react";
 import type { JobLoad } from "@workspace/api-client-react";
 import { useParams, Link, useLocation } from "wouter";
@@ -101,7 +102,7 @@ function printDeliveryNote(job: any, loads: JobLoad[]) {
 <body>
   <div class="header">
     <div>
-      <img src="${logoUrl}" alt="Firesky Industries" style="height:72px;width:auto;display:block;" />
+      <img src="${logoUrl}" alt="${brand.name}" style="height:72px;width:auto;display:block;" />
     </div>
     <div class="doc-title">
       <h1>Delivery Note / Job Card</h1>
@@ -170,14 +171,14 @@ function printDeliveryNote(job: any, loads: JobLoad[]) {
     </div>
     <div class="sig-box">
       <div class="label">Delivered by (Driver / Agent)</div>
-      <div class="sub">Firesky Industries representative</div>
+      <div class="sub">${brand.name} representative</div>
       <div class="sig-line"></div>
       <div class="sub">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date: _______________</div>
     </div>
   </div>
 
   <div class="footer">
-    Firesky Industries &mdash; ${refNo} &mdash; Printed ${today}
+    ${brand.name} &mdash; ${refNo} &mdash; Printed ${today}
   </div>
 
   <script>window.onload = function() { window.print(); }<\/script>
@@ -845,8 +846,8 @@ export default function JobDetail() {
         };
 
         const whatsappMessage = trackingUrl
-          ? `Hi${j.customerName ? ` ${j.customerName}` : ""}, here is your Firesky Industries job tracking link for *${job.title}*. You can use this to follow your progress at any time: ${trackingUrl}`
-          : `Hi${j.customerName ? ` ${j.customerName}` : ""}, this is Firesky Industries reaching out regarding your job: *${job.title}*.`;
+          ? `Hi${j.customerName ? ` ${j.customerName}` : ""}, here is your ${brand.name} job tracking link for *${job.title}*. You can use this to follow your progress at any time: ${trackingUrl}`
+          : `Hi${j.customerName ? ` ${j.customerName}` : ""}, this is ${brand.name} reaching out regarding your job: *${job.title}*.`;
         const whatsappUrl = hasPhone
           ? `https://wa.me/${j.customerPhone.replace(/\D/g, "").replace(/^0/, "27")}?text=${encodeURIComponent(whatsappMessage)}`
           : trackingUrl

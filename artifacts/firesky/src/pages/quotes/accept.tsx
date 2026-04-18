@@ -3,6 +3,7 @@ import { useParams } from "wouter";
 import { CheckCircle2, XCircle, FileText, Clock, ThumbsUp, ThumbsDown, Upload, Receipt, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { brand } from "@/brand.config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface QuoteData {
@@ -34,7 +35,7 @@ function PageHeader() {
     <div className="bg-orange-500 text-white px-4 py-5">
       <div className="max-w-2xl mx-auto flex items-center justify-between">
         <div>
-          <p className="text-lg font-bold tracking-tight">Firesky Industries</p>
+          <p className="text-lg font-bold tracking-tight">{brand.name}</p>
           <p className="text-sm text-orange-100">Your Custom Quote</p>
         </div>
         <button
@@ -266,7 +267,7 @@ export default function QuoteAcceptPage() {
               </p>
             </CardContent>
           </Card>
-          <div className="text-center text-xs text-gray-400">Firesky Industries &nbsp;|&nbsp; info@fireskyindustries.co.za</div>
+          <div className="text-center text-xs text-gray-400">{brand.name} &nbsp;|&nbsp; {brand.contact.email}</div>
         </div>
       </div>
     );
@@ -288,10 +289,10 @@ export default function QuoteAcceptPage() {
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             {isAccepted
-              ? "Your quote has been accepted. Thank you for choosing Firesky Industries."
+              ? `Your quote has been accepted. Thank you for choosing ${brand.name}.`
               : isRejected
               ? "You have declined this quote."
-              : "Please review your Firesky Industries quote and let us know if you would like to proceed."}
+              : `Please review your ${brand.name} quote and let us know if you would like to proceed.`}
           </p>
         </div>
 
@@ -425,7 +426,7 @@ export default function QuoteAcceptPage() {
 
         {/* Footer */}
         <div className="text-center text-xs text-gray-400 pb-4">
-          Firesky Industries &nbsp;|&nbsp; info@fireskyindustries.co.za
+          {brand.name} &nbsp;|&nbsp; {brand.contact.email}
         </div>
       </div>
     </div>

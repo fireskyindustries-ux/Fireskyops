@@ -2,10 +2,11 @@ import webpush from "web-push";
 import { db, pushSubscriptionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./logger";
+import { brand } from "../brand.config";
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
-const VAPID_EMAIL = process.env.VAPID_EMAIL || "info@fireskyindustries.co.za";
+const VAPID_EMAIL = process.env.VAPID_EMAIL || brand.supportEmail;
 
 let initialized = false;
 

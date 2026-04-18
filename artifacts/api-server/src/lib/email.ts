@@ -1,43 +1,44 @@
 import { Resend } from "resend";
 import { logger } from "./logger";
 import { db, emailLogsTable } from "@workspace/db";
+import { brand } from "../brand.config";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
-const FROM = "Firesky Industries <info@fireskyindustries.co.za>";
+const FROM = brand.fromEmail;
 
 const STAGE_CONFIG: Record<string, { subject: string; headline: string; body: string } | null> = {
   enquiry: {
-    subject: "We've received your enquiry — Firesky Industries",
+    subject: `We've received your enquiry — ${brand.name}`,
     headline: "Enquiry received",
     body: "Thank you for reaching out. Your enquiry has been logged and our team is reviewing it. Someone will be in touch with you shortly.",
   },
   inspection: {
-    subject: "Site inspection scheduled — Firesky Industries",
+    subject: `Site inspection scheduled — ${brand.name}`,
     headline: "Site inspection in progress",
     body: "Our team is arranging a site inspection to assess your requirements. We will confirm the date and time with you directly.",
   },
   quoting: {
-    subject: "Your quote is being prepared — Firesky Industries",
+    subject: `Your quote is being prepared — ${brand.name}`,
     headline: "Preparing your quote",
     body: "Our team is busy working up a custom quote based on your site requirements. We will have it with you soon.",
   },
   quoted: {
-    subject: "Your Firesky quote is ready",
+    subject: `Your ${brand.shortName} quote is ready`,
     headline: "Your quote is ready",
     body: "Great news — your custom quote is ready. Our team will be in contact with you shortly to walk you through the details.",
   },
   won: {
-    subject: "Installation confirmed — Firesky Industries",
+    subject: `Installation confirmed — ${brand.name}`,
     headline: "Installation confirmed",
     body: "Your installation has been confirmed. Our team will be in touch to finalise scheduling and any last-minute details.",
   },
   delivered: {
-    subject: "Your Firesky order has been delivered",
+    subject: `Your ${brand.shortName} order has been delivered`,
     headline: "All loads delivered",
-    body: "All delivery loads for your order have been completed and delivered to site. Thank you for choosing Firesky Industries. Please don't hesitate to reach out if you need anything.",
+    body: `All delivery loads for your order have been completed and delivered to site. Thank you for choosing ${brand.name}. Please don't hesitate to reach out if you need anything.`,
   },
   lost: null,
   closed: null,
@@ -56,11 +57,11 @@ function buildEmail(
     ? `
     <tr>
       <td style="padding: 0 32px 32px;">
-        <a href="${trackingUrl}" style="display:inline-block;background:#E85D04;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:4px;font-size:14px;font-weight:600;">
+        <a href="${trackingUrl}" style="display:inline-block;background:${brand.primaryColor};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:4px;font-size:14px;font-weight:600;">
           Track your progress
         </a>
         <p style="margin:12px 0 0;font-size:12px;color:#9ca3af;">
-          Or copy this link: <a href="${trackingUrl}" style="color:#E85D04;">${trackingUrl}</a>
+          Or copy this link: <a href="${trackingUrl}" style="color:${brand.primaryColor};">${trackingUrl}</a>
         </p>
       </td>
     </tr>`
@@ -77,8 +78,8 @@ function buildEmail(
 
           <!-- Header -->
           <tr>
-            <td style="background:#E85D04;padding:24px 32px;">
-              <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">Firesky Industries</p>
+            <td style="background:${brand.primaryColor};padding:24px 32px;">
+              <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">${brand.name}</p>
               <p style="margin:4px 0 0;color:#fde8d8;font-size:13px;">Field Operations</p>
             </td>
           </tr>
@@ -101,8 +102,8 @@ function buildEmail(
           <tr>
             <td style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb;">
               <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5;">
-                Firesky Industries &nbsp;|&nbsp; info@fireskyindustries.co.za<br>
-                You are receiving this email because you have an active job with Firesky Industries.
+                ${brand.name} &nbsp;|&nbsp; ${brand.supportEmail}<br>
+                You are receiving this email because you have an active job with ${brand.name}.
               </p>
             </td>
           </tr>
@@ -117,7 +118,7 @@ function buildEmail(
 
 function buildQuoteEmail(customerName: string, jobTitle: string, quoteUrl: string, notes: string | null): string {
   const notesSection = notes
-    ? `<p style="margin:0 0 20px;font-size:14px;color:#4b5563;line-height:1.6;background:#f9fafb;padding:12px 16px;border-radius:4px;border-left:3px solid #E85D04;">${notes}</p>`
+    ? `<p style="margin:0 0 20px;font-size:14px;color:#4b5563;line-height:1.6;background:#f9fafb;padding:12px 16px;border-radius:4px;border-left:3px solid ${brand.primaryColor};">${notes}</p>`
     : "";
 
   return `<!DOCTYPE html>
@@ -129,8 +130,8 @@ function buildQuoteEmail(customerName: string, jobTitle: string, quoteUrl: strin
       <td align="center">
         <table width="100%" style="max-width:560px;background:#ffffff;border-radius:8px;overflow:hidden;" cellpadding="0" cellspacing="0">
           <tr>
-            <td style="background:#E85D04;padding:24px 32px;">
-              <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">Firesky Industries</p>
+            <td style="background:${brand.primaryColor};padding:24px 32px;">
+              <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">${brand.name}</p>
               <p style="margin:4px 0 0;color:#fde8d8;font-size:13px;">Your Custom Quote</p>
             </td>
           </tr>
@@ -138,7 +139,7 @@ function buildQuoteEmail(customerName: string, jobTitle: string, quoteUrl: strin
             <td style="padding:32px 32px 24px;">
               <p style="margin:0 0 16px;font-size:15px;color:#374151;">Hi ${customerName},</p>
               <h2 style="margin:0 0 12px;font-size:22px;color:#111827;font-weight:700;">Your quote is ready</h2>
-              <p style="margin:0 0 20px;font-size:15px;color:#4b5563;line-height:1.6;">We have prepared a custom quote for your Firesky installation. Please review it using the link below and let us know if you would like to proceed.</p>
+              <p style="margin:0 0 20px;font-size:15px;color:#4b5563;line-height:1.6;">We have prepared a custom quote for your ${brand.name} installation. Please review it using the link below and let us know if you would like to proceed.</p>
               ${notesSection}
               <p style="margin:0;font-size:13px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:16px;">
                 Reference: <strong style="color:#374151;">${jobTitle}</strong>
@@ -147,19 +148,19 @@ function buildQuoteEmail(customerName: string, jobTitle: string, quoteUrl: strin
           </tr>
           <tr>
             <td style="padding:0 32px 32px;">
-              <a href="${quoteUrl}" style="display:inline-block;background:#E85D04;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:4px;font-size:14px;font-weight:600;">
+              <a href="${quoteUrl}" style="display:inline-block;background:${brand.primaryColor};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:4px;font-size:14px;font-weight:600;">
                 View and respond to your quote
               </a>
               <p style="margin:12px 0 0;font-size:12px;color:#9ca3af;">
-                Or copy this link: <a href="${quoteUrl}" style="color:#E85D04;">${quoteUrl}</a>
+                Or copy this link: <a href="${quoteUrl}" style="color:${brand.primaryColor};">${quoteUrl}</a>
               </p>
             </td>
           </tr>
           <tr>
             <td style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb;">
               <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5;">
-                Firesky Industries &nbsp;|&nbsp; info@fireskyindustries.co.za<br>
-                You are receiving this email because you have an active enquiry with Firesky Industries.
+                ${brand.name} &nbsp;|&nbsp; ${brand.supportEmail}<br>
+                You are receiving this email because you have an active enquiry with ${brand.name}.
               </p>
             </td>
           </tr>
@@ -199,7 +200,7 @@ export async function sendQuoteEmail(params: {
   const quoteUrl = `${quoteBase}/quote/${quoteToken}`;
   const html = buildQuoteEmail(customerName, jobTitle, quoteUrl, notes);
 
-  const subject = "Your Firesky quote is ready — please review and respond";
+  const subject = `Your ${brand.shortName} quote is ready — please review and respond`;
   try {
     const result = await resend.emails.send({
       from: FROM,
