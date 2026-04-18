@@ -142,14 +142,6 @@ A mobile-first React web app for Firesky Industries — a field operations tool 
 
 See `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
 
-## Next Update — Planned Features
-These were agreed for the next development session when credits allow:
-
-1. **📷 Photo capture** — in-app camera access on inspection and job forms. Photos attach directly to the record. No more upload-only.
-2. **✍️ Digital sign-off** — touchscreen signature capture on job completion and delivery confirmation. Stored against the job record.
-3. **📄 PDF reports** — exportable reports: job summaries, stock levels per branch, monthly pipeline (enquiries → won/lost, conversion rate).
-4. **📡 Offline mode** (bigger lift) — inspections and new enquiry capture work without mobile signal, queue locally and sync on reconnect. Requires careful service worker rebuild (do NOT just re-add the old PWA — it broke publishing).
-
 ## Product Direction Notes
 - Plan to rebrand and sell as a white-label field ops SaaS
 - Model: upfront project fee (setup + branding) + monthly management/hosting fee
