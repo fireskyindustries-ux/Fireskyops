@@ -7,6 +7,7 @@ import BranchDashboard from "./pages/branch-dashboard";
 import CustomersList from "./pages/customers/list";
 import NewCustomer from "./pages/customers/new";
 import CustomerDetail from "./pages/customers/detail";
+import EditCustomer from "./pages/customers/edit";
 import EnquiriesList from "./pages/enquiries/list";
 import NewEnquiry from "./pages/enquiries/new";
 import EnquiryDetail from "./pages/enquiries/detail";
@@ -62,6 +63,9 @@ export function Router() {
         </Route>
         <Route path="/customers/new">
           {isGuest ? <Redirect to="/enquiries/new" /> : <NewCustomer />}
+        </Route>
+        <Route path="/customers/:id/edit">
+          {isGuest ? <Redirect to="/enquiries/new" /> : <EditCustomer />}
         </Route>
         <Route path="/customers/:id">
           {isGuest ? <Redirect to="/enquiries/new" /> : <CustomerDetail />}

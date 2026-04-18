@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { brand } from "@/brand.config";
 import { useGetEnquiry, useUpdateEnquiry, getGetEnquiryQueryKey } from "@workspace/api-client-react";
 import { useParams, Link, useLocation } from "wouter";
-import { ClipboardCheck, Briefcase, AlignLeft, Info, Calendar, ChevronLeft, Pencil, Save, X, CheckCircle2, ExternalLink, FileText, Send, Upload, Clock, ThumbsUp, ThumbsDown, MessageCircle } from "lucide-react";
+import { ClipboardCheck, Briefcase, AlignLeft, Info, Calendar, ChevronLeft, Pencil, Save, X, CheckCircle2, ExternalLink, FileText, Send, Upload, Clock, ThumbsUp, ThumbsDown, MessageCircle, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,80 @@ import { useUser } from "@clerk/react";
 import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+
+function printEnquiry(enquiry: any) {
+  const win = window.open("", "_blank");
+  if (!win) return;
+
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const logoUrl = `${window.location.origin}${base}/firesky-logo-print.png`;
+  const refNo = `ENQ-${String(enquiry.id).padStart(5, "0")}`;
+  const today = new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" });
+  const statusLabel: Record<string, string> = {
+    new: "New", in_progress: "In Progress", inspection_done: "Inspection Done",
+    quoted: "Quoted", won: "Won", lost: "Lost", closed: "Closed",
+  };
+  const priorityLabel: Record<string, string> = { low: "Low", medium: "Medium", high: "High" };
+
+  win.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Enquiry ${refNo}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #fff; padding: 32px 40px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 20px; border-bottom: 3px solid #e85d04; margin-bottom: 24px; }
+    .doc-title h1 { font-size: 24px; font-weight: 800; color: #e85d04; text-transform: uppercase; letter-spacing: 2px; text-align: right; }
+    .doc-title .ref { font-size: 13px; color: #444; margin-top: 4px; text-align: right; }
+    .doc-title .date { font-size: 12px; color: #666; margin-top: 2px; text-align: right; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .info-box { border: 1px solid #ddd; border-radius: 6px; padding: 14px 16px; }
+    .info-box h3 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #e85d04; font-weight: 700; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+    .info-box p { margin-bottom: 5px; font-size: 13px; }
+    .info-box p span { color: #555; font-size: 12px; display: inline-block; min-width: 90px; }
+    .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #e85d04; font-weight: 700; margin-bottom: 8px; margin-top: 16px; }
+    .text-block { border: 1px solid #ddd; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+    .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #ddd; text-align: center; font-size: 11px; color: #888; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; background: #f5f5f5; color: #333; border: 1px solid #ddd; }
+    @media print { body { padding: 16px 20px; } @page { margin: 16mm; size: A4; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div><img src="${logoUrl}" alt="Firesky" style="height:64px;width:auto;display:block;" /></div>
+    <div class="doc-title">
+      <h1>Enquiry</h1>
+      <div class="ref">Ref: ${refNo}</div>
+      <div class="date">Printed: ${today}</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="info-box">
+      <h3>Customer</h3>
+      <p>${enquiry.customerName || "—"}</p>
+    </div>
+    <div class="info-box">
+      <h3>Enquiry Details</h3>
+      <p><span>Title:</span> ${enquiry.title || "—"}</p>
+      <p><span>Status:</span> ${statusLabel[enquiry.status] || enquiry.status || "—"}</p>
+      <p><span>Priority:</span> ${priorityLabel[enquiry.priority] || enquiry.priority || "—"}</p>
+      ${enquiry.tankSize || enquiry.tankQuantity ? `<p><span>Tank:</span> ${enquiry.tankQuantity ?? 1}x ${enquiry.tankSize || "—"}</p>` : ""}
+      ${enquiry.assignedStaff ? `<p><span>Assigned:</span> ${enquiry.assignedStaff}</p>` : ""}
+    </div>
+  </div>
+
+  ${enquiry.description ? `<div class="section-title">Description</div><div class="text-block">${enquiry.description}</div>` : ""}
+  ${enquiry.notes ? `<div class="section-title">Internal Notes</div><div class="text-block">${enquiry.notes}</div>` : ""}
+  ${enquiry.nextAction ? `<div class="section-title">Next Action</div><div class="text-block">${enquiry.nextAction}</div>` : ""}
+
+  <div class="footer">${brand.name} &mdash; ${refNo} &mdash; Printed ${today}</div>
+  <script>window.onload = function() { window.print(); }<\/script>
+</body>
+</html>`);
+  win.document.close();
+}
 
 const STATUS_STYLES: Record<string, { badge: string; label: string }> = {
   new:             { badge: "bg-blue-50 text-blue-700 border-blue-200",      label: "New" },
@@ -469,6 +543,9 @@ export default function EnquiryDetail() {
               <Pencil className="h-4 w-4" /> Edit
             </Button>
           )}
+          <Button variant="outline" className="w-full sm:w-auto gap-2" onClick={() => printEnquiry(enquiry)}>
+            <Printer className="h-4 w-4" /> Print
+          </Button>
 
           {/* Inspection button — done state links to existing inspection */}
           {hasInspection ? (

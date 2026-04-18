@@ -1,12 +1,32 @@
 import { useGetCustomer, getGetCustomerQueryKey } from "@workspace/api-client-react";
 import { brand } from "@/brand.config";
 import { useParams, Link } from "wouter";
-import { MapPin, Phone, Mail, Map, Navigation, AlignLeft, Info, Plus, LocateFixed, ExternalLink, ChevronLeft, MessageCircle } from "lucide-react";
+import { MapPin, Phone, Mail, Map, Navigation, AlignLeft, Info, Plus, LocateFixed, ExternalLink, ChevronLeft, MessageCircle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SkyInlineButton } from "@/components/sky";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
+
+function parseCoords(raw: string | null | undefined): { lat: number; lng: number } | null {
+  if (!raw) return null;
+  const s = raw.trim();
+  const qMatch = s.match(/[?&]q=(-?\d+\.?\d*)[, ]+(-?\d+\.?\d*)/);
+  if (qMatch) return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
+  const coordMatch = s.match(/^(-?\d+\.?\d*)[, ]+(-?\d+\.?\d*)$/);
+  if (coordMatch) return { lat: parseFloat(coordMatch[1]), lng: parseFloat(coordMatch[2]) };
+  return null;
+}
 
 function buildMapsUrl(value: string): string | null {
   if (!value) return null;
@@ -56,6 +76,11 @@ export default function CustomerDetail() {
             variant="outline"
             className="w-full sm:w-auto"
           />
+          <Link href={`/customers/${customer.id}/edit`}>
+            <Button variant="outline" className="w-full sm:w-auto gap-2">
+              <Pencil className="h-4 w-4" /> Edit
+            </Button>
+          </Link>
           <Link href={`/enquiries/new?customerId=${customer.id}`}>
             <Button className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" /> New Enquiry</Button>
           </Link>
@@ -129,29 +154,53 @@ export default function CustomerDetail() {
             {customer.whatsappLocation && (() => {
               const mapsUrl = buildMapsUrl(customer.whatsappLocation!);
               const isCoord = /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/.test(customer.whatsappLocation!.trim());
+              const coords = parseCoords(customer.whatsappLocation);
               return (
-                <div className="flex items-start gap-3">
-                  <LocateFixed className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <p className="text-sm font-medium">GPS Location</p>
-                    {isCoord && (
-                      <p className="text-xs text-muted-foreground font-mono">{customer.whatsappLocation}</p>
-                    )}
-                    {mapsUrl ? (
-                      <a
-                        href={mapsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-md hover:bg-primary/90 active:scale-95 transition-all"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        Open in Google Maps
-                      </a>
-                    ) : (
-                      <p className="text-sm text-muted-foreground break-all">{customer.whatsappLocation}</p>
-                    )}
+                <>
+                  <div className="flex items-start gap-3">
+                    <LocateFixed className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <p className="text-sm font-medium">GPS Location</p>
+                      {isCoord && (
+                        <p className="text-xs text-muted-foreground font-mono">{customer.whatsappLocation}</p>
+                      )}
+                      {mapsUrl ? (
+                        <a
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-md hover:bg-primary/90 active:scale-95 transition-all"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Open in Google Maps
+                        </a>
+                      ) : (
+                        <p className="text-sm text-muted-foreground break-all">{customer.whatsappLocation}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                  {coords && (
+                    <div className="rounded-xl overflow-hidden border shadow-sm" style={{ height: 220 }}>
+                      <MapContainer
+                        center={[coords.lat, coords.lng]}
+                        zoom={13}
+                        style={{ height: "100%", width: "100%" }}
+                        scrollWheelZoom={false}
+                      >
+                        <TileLayer
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                        />
+                        <Marker position={[coords.lat, coords.lng]}>
+                          <Popup>
+                            <p className="font-semibold text-sm">{customer.name}</p>
+                            {customer.farmName && <p className="text-xs text-gray-500">{customer.farmName}</p>}
+                          </Popup>
+                        </Marker>
+                      </MapContainer>
+                    </div>
+                  )}
+                </>
               );
             })()}
 
