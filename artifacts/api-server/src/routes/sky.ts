@@ -17,7 +17,7 @@ import { smartQuery } from "../lib/gemini-query";
 import { brand } from "../brand.config";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const GPT_MODEL = "gpt-5";
+const GPT_MODEL = "gpt-4.1";
 
 // Retry wrapper — handles transient 429 / 503 errors
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
@@ -1400,50 +1400,62 @@ router.post("/sky/chat", async (req, res) => {
         if (text) sseWrite({ content: text });
       }
     } else if (isAdmin) {
-      // ── Admin: tool-calling agent loop ───────────────────────────────────
+      // ── Admin: streaming tool-calling agent loop ─────────────────────────
       const MAX_ROUNDS = 6;
 
       for (let round = 0; round < MAX_ROUNDS; round++) {
-        const response = await withRetry(() => openai.chat.completions.create({
+        const stream = await withRetry(() => openai.chat.completions.create({
           model: GPT_MODEL,
           messages,
           tools: ADMIN_TOOLS as any,
           tool_choice: "auto",
           max_completion_tokens: 8192,
+          stream: true,
         }));
 
-        const choice = response.choices[0];
-        const toolCalls = choice.message.tool_calls;
+        let assistantContent = "";
+        const tcMap: Record<number, { id: string; name: string; args: string }> = {};
+        let hasToolCalls = false;
 
-        if (!toolCalls || toolCalls.length === 0) {
-          // Final text response — stream word by word
-          const finalText = choice.message.content ?? "";
-          if (finalText) {
-            const words = finalText.split(" ");
-            for (const word of words) sseWrite({ content: word + " " });
+        for await (const chunk of stream) {
+          const delta = chunk.choices[0]?.delta;
+          if (delta?.content) {
+            assistantContent += delta.content;
+            sseWrite({ content: delta.content });
           }
-          break;
+          if (delta?.tool_calls) {
+            hasToolCalls = true;
+            for (const tcd of delta.tool_calls) {
+              const idx = tcd.index ?? 0;
+              if (!tcMap[idx]) tcMap[idx] = { id: "", name: "", args: "" };
+              if (tcd.id) tcMap[idx].id = tcd.id;
+              if (tcd.function?.name) tcMap[idx].name += tcd.function.name;
+              if (tcd.function?.arguments) tcMap[idx].args += tcd.function.arguments;
+            }
+          }
         }
 
-        // Add the assistant message (with tool_calls) to the thread
-        messages.push(choice.message);
+        if (!hasToolCalls) break; // final content already streamed
 
-        // Execute each tool call and add results
-        for (const tc of toolCalls) {
+        const assembledCalls = Object.values(tcMap).map((tc) => ({
+          id: tc.id,
+          type: "function" as const,
+          function: { name: tc.name, arguments: tc.args },
+        }));
+
+        messages.push({
+          role: "assistant",
+          content: assistantContent || null,
+          tool_calls: assembledCalls,
+        } as any);
+
+        for (const tc of assembledCalls) {
           const funcName = tc.function.name;
           const args = JSON.parse(tc.function.arguments || "{}") as Record<string, any>;
-
           sseWrite({ thinking: getThinkingMessage(funcName, args) });
-
           const { result, action } = await executeTool(funcName, args);
-
           if (action) sseWrite({ action });
-
-          messages.push({
-            role: "tool",
-            tool_call_id: tc.id,
-            content: JSON.stringify(result),
-          });
+          messages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) });
         }
       }
     } else if (isBranchAdmin) {
@@ -1454,44 +1466,59 @@ router.post("/sky/chat", async (req, res) => {
       } else {
         const MAX_ROUNDS = 4;
         for (let round = 0; round < MAX_ROUNDS; round++) {
-          const response = await withRetry(() => openai.chat.completions.create({
+          const stream = await withRetry(() => openai.chat.completions.create({
             model: GPT_MODEL,
             messages,
             tools: BRANCH_ADMIN_STOCK_TOOLS as any,
             tool_choice: "auto",
             max_completion_tokens: 4096,
+            stream: true,
           }));
 
-          const choice = response.choices[0];
-          const toolCalls = choice.message.tool_calls;
+          let assistantContent = "";
+          const tcMap: Record<number, { id: string; name: string; args: string }> = {};
+          let hasToolCalls = false;
 
-          if (!toolCalls || toolCalls.length === 0) {
-            const finalText = choice.message.content ?? "";
-            if (finalText) {
-              const words = finalText.split(" ");
-              for (const word of words) sseWrite({ content: word + " " });
+          for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta;
+            if (delta?.content) {
+              assistantContent += delta.content;
+              sseWrite({ content: delta.content });
             }
-            break;
+            if (delta?.tool_calls) {
+              hasToolCalls = true;
+              for (const tcd of delta.tool_calls) {
+                const idx = tcd.index ?? 0;
+                if (!tcMap[idx]) tcMap[idx] = { id: "", name: "", args: "" };
+                if (tcd.id) tcMap[idx].id = tcd.id;
+                if (tcd.function?.name) tcMap[idx].name += tcd.function.name;
+                if (tcd.function?.arguments) tcMap[idx].args += tcd.function.arguments;
+              }
+            }
           }
 
-          messages.push(choice.message);
+          if (!hasToolCalls) break;
 
-          for (const tc of toolCalls) {
+          const assembledCalls = Object.values(tcMap).map((tc) => ({
+            id: tc.id,
+            type: "function" as const,
+            function: { name: tc.name, arguments: tc.args },
+          }));
+
+          messages.push({
+            role: "assistant",
+            content: assistantContent || null,
+            tool_calls: assembledCalls,
+          } as any);
+
+          for (const tc of assembledCalls) {
             const funcName = tc.function.name;
             // Inject the verified branch ID — Sky never needs to know or specify it
             const args = { ...JSON.parse(tc.function.arguments || "{}"), branch_id: branchAdminBranchId };
-
             sseWrite({ thinking: getThinkingMessage(funcName, args) });
-
             const { result, action } = await executeTool(funcName, args);
-
             if (action) sseWrite({ action });
-
-            messages.push({
-              role: "tool",
-              tool_call_id: tc.id,
-              content: JSON.stringify(result),
-            });
+            messages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) });
           }
         }
       }

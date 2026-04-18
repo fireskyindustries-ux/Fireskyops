@@ -45,7 +45,7 @@ Also update manually per clone:
 - `RESEND_API_KEY` — Resend API key for sending customer notification emails
 - `TRACKING_BASE_URL` — Base URL for customer tracking links in emails
 - `SESSION_SECRET` — Already configured via Replit secrets
-- `OPENAI_API_KEY` — OpenAI API key for Sky AI (GPT-5)
+- `OPENAI_API_KEY` — OpenAI API key for Sky AI (GPT-4.1)
 
 ## Photo Capture, Digital Sign-Off & PDF Reports
 - **Photo Capture** — `PhotoPicker` component (4-slot grid, client-side JPEG compression to ~200KB/photo, `capture="environment"` for mobile camera, stored as base64 in `photoUrls text[]`)
@@ -96,7 +96,7 @@ Also update manually per clone:
 
 - **Calendar**: Week and list views for inspections/deliveries/installations, with travel-buffer conflict detection and double-booking prevention.
 
-- **Sky AI Assistant** — powered by OpenAI GPT-5:
+- **Sky AI Assistant** — powered by OpenAI GPT-4.1:
   - Floating "Ask Sky" button on all pages (mobile and desktop)
   - Inline "Ask Sky" button on each record (inspection, customer, enquiry, job, dashboard)
   - Context-aware: reads the currently open record and uses it in responses
@@ -140,7 +140,7 @@ Also update manually per clone:
 
 - **lib/api-spec/openapi.yaml** — single source of truth for API contract
 - **lib/db/src/schema/** — Drizzle DB schema (customers, enquiries, inspections, jobs, branches, stock_items, stock_levels, stock_movements)
-- **artifacts/api-server/src/routes/sky.ts** — `/api/sky/chat` SSE endpoint with GPT-5 tool-calling
+- **artifacts/api-server/src/routes/sky.ts** — `/api/sky/chat` SSE endpoint with GPT-4.1 tool-calling, true token streaming on all paths
 - **artifacts/firesky/src/components/sky/** — Sky context provider, panel, floating button, inline button
 - **artifacts/api-server/src/routes/** — Express route handlers
 - **artifacts/firesky/src/** — React frontend app
@@ -160,7 +160,7 @@ Also update manually per clone:
 - Do NOT re-add PWA — it breaks publishing
 - Dark theme: orange primary `hsl(24 90% 50%)`, no emojis, rounded-full buttons
 - `apiFetch` is defined inline in each frontend page (no shared lib/api.ts)
-- Sky AI model: `gpt-5` (OpenAI), withRetry handles 429/503. SQL query tool uses `smartQuery()` in `lib/gemini-query.ts` (renamed from geminiQuery, now uses OpenAI)
+- Sky AI model: `gpt-4.1` (OpenAI), withRetry handles 429/503. All four chat paths (guest, admin, branch_admin, field_worker) use true token streaming. Admin/branch_admin use streaming tool-call loop (accumulate tool_call deltas, execute, loop). SQL query tool uses `smartQuery()` in `lib/gemini-query.ts`
 - Branch admin role = `"branch_admin"` in Clerk public metadata
 - Field worker legacy role = `"user"` in Clerk public metadata
 
