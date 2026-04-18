@@ -21,6 +21,7 @@ import AdminUsers from "./pages/admin/users";
 import AdminBranches from "./pages/admin/branches";
 import EmailLog from "./pages/admin/email-log";
 import StockPage from "./pages/stock/index";
+import ReportsPage from "./pages/reports";
 import NotFound from "./pages/not-found";
 
 function useRole() {
@@ -104,6 +105,11 @@ export function Router() {
         {/* Calendar — all authenticated users */}
         <Route path="/calendar">
           {isGuest ? <Redirect to="/enquiries/new" /> : <CalendarPage />}
+        </Route>
+
+        {/* Reports — admin + branch admin only */}
+        <Route path="/reports">
+          <AdminOrBranchAdminRoute component={ReportsPage} />
         </Route>
 
         {/* Admin panel — super admin only */}

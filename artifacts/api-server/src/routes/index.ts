@@ -22,6 +22,7 @@ import emailLogsRouter from "./email_logs";
 import exportRouter from "./export";
 import branchesRouter from "./branches";
 import stockRouter from "./stock";
+import analyticsRouter from "./analytics";
 
 const router: IRouter = Router();
 
@@ -53,5 +54,6 @@ router.use(emailLogsRouter);
 router.use(exportRouter);
 router.use("/branches", branchesRouter);
 router.use("/stock", stockRouter);
+router.use(analyticsRouter);
 
 export default router;

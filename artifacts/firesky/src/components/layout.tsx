@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2, Sparkles } from "lucide-react";
+import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2, Sparkles, BarChart2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SkyPanel, SkyFloatingButton, useSkyActions, useSkyState } from "./sky";
@@ -21,6 +21,7 @@ const adminNavItems = [
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/stock", label: "Stock", icon: Package },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/reports", label: "Reports", icon: BarChart2 },
 ];
 
 const branchAdminNavItems = [
@@ -31,6 +32,7 @@ const branchAdminNavItems = [
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/stock", label: "Stock", icon: Package },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/reports", label: "Reports", icon: BarChart2 },
 ];
 
 const fieldNavItems = [
