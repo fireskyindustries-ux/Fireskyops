@@ -2,7 +2,9 @@ import { useState } from "react";
 import { useGetJob, useUpdateJob, getGetJobQueryKey, useListJobLoads, useCreateJobLoad, useUpdateJobLoad, useDeleteJobLoad } from "@workspace/api-client-react";
 import type { JobLoad } from "@workspace/api-client-react";
 import { useParams, Link, useLocation } from "wouter";
-import { Briefcase, CalendarDays, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle, Plus, Clock, User, MessageCircle, Bell, BellOff, Copy, Mail, Truck, Wrench, ChevronDown, ChevronUp, Trash2, Package, Printer } from "lucide-react";
+import { Briefcase, CalendarDays, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle, Plus, Clock, User, MessageCircle, Bell, BellOff, Copy, Mail, Truck, Wrench, ChevronDown, ChevronUp, Trash2, Package, Printer, FileDown, PenLine, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { SignaturePad } from "@/components/signature-pad";
+import { generateJobPDF } from "@/lib/pdf-generator";
 import { AssignUser } from "@/components/assign-user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -368,6 +370,8 @@ export default function JobDetail() {
   const [aptFormInitial, setAptFormInitial] = useState<Partial<AppointmentFormValues>>({});
   const [editingPipeline, setEditingPipeline] = useState(false);
   const [pipelineForm, setPipelineForm] = useState<Record<string, any>>({});
+  const [signingOff, setSigningOff] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const { data: appointments = [], refetch: refetchApts } = useQuery<any[]>({
     queryKey: ["/api/appointments", "job", id],
@@ -430,6 +434,40 @@ export default function JobDetail() {
     );
   };
 
+  const handleJobSignOff = (signatureDataUrl: string) => {
+    const signedOffBy = user?.fullName || user?.primaryEmailAddress?.emailAddress || "Unknown";
+    updateJob.mutate(
+      {
+        id,
+        data: {
+          signatureUrl: signatureDataUrl,
+          signedOffBy,
+          signedOffAt: new Date() as any,
+        } as any,
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Job signed off", description: `Signed by ${signedOffBy}` });
+          queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) });
+          setSigningOff(false);
+        },
+        onError: () => toast({ title: "Failed to save sign-off", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleJobDownloadPDF = async () => {
+    if (!job) return;
+    setPdfLoading(true);
+    try {
+      await generateJobPDF(job);
+    } catch {
+      toast({ title: "Failed to generate PDF", variant: "destructive" });
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="space-y-4 max-w-4xl mx-auto">
       <Skeleton className="h-10 w-1/3" />
@@ -459,6 +497,11 @@ export default function JobDetail() {
                   {job.priority}
                 </Badge>
               )}
+              {(job as any).signatureUrl && (
+                <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1">
+                  <ShieldCheck className="h-3 w-3" /> Signed Off
+                </Badge>
+              )}
             </div>
             <Link href={`/customers/${job.customerId}`}>
               <p className="text-xl text-primary hover:underline cursor-pointer">{job.customerName || `Customer #${job.customerId}`}</p>
@@ -479,6 +522,16 @@ export default function JobDetail() {
             >
               <Printer className="h-4 w-4" />
               Delivery Note
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={handleJobDownloadPDF}
+              disabled={pdfLoading}
+            >
+              <FileDown className="h-4 w-4" />
+              {pdfLoading ? "Generating..." : "PDF Report"}
             </Button>
             <span className="text-sm font-medium mr-2">Stage:</span>
             <Select value={job.stage} onValueChange={handleStageChange} disabled={updateJob.isPending}>
@@ -1102,6 +1155,65 @@ export default function JobDetail() {
                   </div>
                 </button>
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Digital Sign-Off */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-muted-foreground" />
+              Digital Sign-Off
+            </CardTitle>
+            {!signingOff && canEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSigningOff(true)}
+                className={(job as any).signatureUrl ? "text-muted-foreground" : "border-green-300 text-green-700 hover:bg-green-50"}
+              >
+                <PenLine className="h-4 w-4 mr-1.5" />
+                {(job as any).signatureUrl ? "Re-sign" : "Sign Off"}
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {signingOff ? (
+            <SignaturePad
+              onSave={handleJobSignOff}
+              onCancel={() => setSigningOff(false)}
+            />
+          ) : (job as any).signatureUrl ? (
+            <div className="space-y-3">
+              <div className="border rounded-lg overflow-hidden bg-white p-2 inline-block">
+                <img
+                  src={(job as any).signatureUrl}
+                  alt="Customer signature"
+                  className="h-20 w-auto max-w-xs object-contain"
+                />
+              </div>
+              <div className="text-sm space-y-0.5">
+                <p className="font-medium text-green-700 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Signed off by {(job as any).signedOffBy || "Unknown"}
+                </p>
+                {(job as any).signedOffAt && (
+                  <p className="text-muted-foreground text-xs">
+                    {format(new Date((job as any).signedOffAt), "PPP 'at' p")}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="py-4 text-center space-y-2">
+              <PenLine className="h-8 w-8 text-muted-foreground mx-auto" />
+              <p className="text-sm text-muted-foreground">
+                No sign-off yet. Tap "Sign Off" to capture a customer signature.
+              </p>
             </div>
           )}
         </CardContent>

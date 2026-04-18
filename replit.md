@@ -23,6 +23,17 @@ A mobile-first React web app for Firesky Industries — a field operations tool 
 - `SESSION_SECRET` — Already configured via Replit secrets
 - `GEMINI_API_KEY` — Google Gemini API key for Sky AI
 
+## Photo Capture, Digital Sign-Off & PDF Reports
+- **Photo Capture** — `PhotoPicker` component (4-slot grid, client-side JPEG compression to ~200KB/photo, `capture="environment"` for mobile camera, stored as base64 in `photoUrls text[]`)
+- **Digital Sign-Off** — `SignaturePad` component (HTML canvas, mouse + touch, 600×200px, save as PNG base64)
+  - Stored as `signatureUrl text`, `signedOffBy text`, `signedOffAt timestamptz` on both inspections and jobs tables
+  - Shows signed badge (blue "Signed Off") on detail page headers once signed
+- **PDF Reports** — `generateInspectionPDF()` and `generateJobPDF()` in `artifacts/firesky/src/lib/pdf-generator.ts`
+  - Uses jsPDF, A4 format, Firesky orange branding
+  - Embeds compressed photos and signature PNG in the PDF
+  - Downloaded client-side (no server round-trip)
+  - Buttons: "PDF Report" on inspection detail and job detail pages
+
 ## Multi-Branch Architecture
 - **Branches** — `branches` table: id, name, region, address, phone, email
 - **Stock Catalogue** — `stock_items` table: global item catalogue (admin-managed)

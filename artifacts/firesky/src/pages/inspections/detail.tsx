@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useGetInspection, useUpdateInspection, getGetInspectionQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { MapPin, Briefcase, CheckCircle2, XCircle, ExternalLink, ChevronLeft, Camera, Save, Pencil, X } from "lucide-react";
+import { MapPin, Briefcase, CheckCircle2, XCircle, ExternalLink, ChevronLeft, Camera, Save, Pencil, X, FileDown, PenLine, ShieldCheck } from "lucide-react";
 import { AssignUser } from "@/components/assign-user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,8 @@ import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { SkyInlineButton } from "@/components/sky";
 import { PhotoPicker } from "@/components/photo-picker";
+import { SignaturePad } from "@/components/signature-pad";
+import { generateInspectionPDF } from "@/lib/pdf-generator";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@clerk/react";
@@ -30,9 +32,11 @@ export default function InspectionDetail() {
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null, null]);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
-  
-  const { data: inspection, isLoading, error } = useGetInspection(id, { 
-    query: { enabled: !!id, queryKey: getGetInspectionQueryKey(id) } 
+  const [signingOff, setSigningOff] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const { data: inspection, isLoading, error } = useGetInspection(id, {
+    query: { enabled: !!id, queryKey: getGetInspectionQueryKey(id) }
   });
 
   const startEdit = () => {
@@ -97,6 +101,40 @@ export default function InspectionDetail() {
     setEditingPhotos(true);
   };
 
+  const handleSignOff = (signatureDataUrl: string) => {
+    const signedOffBy = user?.fullName || user?.primaryEmailAddress?.emailAddress || "Unknown";
+    updateInspection.mutate(
+      {
+        id,
+        data: {
+          signatureUrl: signatureDataUrl,
+          signedOffBy,
+          signedOffAt: new Date() as any,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Inspection signed off", description: `Signed by ${signedOffBy}` });
+          queryClient.invalidateQueries({ queryKey: getGetInspectionQueryKey(id) });
+          setSigningOff(false);
+        },
+        onError: () => toast({ title: "Failed to save sign-off", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!inspection) return;
+    setPdfLoading(true);
+    try {
+      await generateInspectionPDF(inspection, inspection.customerName ?? undefined);
+    } catch {
+      toast({ title: "Failed to generate PDF", variant: "destructive" });
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="space-y-4 max-w-4xl mx-auto">
       <Skeleton className="h-10 w-1/3" />
@@ -121,6 +159,7 @@ export default function InspectionDetail() {
   );
 
   const hasPhotos = inspection.photoUrls && inspection.photoUrls.length > 0;
+  const isSigned = !!(inspection as any).signatureUrl;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -134,6 +173,11 @@ export default function InspectionDetail() {
               <h1 className="text-3xl font-bold tracking-tight">Inspection #{inspection.id}</h1>
               {inspection.siteReadyToQuote && (
                 <Badge className="bg-green-500 hover:bg-green-600 text-white">Ready to Quote</Badge>
+              )}
+              {isSigned && (
+                <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1">
+                  <ShieldCheck className="h-3 w-3" /> Signed Off
+                </Badge>
               )}
             </div>
             <Link href={`/customers/${inspection.customerId}`}>
@@ -154,6 +198,15 @@ export default function InspectionDetail() {
               variant="outline"
               className="w-full sm:w-auto"
             />
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto gap-2"
+              onClick={handleDownloadPDF}
+              disabled={pdfLoading}
+            >
+              <FileDown className="h-4 w-4" />
+              {pdfLoading ? "Generating..." : "PDF Report"}
+            </Button>
             {canEdit && !editing && (
               <Button variant="outline" className="w-full sm:w-auto gap-2" onClick={startEdit}>
                 <Pencil className="h-4 w-4" /> Edit
@@ -295,6 +348,65 @@ export default function InspectionDetail() {
         </CardContent>
       </Card>
 
+      {/* Digital Sign-Off */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-muted-foreground" />
+              Digital Sign-Off
+            </CardTitle>
+            {!signingOff && canEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSigningOff(true)}
+                className={isSigned ? "text-muted-foreground" : "border-green-300 text-green-700 hover:bg-green-50"}
+              >
+                <PenLine className="h-4 w-4 mr-1.5" />
+                {isSigned ? "Re-sign" : "Sign Off"}
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {signingOff ? (
+            <SignaturePad
+              onSave={handleSignOff}
+              onCancel={() => setSigningOff(false)}
+            />
+          ) : isSigned ? (
+            <div className="space-y-3">
+              <div className="border rounded-lg overflow-hidden bg-white p-2 inline-block">
+                <img
+                  src={(inspection as any).signatureUrl}
+                  alt="Customer signature"
+                  className="h-20 w-auto max-w-xs object-contain"
+                />
+              </div>
+              <div className="text-sm space-y-0.5">
+                <p className="font-medium text-green-700 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Signed off by {(inspection as any).signedOffBy || "Unknown"}
+                </p>
+                {(inspection as any).signedOffAt && (
+                  <p className="text-muted-foreground text-xs">
+                    {format(new Date((inspection as any).signedOffAt), "PPP 'at' p")}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="py-4 text-center space-y-2">
+              <PenLine className="h-8 w-8 text-muted-foreground mx-auto" />
+              <p className="text-sm text-muted-foreground">
+                No sign-off yet. Tap "Sign Off" to capture a digital signature.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -326,7 +438,7 @@ export default function InspectionDetail() {
                 </div>
               </div>
             </div>
-            
+
             <div className="pt-4 space-y-1">
               <BooleanDisplay value={inspection.truckAccess} label="Truck Access" />
               <BooleanDisplay value={inspection.trailerAccess} label="Trailer Access" />
@@ -362,13 +474,13 @@ export default function InspectionDetail() {
                 {inspection.tankQuantity || 1}x {inspection.tankSize || "Unknown size"}
               </p>
             </div>
-            
+
             <div className="pt-4 space-y-1">
               <BooleanDisplay value={inspection.requiresStand} label="Requires Stand" />
               {inspection.requiresStand && inspection.standHeight && (
                 <p className="text-sm text-muted-foreground pl-2 pb-2">- Height: {inspection.standHeight}</p>
               )}
-              
+
               <BooleanDisplay value={inspection.requiresPlinth} label="Requires Plinth" />
             </div>
 

@@ -39,6 +39,9 @@ const SELECT_FIELDS = {
   quoteSentDate: jobsTable.quoteSentDate,
   lostReason: jobsTable.lostReason,
   accessRisk: jobsTable.accessRisk,
+  signatureUrl: jobsTable.signatureUrl,
+  signedOffBy: jobsTable.signedOffBy,
+  signedOffAt: jobsTable.signedOffAt,
   customerToken: jobsTable.customerToken,
   notificationsEnabled: jobsTable.notificationsEnabled,
   createdAt: jobsTable.createdAt,
@@ -64,6 +67,9 @@ function normalize(r: any) {
     quoteSentDate: r.quoteSentDate ?? undefined,
     lostReason: r.lostReason ?? undefined,
     accessRisk: r.accessRisk ?? undefined,
+    signatureUrl: r.signatureUrl ?? undefined,
+    signedOffBy: r.signedOffBy ?? undefined,
+    signedOffAt: r.signedOffAt ?? undefined,
     customerToken: r.customerToken ?? undefined,
   };
 }
