@@ -24,6 +24,7 @@ import EmailLog from "./pages/admin/email-log";
 import StockPage from "./pages/stock/index";
 import ReportsPage from "./pages/reports";
 import MapPage from "./pages/map";
+import AboutPage from "./pages/about";
 import NotFound from "./pages/not-found";
 
 function useRole() {
@@ -132,6 +133,9 @@ export function Router() {
         <Route path="/admin/email-log">
           <AdminRoute component={EmailLog} />
         </Route>
+
+        {/* About / Legal */}
+        <Route path="/about" component={AboutPage} />
 
         <Route component={NotFound} />
       </Switch>

@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { brand } from "@/brand.config";
-import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2, Sparkles, BarChart2, MapPin } from "lucide-react";
+import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2, Sparkles, BarChart2, MapPin, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SkyPanel, SkyFloatingButton, useSkyActions, useSkyState } from "./sky";
@@ -359,10 +359,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <SkyPanel />
 
       {/* Desktop Footer */}
-      <div className="hidden md:block fixed bottom-0 left-0 w-64 text-center py-2 border-t border-sidebar-border bg-sidebar">
-        <p className="text-[10px] text-muted-foreground">
-          {brand.credits}
-        </p>
+      <div className="hidden md:block fixed bottom-0 left-0 w-64 border-t border-sidebar-border bg-sidebar">
+        <div className="flex items-center justify-between px-3 py-2">
+          <p className="text-[10px] text-muted-foreground leading-tight">
+            © {brand.owner} – {brand.name} {brand.copyrightYear}
+          </p>
+          <Link href="/about">
+            <button className="p-1 rounded hover:bg-muted transition-colors" title="About & Legal">
+              <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+            </button>
+          </Link>
+        </div>
       </div>
     </div>
   );

@@ -13,6 +13,11 @@
  * ╚══════════════════════════════════════════════════════════════╝
  */
 
+/**
+ * © Leon Mouton – Firesky Industries 2024. All rights reserved.
+ * Unauthorised copying, modification, distribution or use of this
+ * software is strictly prohibited without prior written permission.
+ */
 export const brand = {
   /** Full legal / trading name */
   name: "Firesky Industries",
@@ -61,6 +66,10 @@ export const brand = {
     name:    "Sky",
     tagline: "Ask Sky about tanks, site requirements, or your pipeline",
   },
+
+  /** Legal ownership */
+  owner: "Leon Mouton",
+  copyrightYear: 2024,
 
   /** Footer credit line in the sidebar */
   credits: "Designed & implemented by Leon Mouton — Firesky Industries",
