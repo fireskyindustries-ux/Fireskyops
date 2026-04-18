@@ -17,7 +17,7 @@ import { smartQuery } from "../lib/gemini-query";
 import { brand } from "../brand.config";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const GPT_MODEL = "gpt-4.1";
+const GPT_MODEL = "gpt-5";
 
 // Retry wrapper — handles transient 429 / 503 errors
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
