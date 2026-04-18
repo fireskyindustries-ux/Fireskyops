@@ -1391,7 +1391,7 @@ router.post("/sky/chat", async (req, res) => {
       const stream = await withRetry(() => openai.chat.completions.create({
         model: GPT_MODEL,
         messages,
-        max_tokens: 2048,
+        max_completion_tokens: 2048,
         stream: true,
       }));
 
@@ -1409,7 +1409,7 @@ router.post("/sky/chat", async (req, res) => {
           messages,
           tools: ADMIN_TOOLS as any,
           tool_choice: "auto",
-          max_tokens: 8192,
+          max_completion_tokens: 8192,
         }));
 
         const choice = response.choices[0];
@@ -1459,7 +1459,7 @@ router.post("/sky/chat", async (req, res) => {
             messages,
             tools: BRANCH_ADMIN_STOCK_TOOLS as any,
             tool_choice: "auto",
-            max_tokens: 4096,
+            max_completion_tokens: 4096,
           }));
 
           const choice = response.choices[0];
@@ -1500,7 +1500,7 @@ router.post("/sky/chat", async (req, res) => {
       const stream = await withRetry(() => openai.chat.completions.create({
         model: GPT_MODEL,
         messages,
-        max_tokens: 8192,
+        max_completion_tokens: 8192,
         stream: true,
       }));
 
@@ -1573,7 +1573,7 @@ router.post("/sky/vision", requireAuth, async (req, res): Promise<void> => {
     const stream = await withRetry(() => openai.chat.completions.create({
       model: GPT_MODEL,
       messages: visionMessages,
-      max_tokens: 512,
+      max_completion_tokens: 512,
       stream: true,
     }));
 
@@ -1599,7 +1599,7 @@ router.post("/sky/vision", requireAuth, async (req, res): Promise<void> => {
       const sugResp = await withRetry(() => openai.chat.completions.create({
         model: GPT_MODEL,
         messages: sugMessages,
-        max_tokens: 120,
+        max_completion_tokens: 120,
       }));
       const raw = sugResp.choices[0]?.message?.content ?? "";
       const match = raw.match(/\[[\s\S]*\]/);

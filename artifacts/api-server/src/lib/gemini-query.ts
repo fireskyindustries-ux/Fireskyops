@@ -140,7 +140,7 @@ export async function smartQuery(question: string): Promise<string> {
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: `Database schema:\n${DB_SCHEMA}\n\nQuestion: ${question}` },
     ],
-    max_tokens: 512,
+    max_completion_tokens: 512,
   });
 
   const rawSql = (response.choices[0]?.message?.content ?? "").trim()
