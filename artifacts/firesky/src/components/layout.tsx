@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { NotificationBell } from "./NotificationBell";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -201,6 +202,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { openSky } = useSkyActions();
   const { isOpen: skyOpen } = useSkyState();
 
+  const userBranchId = (user?.publicMetadata?.branchId as number) ?? null;
+  const { data: branches } = useQuery<{ id: number; name: string; region: string | null }[]>({
+    queryKey: ["branches-nav"],
+    queryFn: () => fetch("/api/branches", { credentials: "include" }).then((r) => r.json()),
+    enabled: !isAdmin && !isGuest && userBranchId != null,
+    staleTime: 5 * 60 * 1000,
+  });
+  const userBranchName = branches?.find((b) => b.id === userBranchId)?.name ?? null;
+
   const navItems = isAdmin ? adminNavItems : isBranchAdmin ? branchAdminNavItems : isFieldWorker ? fieldNavItems : guestNavItems;
 
   const ctaLink = isAdmin || isBranchAdmin ? "/enquiries/new" : isFieldWorker ? "/inspections/new" : "/enquiries/new";
@@ -212,6 +222,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border pb-8">
         <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-sidebar">
           <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-20 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
+          {userBranchName && (
+            <div className="mt-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+              <Building2 className="h-3 w-3 text-primary shrink-0" />
+              <span className="text-xs font-semibold text-primary truncate max-w-[160px]">{userBranchName}</span>
+            </div>
+          )}
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto pt-4">
           {navItems.map((item) => (
@@ -253,6 +269,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <SheetContent side="left" className="w-64 p-0 flex flex-col bg-sidebar">
             <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-sidebar">
               <img src={`${BASE}/firesky-logo.png`} alt="Firesky Industries" className="h-16 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
+              {userBranchName && (
+                <div className="mt-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+                  <Building2 className="h-3 w-3 text-primary shrink-0" />
+                  <span className="text-xs font-semibold text-primary truncate max-w-[160px]">{userBranchName}</span>
+                </div>
+              )}
             </div>
             <nav className="p-3 space-y-1 flex-1 overflow-y-auto pt-4">
               {navItems.map((item) => (
