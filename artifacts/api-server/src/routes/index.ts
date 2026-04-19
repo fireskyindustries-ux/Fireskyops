@@ -23,6 +23,7 @@ import exportRouter from "./export";
 import branchesRouter from "./branches";
 import stockRouter from "./stock";
 import analyticsRouter from "./analytics";
+import skyVisionRouter from "./sky-vision";
 
 const router: IRouter = Router();
 
@@ -55,5 +56,6 @@ router.use(exportRouter);
 router.use("/branches", branchesRouter);
 router.use("/stock", stockRouter);
 router.use(analyticsRouter);
+router.use(skyVisionRouter);
 
 export default router;

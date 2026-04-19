@@ -127,6 +127,20 @@ Also update manually per clone:
 - **Delivery Loads** — track loads per job
 - **Draft saving** — forms auto-save to localStorage
 
+## Sky Vision — Standalone AI Chat App
+
+A separate standalone web app for all Firesky staff at `/sky-vision/` (port 8081 in dev).
+
+- **Auth**: Clerk (same account as Field Ops — no separate login needed for staff)
+- **Access**: All logged-in Firesky staff, same Clerk app
+- **Memory**: Persistent cross-session chat history per user, stored in `conversations` + `messages` DB tables (scoped by `userId`)
+- **AI**: GPT-5, streaming SSE via `/api/sky-vision/conversations/:id/chat`
+- **Features**: Conversation sidebar, rename/delete, auto-titles after first AI reply, streaming typing indicator
+- **Theme**: Dark mode only, Firesky orange `#e85d04` accent
+- **API routes**: `artifacts/api-server/src/routes/sky-vision.ts` — full CRUD + SSE streaming
+- **Frontend**: `artifacts/sky-vision/` — React + Vite + Clerk, hooks in `src/hooks/`, chat UI in `src/pages/chat.tsx`
+- **Port fix**: Uses port 8081 (registered in `.replit [[ports]]`); mockup-sandbox was already unused
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages

@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/sky-vision/"
+title = "Sky Vision"
+version = "1.0.0"
+id = "artifacts/sky-vision"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/sky-vision/" ]
+localPort = 8081
+
+[services.development]
+run = "pnpm --filter @workspace/sky-vision run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/sky-vision", "run", "build" ]
+publicDir = "artifacts/sky-vision/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "8081"
+BASE_PATH = "/sky-vision/"
