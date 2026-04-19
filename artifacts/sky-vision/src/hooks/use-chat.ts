@@ -6,25 +6,29 @@ import type { Conversation } from "./use-conversations";
 interface StreamState {
   isStreaming: boolean;
   streamingMessage: string;
+  activeModel: string | null;
 }
 
 export interface ImageAttachment {
   base64: string;
   mimeType: string;
+  dataUrl?: string; // in-memory preview URL for the chat bubble
 }
 
 export function useChat(conversationId: string | null) {
   const [streamState, setStreamState] = useState<StreamState>({
     isStreaming: false,
     streamingMessage: "",
+    activeModel: null,
   });
+  const [isEditing, setIsEditing] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const conversationIdRef = useRef(conversationId);
   useEffect(() => { conversationIdRef.current = conversationId; }, [conversationId]);
 
   const sendMessage = useCallback(
-    async (message: string, overrideConversationId?: string, image?: ImageAttachment) => {
+    async (message: string, overrideConversationId?: string, image?: ImageAttachment, modelMode = "auto") => {
       const id = overrideConversationId || conversationIdRef.current;
       if (!id) return;
 
@@ -43,14 +47,16 @@ export function useChat(conversationId: string | null) {
               role: "user" as const,
               content: message,
               createdAt: new Date().toISOString(),
+              imagePreview: image?.dataUrl,
             },
           ],
         };
       });
 
-      setStreamState({ isStreaming: true, streamingMessage: "" });
+      setStreamState({ isStreaming: true, streamingMessage: "", activeModel: null });
 
       let fullResponse = "";
+      let resolvedModel: string | null = null;
 
       try {
         const response = await fetch(`/api/sky-vision/conversations/${id}/chat`, {
@@ -61,6 +67,7 @@ export function useChat(conversationId: string | null) {
             message,
             imageBase64: image?.base64,
             mimeType: image?.mimeType,
+            modelMode,
           }),
         });
 
@@ -89,6 +96,10 @@ export function useChat(conversationId: string | null) {
                   streamingMessage: prev.streamingMessage + data.content,
                 }));
               }
+              if (data.model) {
+                resolvedModel = data.model;
+                setStreamState((prev) => ({ ...prev, activeModel: data.model }));
+              }
               if (data.title) {
                 queryClient.invalidateQueries({ queryKey: ["conversations"] });
               }
@@ -101,10 +112,6 @@ export function useChat(conversationId: string | null) {
           }
         }
 
-        // Streaming done — write both messages directly into the cache so there
-        // is no gap between the streaming bubble disappearing and the server
-        // refetch completing. The background invalidation below will eventually
-        // replace these with the real server IDs, but the content is identical.
         if (fullResponse) {
           queryClient.setQueryData(["conversations", id], (old: Conversation | undefined) => {
             if (!old) return old;
@@ -114,14 +121,13 @@ export function useChat(conversationId: string | null) {
               ...old,
               messages: [
                 ...withoutOptimistic,
-                { id: `local-user-${Date.now()}`, conversationId: id, role: "user" as const, content: message, createdAt: now },
+                { id: `local-user-${Date.now()}`, conversationId: id, role: "user" as const, content: message, createdAt: now, imagePreview: image?.dataUrl },
                 { id: `local-ai-${Date.now()}`, conversationId: id, role: "assistant" as const, content: fullResponse, createdAt: now },
               ],
             };
           });
         }
       } catch {
-        // Roll back optimistic message on failure
         queryClient.setQueryData(["conversations", id], (old: Conversation | undefined) => {
           if (!old) return old;
           return {
@@ -135,19 +141,95 @@ export function useChat(conversationId: string | null) {
           variant: "destructive",
         });
       } finally {
-        // Clear streaming state — the cache already has the full content so
-        // the streaming bubble disappears with no gap.
-        setStreamState({ isStreaming: false, streamingMessage: "" });
-        // Only refresh the sidebar list (to show auto-title updates etc.).
-        // We deliberately do NOT refetch the individual conversation here because
-        // the cache already has the correct content and a refetch would swap
-        // local placeholder IDs for real DB IDs, causing React to re-render all
-        // message bubbles (visible flicker). The real IDs arrive on next page load.
+        setStreamState((prev) => ({ ...prev, isStreaming: false, streamingMessage: "", activeModel: resolvedModel }));
         queryClient.invalidateQueries({ queryKey: ["conversations"], exact: true });
       }
     },
     [queryClient, toast]
   );
 
-  return { sendMessage, ...streamState };
+  const editImage = useCallback(
+    async (prompt: string, conversationId: string, image: ImageAttachment) => {
+      const id = conversationId;
+      if (!id || isEditing) return;
+
+      setIsEditing(true);
+
+      // Add user message optimistically
+      const optimisticUserId = `opt-edit-user-${Date.now()}`;
+      const optimisticAiId = `opt-edit-ai-${Date.now()}`;
+
+      queryClient.setQueryData(["conversations", id], (old: Conversation | undefined) => {
+        if (!old) return old;
+        return {
+          ...old,
+          messages: [
+            ...(old.messages || []),
+            {
+              id: optimisticUserId,
+              conversationId: id,
+              role: "user" as const,
+              content: prompt || "Edit this image",
+              createdAt: new Date().toISOString(),
+              imagePreview: image.dataUrl,
+            },
+            {
+              id: optimisticAiId,
+              conversationId: id,
+              role: "assistant" as const,
+              content: "Editing your image...",
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        };
+      });
+
+      try {
+        const res = await fetch("/api/sky-vision/edit-image", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageBase64: image.base64, mimeType: image.mimeType, prompt: prompt || "Edit this image" }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || "Edit failed");
+        }
+
+        const { imageBase64: resultB64, mimeType: resultMime } = await res.json();
+        const resultDataUrl = `data:${resultMime};base64,${resultB64}`;
+
+        // Replace optimistic AI message with the real result
+        queryClient.setQueryData(["conversations", id], (old: Conversation | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            messages: (old.messages || []).map((m) =>
+              m.id === optimisticAiId
+                ? { ...m, content: "Here's your edited image:", resultImage: resultDataUrl }
+                : m
+            ),
+          };
+        });
+      } catch (err: any) {
+        // Remove optimistic messages and show error
+        queryClient.setQueryData(["conversations", id], (old: Conversation | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            messages: (old.messages || []).filter(
+              (m) => m.id !== optimisticUserId && m.id !== optimisticAiId
+            ),
+          };
+        });
+        toast({ title: "Edit failed", description: err.message, variant: "destructive" });
+      } finally {
+        setIsEditing(false);
+      }
+    },
+    [queryClient, toast, isEditing]
+  );
+
+  return { sendMessage, editImage, isEditing, ...streamState };
 }

@@ -5,9 +5,16 @@ import { useChat, type ImageAttachment } from "@/hooks/use-chat";
 import { CameraMode } from "@/components/camera-mode";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, X, RotateCcw, Sparkles, ChevronRight, RefreshCw, Camera, ImageIcon, Copy, Check } from "lucide-react";
+import { Send, X, RotateCcw, Sparkles, ChevronRight, RefreshCw, Camera, ImageIcon, Copy, Check, Zap, Brain, Wand2, Pencil, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type ModelMode = "auto" | "fast" | "smart";
+
+const MODEL_MODES: { mode: ModelMode; label: string; icon: React.ReactNode; title: string }[] = [
+  { mode: "auto",  label: "Auto",  icon: <Wand2 className="h-3.5 w-3.5" />, title: "Auto — picks Fast or Smart based on your message" },
+  { mode: "fast",  label: "Fast",  icon: <Zap className="h-3.5 w-3.5" />,  title: "Fast — quick replies, lower cost" },
+  { mode: "smart", label: "Smart", icon: <Brain className="h-3.5 w-3.5" />, title: "Smart — full power model for complex tasks" },
+];
 
 const SUGGESTED_ACTIONS = [
   { label: "What can you help me with?", message: "Give me a quick overview of everything you can help me with." },
@@ -24,10 +31,11 @@ interface PendingImage {
   preview: string;
 }
 
-function MessageBubble({ role, content, imagePreview, isThinking }: {
+function MessageBubble({ role, content, imagePreview, resultImage, isThinking }: {
   role: "user" | "assistant";
   content: string;
   imagePreview?: string;
+  resultImage?: string;
   isThinking?: boolean;
 }) {
   const isUser = role === "user";
@@ -85,6 +93,13 @@ function MessageBubble({ role, content, imagePreview, isThinking }: {
             </span>
           </div>
         )}
+        {resultImage && (
+          <img
+            src={resultImage}
+            alt="Edited image"
+            className="rounded-xl max-w-[320px] max-h-[320px] object-contain border border-border mt-1"
+          />
+        )}
         {!isUser && !isThinking && content && (
           <button
             onClick={handleCopy}
@@ -104,18 +119,28 @@ function MessageBubble({ role, content, imagePreview, isThinking }: {
 // Isolated input — its own state so streaming re-renders never touch it
 const ChatInput = memo(function ChatInput({
   isStreaming,
+  isEditing,
   onSend,
+  onEdit,
   onCameraOpen,
 }: {
   isStreaming: boolean;
+  isEditing: boolean;
   onSend: (text: string, image?: PendingImage) => void;
+  onEdit: (text: string, image: PendingImage) => void;
   onCameraOpen: () => void;
 }) {
   const [input, setInput] = useState("");
   const [image, setImage] = useState<PendingImage | null>(null);
+  const [imageMode, setImageMode] = useState<"analyze" | "edit">("analyze");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const onSendRef = useRef(onSend);
+  const onEditRef = useRef(onEdit);
   useEffect(() => { onSendRef.current = onSend; }, [onSend]);
+  useEffect(() => { onEditRef.current = onEdit; }, [onEdit]);
+
+  // Reset edit mode when image is cleared
+  useEffect(() => { if (!image) setImageMode("analyze"); }, [image]);
 
   const handleImageFile = useCallback((file: File) => {
     const reader = new FileReader();
@@ -132,14 +157,20 @@ const ChatInput = memo(function ChatInput({
     e.target.value = "";
   }, [handleImageFile]);
 
+  const busy = isStreaming || isEditing;
+
   const handleSend = useCallback(() => {
     const text = input.trim();
-    if ((!text && !image) || isStreaming) return;
+    if ((!text && !image) || busy) return;
     const img = image;
     setInput("");
     setImage(null);
-    onSendRef.current(text || "What's in this image?", img ?? undefined);
-  }, [input, image, isStreaming]);
+    if (img && imageMode === "edit") {
+      onEditRef.current(text || "Edit this image", img);
+    } else {
+      onSendRef.current(text || "What's in this image?", img ?? undefined);
+    }
+  }, [input, image, busy, imageMode]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -148,12 +179,18 @@ const ChatInput = memo(function ChatInput({
     }
   }, [handleSend]);
 
+  const placeholder = image
+    ? imageMode === "edit"
+      ? "Describe the edit you want (e.g. 'remove the background')"
+      : "Ask Sky about this image..."
+    : "Ask Sky anything...";
+
   return (
     <div className="border-t border-border flex-shrink-0 bg-background">
       {/* Image preview strip */}
       {image && (
-        <div className="px-3 pt-3 flex items-start gap-2">
-          <div className="relative inline-block">
+        <div className="px-3 pt-3 flex items-start gap-3">
+          <div className="relative inline-block flex-shrink-0">
             <img
               src={image.preview}
               alt="Attachment preview"
@@ -166,7 +203,37 @@ const ChatInput = memo(function ChatInput({
               <X className="h-3 w-3" />
             </button>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Image attached — type a question or send as-is</p>
+          {/* Analyze / Edit toggle */}
+          <div className="flex flex-col gap-1.5 pt-1">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">Image mode</p>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setImageMode("analyze")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors",
+                  imageMode === "analyze"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "text-muted-foreground border-border hover:bg-muted"
+                )}
+              >
+                <Eye className="h-3 w-3" /> Analyse
+              </button>
+              <button
+                onClick={() => setImageMode("edit")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors",
+                  imageMode === "edit"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "text-muted-foreground border-border hover:bg-muted"
+                )}
+              >
+                <Pencil className="h-3 w-3" /> Edit
+              </button>
+            </div>
+            {imageMode === "edit" && (
+              <p className="text-[10px] text-muted-foreground">Describe the change you want — AI will generate the edited image</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -179,25 +246,23 @@ const ChatInput = memo(function ChatInput({
           onChange={handleFileChange}
         />
         <div className="flex gap-2 items-end">
-          {/* Image upload button */}
           <Button
             variant="ghost"
             size="icon"
             className="h-10 w-10 rounded-xl flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
             onClick={() => fileInputRef.current?.click()}
-            disabled={isStreaming}
+            disabled={busy}
             title="Attach an image"
           >
             <ImageIcon className="h-4 w-4" />
           </Button>
 
-          {/* Camera button */}
           <Button
             variant="ghost"
             size="icon"
             className="h-10 w-10 rounded-xl flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
             onClick={onCameraOpen}
-            disabled={isStreaming}
+            disabled={busy}
             title="Open live camera"
           >
             <Camera className="h-4 w-4" />
@@ -207,22 +272,25 @@ const ChatInput = memo(function ChatInput({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={image ? "Ask Sky about this image..." : "Ask Sky anything..."}
+            placeholder={placeholder}
             className="min-h-[40px] max-h-[100px] resize-none text-sm rounded-xl flex-1"
             rows={1}
-            disabled={isStreaming}
+            disabled={busy}
           />
           <Button
             size="icon"
             className="h-10 w-10 rounded-xl flex-shrink-0"
             onClick={handleSend}
-            disabled={(!input.trim() && !image) || isStreaming}
+            disabled={(!input.trim() && !image) || busy}
           >
-            <Send className="h-4 w-4" />
+            {isEditing
+              ? <RefreshCw className="h-4 w-4 animate-spin" />
+              : <Send className="h-4 w-4" />
+            }
           </Button>
         </div>
         <p className="text-[10px] text-muted-foreground text-center mt-2">
-          Attach an image or open camera to share visuals with Sky
+          Attach an image to analyse or edit it with AI
         </p>
       </div>
     </div>
@@ -232,10 +300,11 @@ const ChatInput = memo(function ChatInput({
 export function ChatPage() {
   const [activeId, setActiveId] = useState<string>("");
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [modelMode, setModelMode] = useState<ModelMode>("auto");
 
   const { data: conversation, isLoading } = useConversation(activeId || null);
   const createConv = useCreateConversation();
-  const { sendMessage, isStreaming, streamingMessage } = useChat(activeId || null);
+  const { sendMessage, editImage, isStreaming, isEditing, streamingMessage, activeModel } = useChat(activeId || null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollDone = useRef(false);
@@ -248,12 +317,10 @@ export function ChatPage() {
     el.scrollTo({ top: el.scrollHeight, behavior });
   }, []);
 
-  // Handle initial load and new confirmed messages — not triggered by streaming chunks
   useEffect(() => {
     const count = conversation?.messages?.length ?? 0;
     const isNewMessage = count > prevMessageCount.current;
     prevMessageCount.current = count;
-
     if (!initialScrollDone.current && count > 0) {
       scrollToBottom("instant");
       initialScrollDone.current = true;
@@ -262,68 +329,73 @@ export function ChatPage() {
     }
   }, [conversation?.messages, scrollToBottom]);
 
-  // Scroll once when streaming starts — not on every chunk
   useEffect(() => {
-    if (isStreaming && !wasStreaming.current) {
-      scrollToBottom("smooth");
-    }
+    if (isStreaming && !wasStreaming.current) scrollToBottom("smooth");
     wasStreaming.current = isStreaming;
   }, [isStreaming, scrollToBottom]);
 
-  // Reset scroll tracking when switching conversations
   useEffect(() => {
     initialScrollDone.current = false;
     prevMessageCount.current = 0;
   }, [activeId]);
 
-  const handleSend = useCallback(async (text: string, image?: PendingImage) => {
-    let targetId = activeId;
-    if (!targetId) {
-      try {
-        const newConv = await createConv.mutateAsync();
-        targetId = newConv.id;
-        setActiveId(targetId);
-      } catch {
-        return;
-      }
+  const ensureConversation = useCallback(async (): Promise<string | null> => {
+    if (activeId) return activeId;
+    try {
+      const newConv = await createConv.mutateAsync();
+      setActiveId(newConv.id);
+      return newConv.id;
+    } catch {
+      return null;
     }
+  }, [activeId, createConv]);
+
+  const handleSend = useCallback(async (text: string, image?: PendingImage) => {
+    const targetId = await ensureConversation();
+    if (!targetId) return;
     const imageAttachment: ImageAttachment | undefined = image
-      ? { base64: image.base64, mimeType: image.mimeType }
+      ? { base64: image.base64, mimeType: image.mimeType, dataUrl: image.preview }
       : undefined;
-    sendMessage(text, targetId, imageAttachment);
-  }, [activeId, createConv, sendMessage]);
+    sendMessage(text, targetId, imageAttachment, modelMode);
+  }, [ensureConversation, sendMessage, modelMode]);
+
+  const handleEdit = useCallback(async (text: string, image: PendingImage) => {
+    const targetId = await ensureConversation();
+    if (!targetId) return;
+    editImage(text, targetId, { base64: image.base64, mimeType: image.mimeType, dataUrl: image.preview });
+  }, [ensureConversation, editImage]);
 
   const handleSuggestion = useCallback(async (message: string) => {
     if (isStreaming) return;
-    let targetId = activeId;
-    if (!targetId) {
-      try {
-        const newConv = await createConv.mutateAsync();
-        targetId = newConv.id;
-        setActiveId(targetId);
-      } catch {
-        return;
-      }
-    }
-    sendMessage(message, targetId);
-  }, [activeId, createConv, isStreaming, sendMessage]);
+    const targetId = await ensureConversation();
+    if (!targetId) return;
+    sendMessage(message, targetId, undefined, modelMode);
+  }, [ensureConversation, isStreaming, sendMessage, modelMode]);
+
+  const cycleModel = useCallback(() => {
+    setModelMode((prev) => prev === "auto" ? "fast" : prev === "fast" ? "smart" : "auto");
+  }, []);
 
   const messages: Message[] = conversation?.messages || [];
   const showWelcome = !activeId || (!isLoading && messages.length === 0);
+  const currentModeConfig = MODEL_MODES.find((m) => m.mode === modelMode)!;
+
+  // What model was actually used for the last reply (if auto mode chose)
+  const modelLabel = activeModel
+    ? activeModel.includes("mini") ? "Fast" : "Smart"
+    : null;
 
   return (
     <>
       {cameraOpen && <CameraMode onClose={() => setCameraOpen(false)} />}
 
       <div className="flex h-[100dvh] bg-background text-foreground overflow-hidden">
-        {/* Desktop sidebar */}
         <div className="hidden md:block h-full">
           <Sidebar activeId={activeId} onSelect={setActiveId} />
         </div>
 
-        {/* Main panel */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Orange header */}
+          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-primary text-primary-foreground flex-shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="md:hidden">
@@ -334,11 +406,23 @@ export function ChatPage() {
                 <span className="font-bold text-lg tracking-tight">Sky</span>
                 <div className="flex items-center gap-1 -mt-0.5">
                   <ChevronRight className="h-3 w-3 opacity-60" />
-                  <span className="text-xs opacity-80 font-medium">System Brain</span>
+                  <span className="text-xs opacity-80 font-medium">
+                    {modelLabel && !isStreaming ? modelLabel : "System Brain"}
+                  </span>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-1">
+              {/* Model mode toggle */}
+              <button
+                onClick={cycleModel}
+                title={currentModeConfig.title}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-primary-foreground/15 hover:bg-primary-foreground/25 transition-colors text-primary-foreground"
+              >
+                {currentModeConfig.icon}
+                <span className="hidden sm:inline">{currentModeConfig.label}</span>
+              </button>
+
               {messages.length > 0 && !isStreaming && (
                 <Button
                   variant="ghost"
@@ -361,8 +445,7 @@ export function ChatPage() {
             </div>
           </div>
 
-          {/* Message area — plain div so scroll position is owned by the DOM element,
-               not reset by a Radix viewport on every re-render */}
+          {/* Message area */}
           <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-4 space-y-4">
               {showWelcome ? (
@@ -373,7 +456,7 @@ export function ChatPage() {
                     </div>
                     <p className="font-semibold text-foreground">Sky is ready.</p>
                     <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
-                      Ask me anything, or attach an image to analyse visuals instantly.
+                      Ask me anything, attach an image to analyse or edit it with AI.
                     </p>
                   </div>
                   <div className="space-y-2">
@@ -402,6 +485,8 @@ export function ChatPage() {
                       key={msg.id}
                       role={msg.role}
                       content={msg.content}
+                      imagePreview={msg.imagePreview}
+                      resultImage={msg.resultImage}
                     />
                   ))}
                   {isStreaming && (
@@ -412,10 +497,11 @@ export function ChatPage() {
             </div>
           </div>
 
-          {/* Input — isolated, unaffected by streaming re-renders */}
           <ChatInput
             isStreaming={isStreaming}
+            isEditing={isEditing}
             onSend={handleSend}
+            onEdit={handleEdit}
             onCameraOpen={() => setCameraOpen(true)}
           />
         </div>

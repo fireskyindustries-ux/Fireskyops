@@ -1,12 +1,23 @@
 import { Router } from "express";
 import { eq, desc, and } from "drizzle-orm";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import { db, conversations, messages } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { brand } from "../brand.config";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const GPT_MODEL = "gpt-5";
+const FAST_MODEL = "gpt-4o-mini";
+
+const COMPLEX_KEYWORDS = /\b(analys|explain in detail|compare|code|write|translate|research|summarise|summarize|debate|calculate|legal|medical|strategy|critique|review|essay|report|thesis)\b/i;
+
+function selectModel(mode: string, message: string): string {
+  if (mode === "fast") return FAST_MODEL;
+  if (mode === "smart") return GPT_MODEL;
+  // auto: fast for short simple messages, smart for anything complex
+  if (message.length > 200 || COMPLEX_KEYWORDS.test(message)) return GPT_MODEL;
+  return FAST_MODEL;
+}
 
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastErr: unknown;
@@ -242,10 +253,11 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const convId = Number(req.params.id);
-  const { message, imageBase64, mimeType = "image/jpeg" } = req.body as {
+  const { message, imageBase64, mimeType = "image/jpeg", modelMode = "auto" } = req.body as {
     message: string;
     imageBase64?: string;
     mimeType?: string;
+    modelMode?: string;
   };
 
   if (!message?.trim()) { res.status(400).json({ error: "message required" }); return; }
@@ -290,9 +302,12 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
       { role: "user", content: currentUserContent },
     ];
 
+    const chosenModel = selectModel(modelMode, message.trim());
+    sseWrite({ model: chosenModel });
+
     let fullResponse = "";
     const stream = await withRetry(() => openai.chat.completions.create({
-      model: GPT_MODEL,
+      model: chosenModel,
       messages: openaiMessages,
       stream: true,
     }));
@@ -349,6 +364,43 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
     sseWrite({ error: "Sky is unavailable right now. Please try again." });
     sseWrite({ done: true });
     res.end();
+  }
+});
+
+// ─── Image editing ────────────────────────────────────────────────────────────
+router.post("/sky-vision/edit-image", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { imageBase64, mimeType = "image/png", prompt } = req.body as {
+    imageBase64: string;
+    mimeType?: string;
+    prompt: string;
+  };
+
+  if (!imageBase64 || !prompt?.trim()) {
+    res.status(400).json({ error: "imageBase64 and prompt are required" });
+    return;
+  }
+
+  try {
+    const imageBuffer = Buffer.from(imageBase64, "base64");
+    const imageFile = await toFile(imageBuffer, "image.png", { type: "image/png" });
+
+    const result = await openai.images.edit({
+      model: "gpt-image-1",
+      image: imageFile,
+      prompt: prompt.trim(),
+      n: 1,
+    });
+
+    const b64 = result.data?.[0]?.b64_json;
+    if (!b64) throw new Error("No image returned");
+
+    res.json({ imageBase64: b64, mimeType: "image/png" });
+  } catch (err: any) {
+    console.error("Image edit error:", err?.message);
+    res.status(500).json({ error: "Image editing failed. Please try a different prompt or image." });
   }
 });
 

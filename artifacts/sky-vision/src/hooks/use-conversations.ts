@@ -6,6 +6,8 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  imagePreview?: string;  // in-memory: attached image shown in the bubble
+  resultImage?: string;   // in-memory: AI-edited image returned in the bubble
 }
 
 export interface Conversation {
