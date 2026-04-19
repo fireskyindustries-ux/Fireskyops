@@ -10,12 +10,12 @@ import { Send, X, RotateCcw, Sparkles, ChevronRight, Database, RefreshCw } from 
 import { cn } from "@/lib/utils";
 
 const SUGGESTED_ACTIONS = [
-  { label: "What needs my attention today?", message: "Looking at the live system data, what are the most important things I should focus on today? Prioritise by urgency." },
-  { label: "Pipeline briefing", message: "Give me a full pipeline briefing — how many jobs are in each stage, which ones are stalled, and what the overall health of the pipeline looks like." },
-  { label: "Which quotes are overdue?", message: "Which jobs have been in the quoting or quoted stage for too long? List them with how many days they've been waiting." },
-  { label: "Enquiries awaiting response", message: "Are there any new enquiries that haven't been responded to or progressed? List them by name and how long they've been waiting." },
-  { label: "What's in stock?", message: "Check our current stock levels and tell me what we have and what's running low." },
-  { label: "Summarise the week", message: "Give me a brief summary of where the business stands right now — customers, pipeline, any urgent items that need action." },
+  { label: "What can you help me with?", message: "Give me a quick overview of everything you can help me with." },
+  { label: "Write something for me", message: "I need help writing something — a professional email, a report, a message, or anything else. What do you need from me?" },
+  { label: "Explain a concept", message: "I want to understand something better. Ask me what topic and I'll tell you." },
+  { label: "Help me think through a problem", message: "I have a problem or decision I need to work through. Can you help me think it out clearly?" },
+  { label: "Business pipeline briefing", message: "Give me a full pipeline briefing — how many jobs are in each stage, which ones are stalled, and what the overall health of the pipeline looks like." },
+  { label: "Research or summarise a topic", message: "I need you to research or summarise something for me. What would you like to know about?" },
 ];
 
 function MessageBubble({ role, content, isThinking }: { role: "user" | "assistant"; content: string; isThinking?: boolean }) {
