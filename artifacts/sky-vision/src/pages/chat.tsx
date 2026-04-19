@@ -133,10 +133,29 @@ export function ChatPage() {
   const { sendMessage, isStreaming, streamingMessage } = useChat(activeId || null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const initialScrollDone = useRef(false);
+  const prevMessageCount = useRef(0);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const count = conversation?.messages?.length ?? 0;
+    const isNewMessage = count > prevMessageCount.current;
+    prevMessageCount.current = count;
+
+    if (!initialScrollDone.current && count > 0) {
+      // First load — jump instantly, no animation
+      bottomRef.current?.scrollIntoView({ behavior: "instant" });
+      initialScrollDone.current = true;
+    } else if (isNewMessage || streamingMessage) {
+      // New message or streaming — smooth scroll
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [conversation?.messages, streamingMessage]);
+
+  // Reset scroll tracking when switching conversations
+  useEffect(() => {
+    initialScrollDone.current = false;
+    prevMessageCount.current = 0;
+  }, [activeId]);
 
   // Stable send handler — wrapped in a ref so ChatInput never gets a new function reference
   const handleSend = useCallback(async (text: string) => {
