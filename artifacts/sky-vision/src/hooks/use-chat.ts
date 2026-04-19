@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
@@ -14,9 +14,12 @@ export function useChat(conversationId: string | null) {
   });
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const conversationIdRef = useRef(conversationId);
+  useEffect(() => { conversationIdRef.current = conversationId; }, [conversationId]);
 
   const sendMessage = useCallback(
-    async (message: string) => {
+    async (message: string, overrideConversationId?: string) => {
+      const conversationId = overrideConversationId || conversationIdRef.current;
       if (!conversationId) return;
 
       setStreamState({ isStreaming: true, streamingMessage: "" });
@@ -77,7 +80,7 @@ export function useChat(conversationId: string | null) {
         queryClient.invalidateQueries({ queryKey: ["conversations", conversationId] });
       }
     },
-    [conversationId, queryClient, toast]
+    [queryClient, toast]
   );
 
   return { sendMessage, ...streamState };

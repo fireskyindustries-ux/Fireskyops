@@ -66,150 +66,143 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* LIGHT MODE */
+/* Dark grey theme — matches Firesky Ops */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
-  --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
-
-  --background: 0 0% 98%;
-  --foreground: 240 10% 4%;
-  --border: 240 6% 90%;
-  --card: 0 0% 100%;
-  --card-foreground: 240 10% 4%;
-  --card-border: 240 6% 90%;
-  --sidebar: 240 5% 96%;
-  --sidebar-foreground: 240 10% 4%;
-  --sidebar-border: 240 6% 90%;
-  --sidebar-primary: 23 97% 46%;
-  --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 240 5% 92%;
-  --sidebar-accent-foreground: 240 10% 4%;
-  --sidebar-ring: 23 97% 46%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 4%;
-  --popover-border: 240 6% 90%;
-  --primary: 23 97% 46%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 240 5% 94%;
-  --secondary-foreground: 240 10% 4%;
-  --muted: 240 5% 94%;
-  --muted-foreground: 240 4% 46%;
-  --accent: 240 5% 92%;
-  --accent-foreground: 240 10% 4%;
-  --destructive: 0 72% 51%;
-  --destructive-foreground: 0 0% 98%;
-  --input: 240 6% 90%;
-  --ring: 23 97% 46%;
-  --chart-1: 23 97% 46%;
-  --chart-2: 173 58% 39%;
-  --chart-3: 197 37% 24%;
-  --chart-4: 43 74% 66%;
-  --chart-5: 27 87% 67%;
-
-  --app-font-sans: 'Inter', sans-serif;
-  --app-font-serif: Georgia, serif;
-  --app-font-mono: Menlo, monospace;
-  --radius: .5rem;
-  --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0,.05);
-  --shadow-xs: 0px 1px 3px 0px rgba(0,0,0,.07);
-  --shadow-sm: 0px 1px 3px 0px rgba(0,0,0,.07), 0px 1px 2px -1px rgba(0,0,0,.07);
-  --shadow: 0px 2px 4px 0px rgba(0,0,0,.07), 0px 1px 2px -1px rgba(0,0,0,.07);
-  --shadow-md: 0px 4px 6px -1px rgba(0,0,0,.07), 0px 2px 4px -2px rgba(0,0,0,.07);
-  --shadow-lg: 0px 10px 15px -3px rgba(0,0,0,.07), 0px 4px 6px -4px rgba(0,0,0,.07);
-  --shadow-xl: 0px 20px 25px -5px rgba(0,0,0,.07), 0px 8px 10px -6px rgba(0,0,0,.07);
-  --shadow-2xl: 0px 25px 50px -12px rgba(0,0,0,.25);
-  --tracking-normal: 0em;
-  --spacing: 0.25rem;
-
-  --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --primary-border: hsl(var(--primary));
-  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --secondary-border: hsl(var(--secondary));
-  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --muted-border: hsl(var(--muted));
-  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --accent-border: hsl(var(--accent));
-  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --destructive-border: hsl(var(--destructive));
-  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-}
-
-/* DARK MODE — always active (App.tsx adds .dark to <html>) */
-.dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
+  --button-outline: rgba(255,255,255, .12);
+  --badge-outline: rgba(255,255,255, .06);
   --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  /* Deep dark backgrounds */
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --border: 240 6% 20%;
+  --background: 0 0% 12%;
+  --foreground: 0 0% 94%;
+  --border: 0 0% 24%;
+  --card: 0 0% 18%;
+  --card-foreground: 0 0% 94%;
+  --card-border: 0 0% 25%;
 
-  /* Cards slightly lighter than background */
-  --card: 240 10% 6.5%;
-  --card-foreground: 0 0% 98%;
-  --card-border: 240 6% 18%;
+  --sidebar: 0 0% 15%;
+  --sidebar-foreground: 0 0% 94%;
+  --sidebar-border: 0 0% 22%;
+  --sidebar-primary: 24 90% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 0 0% 22%;
+  --sidebar-accent-foreground: 0 0% 94%;
+  --sidebar-ring: 24 90% 50%;
 
-  /* Sidebar even darker strip */
-  --sidebar: 240 10% 3%;
-  --sidebar-foreground: 0 0% 98%;
-  --sidebar-border: 240 6% 16%;
-  --sidebar-primary: 23 97% 46%;
-  --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 240 4% 14%;
-  --sidebar-accent-foreground: 0 0% 98%;
-  --sidebar-ring: 23 97% 46%;
+  --popover: 0 0% 18%;
+  --popover-foreground: 0 0% 94%;
+  --popover-border: 0 0% 25%;
 
-  /* Popover */
-  --popover: 240 10% 6.5%;
-  --popover-foreground: 0 0% 98%;
-  --popover-border: 240 6% 18%;
+  --primary: 24 90% 50%;
+  --primary-foreground: 0 0% 100%;
 
-  /* Firesky orange as primary */
-  --primary: 23 97% 46%;
-  --primary-foreground: 0 0% 98%;
+  --secondary: 150 10% 22%;
+  --secondary-foreground: 0 0% 100%;
 
-  /* Neutral dark for secondary/muted */
-  --secondary: 240 4% 14%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 4% 14%;
-  --muted-foreground: 240 5% 64.9%;
+  --muted: 0 0% 22%;
+  --muted-foreground: 0 0% 62%;
 
-  /* Accent for hover states */
-  --accent: 240 4% 16%;
-  --accent-foreground: 0 0% 98%;
+  --accent: 0 0% 26%;
+  --accent-foreground: 0 0% 94%;
 
-  /* Destructive */
-  --destructive: 0 72% 51%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive: 0 62% 42%;
+  --destructive-foreground: 0 0% 100%;
 
-  /* Input border — visible on dark cards */
-  --input: 240 4% 22%;
-  --ring: 23 97% 46%;
+  --input: 0 0% 28%;
+  --ring: 24 90% 50%;
 
-  /* Chart colours */
-  --chart-1: 23 97% 46%;
-  --chart-2: 173 58% 39%;
-  --chart-3: 197 37% 24%;
-  --chart-4: 43 74% 66%;
-  --chart-5: 27 87% 67%;
+  --chart-1: 24 90% 50%;
+  --chart-2: 150 10% 20%;
+  --chart-3: 45 90% 50%;
+  --chart-4: 200 80% 40%;
+  --chart-5: 280 60% 50%;
 
-  --shadow-2xs: 0px 2px 4px 0px rgba(0,0,0,.40);
-  --shadow-xs: 0px 2px 6px 0px rgba(0,0,0,.45);
-  --shadow-sm: 0px 2px 6px 0px rgba(0,0,0,.45), 0px 1px 2px -1px rgba(0,0,0,.40);
-  --shadow: 0px 2px 6px 0px rgba(0,0,0,.45), 0px 1px 2px -1px rgba(0,0,0,.40);
-  --shadow-md: 0px 4px 8px -1px rgba(0,0,0,.45), 0px 2px 4px -2px rgba(0,0,0,.40);
-  --shadow-lg: 0px 10px 16px -3px rgba(0,0,0,.45), 0px 4px 6px -4px rgba(0,0,0,.40);
-  --shadow-xl: 0px 20px 28px -5px rgba(0,0,0,.45), 0px 8px 10px -6px rgba(0,0,0,.40);
-  --shadow-2xl: 0px 25px 50px -12px rgba(0,0,0,.60);
+  --app-font-sans: 'Inter', sans-serif;
+  --app-font-serif: Georgia, serif;
+  --app-font-mono: Menlo, monospace;
+  --radius: 0.375rem;
+  --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.2);
+  --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.2);
+  --shadow-sm: 0px 2px 0px 0px hsl(0 0% 0% / 0.2), 0px 1px 2px -1px hsl(0 0% 0% / 0.2);
+  --shadow: 0px 2px 0px 0px hsl(0 0% 0% / 0.2), 0px 1px 2px -1px hsl(0 0% 0% / 0.2);
+  --shadow-md: 0px 2px 0px 0px hsl(0 0% 0% / 0.2), 0px 2px 4px -1px hsl(0 0% 0% / 0.2);
+  --shadow-lg: 0px 2px 0px 0px hsl(0 0% 0% / 0.2), 0px 4px 6px -1px hsl(0 0% 0% / 0.2);
+  --shadow-xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.2), 0px 8px 10px -1px hsl(0 0% 0% / 0.2);
+  --shadow-2xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.2);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+
+  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+}
+
+/* DARK MODE — always active (App.tsx adds .dark to <html>) — matches Firesky Ops dark */
+.dark {
+  --button-outline: rgba(255,255,255, .12);
+  --badge-outline: rgba(255,255,255, .06);
+  --opaque-button-border-intensity: 9;
+  --elevate-1: rgba(255,255,255, .04);
+  --elevate-2: rgba(255,255,255, .09);
+
+  --background: 0 0% 10%;
+  --foreground: 0 0% 94%;
+  --border: 0 0% 22%;
+
+  --card: 0 0% 16%;
+  --card-foreground: 0 0% 94%;
+  --card-border: 0 0% 23%;
+
+  --sidebar: 0 0% 13%;
+  --sidebar-foreground: 0 0% 94%;
+  --sidebar-border: 0 0% 20%;
+  --sidebar-primary: 24 90% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 0 0% 20%;
+  --sidebar-accent-foreground: 0 0% 94%;
+  --sidebar-ring: 24 90% 50%;
+
+  --popover: 0 0% 16%;
+  --popover-foreground: 0 0% 94%;
+  --popover-border: 0 0% 23%;
+
+  --primary: 24 90% 50%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 150 10% 22%;
+  --secondary-foreground: 0 0% 100%;
+
+  --muted: 0 0% 20%;
+  --muted-foreground: 0 0% 60%;
+
+  --accent: 0 0% 24%;
+  --accent-foreground: 0 0% 94%;
+
+  --destructive: 0 62% 40%;
+  --destructive-foreground: 0 0% 100%;
+
+  --input: 0 0% 26%;
+  --ring: 24 90% 50%;
+
+  --chart-1: 24 90% 50%;
+  --chart-2: 150 10% 20%;
+  --chart-3: 45 90% 50%;
+  --chart-4: 200 80% 40%;
+  --chart-5: 280 60% 50%;
+
+  --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.2);
+  --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.2);
+  --shadow-sm: 0px 2px 0px 0px hsl(0 0% 0% / 0.2), 0px 1px 2px -1px hsl(0 0% 0% / 0.2);
+  --shadow: 0px 2px 0px 0px hsl(0 0% 0% / 0.2), 0px 1px 2px -1px hsl(0 0% 0% / 0.2);
+  --shadow-md: 0px 2px 0px 0px hsl(0 0% 0% / 0.2), 0px 2px 4px -1px hsl(0 0% 0% / 0.2);
+  --shadow-lg: 0px 2px 0px 0px hsl(0 0% 0% / 0.2), 0px 4px 6px -1px hsl(0 0% 0% / 0.2);
+  --shadow-xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.2), 0px 8px 10px -1px hsl(0 0% 0% / 0.2);
+  --shadow-2xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.2);
 }
 
 @layer base {

@@ -49,14 +49,7 @@ export function ChatPage() {
     }
 
     setInput("");
-    
-    // Wait for state to settle before sending if we just created it
-    // In a real app we'd await the setState or pass it down, but the hook grabs activeId.
-    // For simplicity, we pass the id directly to a slightly modified hook, but since useChat 
-    // depends on activeId, it might miss the immediate update. We'll do a slight timeout.
-    setTimeout(() => {
-      sendMessage(text);
-    }, 50);
+    sendMessage(text, targetId);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
