@@ -235,7 +235,7 @@ export function ChatPage() {
 
   const { data: conversation, isLoading } = useConversation(activeId || null);
   const createConv = useCreateConversation();
-  const { sendMessage, isStreaming, streamingMessage, suggestions } = useChat(activeId || null);
+  const { sendMessage, isStreaming, streamingMessage } = useChat(activeId || null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollDone = useRef(false);
@@ -406,20 +406,6 @@ export function ChatPage() {
                   ))}
                   {isStreaming && (
                     <MessageBubble role="assistant" content={streamingMessage} isThinking={!streamingMessage} />
-                  )}
-                  {!isStreaming && suggestions.length > 0 && (
-                    <div className="flex flex-col gap-2 pt-1">
-                      {suggestions.map((s, i) => (
-                        <button
-                          key={i}
-                          onClick={() => handleSuggestion(s)}
-                          className="w-full text-left px-3 py-2 rounded-xl border border-border bg-card hover:bg-muted/60 transition-colors text-xs text-muted-foreground hover:text-foreground flex items-center gap-2 group"
-                        >
-                          <ChevronRight className="h-3 w-3 flex-shrink-0 text-primary group-hover:translate-x-0.5 transition-transform" />
-                          <span>{s}</span>
-                        </button>
-                      ))}
-                    </div>
                   )}
                 </div>
               )}
