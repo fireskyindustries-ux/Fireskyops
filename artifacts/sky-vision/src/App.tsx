@@ -53,7 +53,15 @@ function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
   const qc = useQueryClient();
   useEffect(() => {
-    const unsubscribe = addListener(() => { qc.clear(); });
+    // Only wipe the cache when the session ends (sign-out / user switch).
+    // Clerk also fires this listener on every periodic token refresh — if we
+    // called qc.clear() there, it would blank the conversation on every ~1min
+    // token rotation, causing the "jump to top" scroll reset the user sees.
+    const unsubscribe = addListener((resources) => {
+      if (!resources.session) {
+        qc.clear();
+      }
+    });
     return unsubscribe;
   }, [addListener, qc]);
   return null;
