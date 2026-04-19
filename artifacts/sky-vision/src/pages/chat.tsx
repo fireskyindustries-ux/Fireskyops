@@ -4,7 +4,7 @@ import { useConversation, useCreateConversation, Message } from "@/hooks/use-con
 import { useChat } from "@/hooks/use-chat";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizontal, Sparkles } from "lucide-react";
+import { SendHorizontal, Sparkles, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function ChatPage() {
@@ -76,7 +76,16 @@ export function ChatPage() {
         {/* Mobile Header */}
         <header className="md:hidden flex items-center p-3 border-b border-border bg-background/95 backdrop-blur z-10">
           <Sidebar activeId={activeId} onSelect={setActiveId} isMobile />
-          <span className="font-semibold ml-2">Sky Vision</span>
+          <span className="font-semibold ml-2 flex-1">Sky Vision</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => window.close()}
+            title="Close Sky Vision"
+          >
+            <X className="w-4 h-4" />
+          </Button>
         </header>
 
         {/* Chat Area */}

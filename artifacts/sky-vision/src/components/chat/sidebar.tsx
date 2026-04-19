@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, MessageSquare, MoreVertical, Pencil, Trash, Menu } from "lucide-react";
+import { Plus, MessageSquare, MoreVertical, Pencil, Trash, Menu, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,10 +66,19 @@ export function Sidebar({ activeId, onSelect, isMobile = false }: SidebarProps) 
 
   const content = (
     <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border w-[280px]">
-      <div className="p-4">
-        <Button onClick={handleNew} className="w-full justify-start gap-2" variant="outline">
+      <div className="p-4 flex items-center gap-2">
+        <Button onClick={handleNew} className="flex-1 justify-start gap-2" variant="outline">
           <Plus className="w-4 h-4" />
           New Chat
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="shrink-0 text-muted-foreground hover:text-foreground"
+          onClick={() => window.close()}
+          title="Close Sky Vision"
+        >
+          <X className="w-4 h-4" />
         </Button>
       </div>
       <ScrollArea className="flex-1 px-3">
