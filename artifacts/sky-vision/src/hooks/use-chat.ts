@@ -8,6 +8,11 @@ interface StreamState {
   streamingMessage: string;
 }
 
+export interface ImageAttachment {
+  base64: string;
+  mimeType: string;
+}
+
 export function useChat(conversationId: string | null) {
   const [streamState, setStreamState] = useState<StreamState>({
     isStreaming: false,
@@ -19,7 +24,7 @@ export function useChat(conversationId: string | null) {
   useEffect(() => { conversationIdRef.current = conversationId; }, [conversationId]);
 
   const sendMessage = useCallback(
-    async (message: string, overrideConversationId?: string) => {
+    async (message: string, overrideConversationId?: string, image?: ImageAttachment) => {
       const id = overrideConversationId || conversationIdRef.current;
       if (!id) return;
 
@@ -49,7 +54,11 @@ export function useChat(conversationId: string | null) {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message }),
+          body: JSON.stringify({
+            message,
+            imageBase64: image?.base64,
+            mimeType: image?.mimeType,
+          }),
         });
 
         if (!response.ok) throw new Error("Failed to send message");

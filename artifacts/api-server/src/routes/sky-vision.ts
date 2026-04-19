@@ -155,13 +155,98 @@ router.patch("/sky-vision/conversations/:id", async (req, res): Promise<void> =>
   }
 });
 
+// ─── Standalone vision / camera endpoint ─────────────────────────────────────
+router.post("/sky-vision/vision", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { imageBase64, mimeType = "image/jpeg", question, history = [] } = req.body as {
+    imageBase64: string;
+    mimeType?: string;
+    question?: string;
+    history?: Array<{ role: "user" | "assistant"; content: string }>;
+  };
+
+  if (!imageBase64) { res.status(400).json({ error: "imageBase64 required" }); return; }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const sseWrite = (data: Record<string, unknown>) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+  const visionSystemPrompt = `You are Sky, a general-purpose visual AI assistant. When shown an image:
+- Describe clearly and thoroughly what you see
+- Answer any specific questions about the image precisely  
+- Provide useful analysis, insights, or observations
+- If relevant to a technical, business, or practical context, flag anything important
+
+Be direct and informative. Do not use markdown formatting symbols such as ** or ##. Never use emoji.`;
+
+  const userQuestion = question?.trim() || "What do you see? Describe everything you observe in detail.";
+
+  const visionMessages: any[] = [{ role: "system", content: visionSystemPrompt }];
+  for (const turn of history) {
+    visionMessages.push({ role: turn.role, content: turn.content });
+  }
+  visionMessages.push({
+    role: "user",
+    content: [
+      { type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+      { type: "text", text: userQuestion },
+    ],
+  });
+
+  try {
+    const stream = await withRetry(() => openai.chat.completions.create({
+      model: GPT_MODEL,
+      messages: visionMessages,
+      max_completion_tokens: 600,
+      stream: true,
+    }));
+
+    let fullResponse = "";
+    for await (const chunk of stream) {
+      const text = chunk.choices[0]?.delta?.content ?? "";
+      if (text) { fullResponse += text; sseWrite({ content: text }); }
+    }
+
+    // Generate 3 follow-up suggestions
+    try {
+      const suggestResp = await openai.chat.completions.create({
+        model: GPT_MODEL,
+        messages: [
+          ...visionMessages,
+          { role: "assistant", content: fullResponse },
+          { role: "user", content: "Give me exactly 3 short follow-up questions a user might ask about this image. Reply with ONLY a JSON array of 3 strings, no other text." },
+        ],
+        max_completion_tokens: 120,
+      });
+      const raw = suggestResp.choices[0]?.message?.content?.trim() ?? "[]";
+      const suggestions = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      if (Array.isArray(suggestions)) sseWrite({ suggestions });
+    } catch { /* suggestions optional */ }
+
+    sseWrite({ done: true });
+    res.end();
+  } catch (err: any) {
+    sseWrite({ error: "Sky could not analyse the image. Please try again." });
+    sseWrite({ done: true });
+    res.end();
+  }
+});
+
 // ─── Stream chat in a conversation ───────────────────────────────────────────
 router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void> => {
   const userId = (req as any).userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const convId = Number(req.params.id);
-  const { message } = req.body as { message: string };
+  const { message, imageBase64, mimeType = "image/jpeg" } = req.body as {
+    message: string;
+    imageBase64?: string;
+    mimeType?: string;
+  };
 
   if (!message?.trim()) { res.status(400).json({ error: "message required" }); return; }
 
@@ -170,7 +255,7 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
     .where(and(eq(conversations.id, convId), eq(conversations.userId, userId)));
   if (!convo) { res.status(404).json({ error: "Not found" }); return; }
 
-  // Save user message
+  // Save user message (text only — image is sent to AI for context but not stored)
   await db.insert(messages).values({ conversationId: convId, role: "user", content: message.trim() });
 
   // Load full history for context
@@ -188,9 +273,21 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
   };
 
   try {
+    // Build message history — all but last message are text-only
+    const historyMessages = history.slice(0, -1).map((m) => ({ role: m.role, content: m.content }));
+
+    // Current user turn — multimodal if image provided
+    const currentUserContent: any = imageBase64
+      ? [
+          { type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+          { type: "text", text: message.trim() },
+        ]
+      : message.trim();
+
     const openaiMessages: any[] = [
       { role: "system", content: SYSTEM_PROMPT },
-      ...history.map((m) => ({ role: m.role, content: m.content })),
+      ...historyMessages,
+      { role: "user", content: currentUserContent },
     ];
 
     let fullResponse = "";
