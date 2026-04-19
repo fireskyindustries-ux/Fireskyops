@@ -54,7 +54,7 @@ router.use(requireAuth);
 // ─── List user's conversations ───────────────────────────────────────────────
 router.get("/sky-vision/conversations", async (req, res): Promise<void> => {
   try {
-    const userId = (req as any).auth?.userId;
+    const userId = (req as any).userId;
     if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
     const convos = await db
@@ -73,7 +73,7 @@ router.get("/sky-vision/conversations", async (req, res): Promise<void> => {
 // ─── Create a new conversation ────────────────────────────────────────────────
 router.post("/sky-vision/conversations", async (req, res): Promise<void> => {
   try {
-    const userId = (req as any).auth?.userId;
+    const userId = (req as any).userId;
     if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
     const { title = "New conversation" } = req.body as { title?: string };
@@ -92,7 +92,7 @@ router.post("/sky-vision/conversations", async (req, res): Promise<void> => {
 // ─── Get conversation + messages ──────────────────────────────────────────────
 router.get("/sky-vision/conversations/:id", async (req, res): Promise<void> => {
   try {
-    const userId = (req as any).auth?.userId;
+    const userId = (req as any).userId;
     if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
     const id = Number(req.params.id);
@@ -114,7 +114,7 @@ router.get("/sky-vision/conversations/:id", async (req, res): Promise<void> => {
 // ─── Delete a conversation ────────────────────────────────────────────────────
 router.delete("/sky-vision/conversations/:id", async (req, res): Promise<void> => {
   try {
-    const userId = (req as any).auth?.userId;
+    const userId = (req as any).userId;
     if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
     const id = Number(req.params.id);
@@ -133,7 +133,7 @@ router.delete("/sky-vision/conversations/:id", async (req, res): Promise<void> =
 // ─── Rename a conversation ────────────────────────────────────────────────────
 router.patch("/sky-vision/conversations/:id", async (req, res): Promise<void> => {
   try {
-    const userId = (req as any).auth?.userId;
+    const userId = (req as any).userId;
     if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
     const id = Number(req.params.id);
@@ -154,7 +154,7 @@ router.patch("/sky-vision/conversations/:id", async (req, res): Promise<void> =>
 
 // ─── Stream chat in a conversation ───────────────────────────────────────────
 router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void> => {
-  const userId = (req as any).auth?.userId;
+  const userId = (req as any).userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const convId = Number(req.params.id);

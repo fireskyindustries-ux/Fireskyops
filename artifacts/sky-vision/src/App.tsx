@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { Router as WouterRouter, Switch, Route, Redirect, useLocation } from "wouter";
 import { ClerkProvider, SignIn, useAuth, useClerk } from "@clerk/react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
@@ -52,15 +52,8 @@ const clerkAppearance = {
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
   const qc = useQueryClient();
-  const prevUserIdRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    const unsubscribe = addListener(({ user }) => {
-      const userId = user?.id ?? null;
-      if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
-        qc.clear();
-      }
-      prevUserIdRef.current = userId;
-    });
+    const unsubscribe = addListener(() => { qc.clear(); });
     return unsubscribe;
   }, [addListener, qc]);
   return null;
@@ -84,31 +77,12 @@ function SignInPage() {
 }
 
 function AuthGate() {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
-  const [tokenReady, setTokenReady] = useState(false);
+  const { isLoaded, isSignedIn } = useAuth();
 
-  useEffect(() => {
-    if (!isLoaded || !isSignedIn) return;
-    let cancelled = false;
-    async function waitForToken() {
-      for (let i = 0; i < 10; i++) {
-        if (cancelled) return;
-        const token = await getToken();
-        if (token) { setTokenReady(true); return; }
-        await new Promise(r => setTimeout(r, 500));
-      }
-      setTokenReady(true);
-    }
-    waitForToken();
-    return () => { cancelled = true; };
-  }, [isLoaded, isSignedIn, getToken]);
-
-  if (!isLoaded || (isSignedIn && !tokenReady)) {
+  if (!isLoaded) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3 text-muted-foreground">
-          <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        </div>
+        <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
       </div>
     );
   }

@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@clerk/react";
 import { useToast } from "@/hooks/use-toast";
 
 interface StreamState {
@@ -13,7 +12,6 @@ export function useChat(conversationId: string | null) {
     isStreaming: false,
     streamingMessage: "",
   });
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -24,14 +22,10 @@ export function useChat(conversationId: string | null) {
       setStreamState({ isStreaming: true, streamingMessage: "" });
 
       try {
-        const token = await getToken();
         const response = await fetch(`/api/sky-vision/conversations/${conversationId}/chat`, {
           method: "POST",
           credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message }),
         });
 
@@ -53,34 +47,26 @@ export function useChat(conversationId: string | null) {
 
           for (const line of lines) {
             if (!line.startsWith("data: ")) continue;
-            
             try {
               const data = JSON.parse(line.slice(6));
-              
               if (data.content) {
                 setStreamState((prev) => ({
                   ...prev,
                   streamingMessage: prev.streamingMessage + data.content,
                 }));
               }
-              
               if (data.title) {
                 queryClient.invalidateQueries({ queryKey: ["conversations"] });
               }
-              
               if (data.error) {
-                toast({
-                  title: "Error",
-                  description: data.error,
-                  variant: "destructive",
-                });
+                toast({ title: "Error", description: data.error, variant: "destructive" });
               }
             } catch (e) {
               console.error("Failed to parse SSE line", line, e);
             }
           }
         }
-      } catch (error) {
+      } catch {
         toast({
           title: "Error",
           description: "Failed to communicate with Sky.",
@@ -91,11 +77,8 @@ export function useChat(conversationId: string | null) {
         queryClient.invalidateQueries({ queryKey: ["conversations", conversationId] });
       }
     },
-    [conversationId, getToken, queryClient, toast]
+    [conversationId, queryClient, toast]
   );
 
-  return {
-    sendMessage,
-    ...streamState,
-  };
+  return { sendMessage, ...streamState };
 }

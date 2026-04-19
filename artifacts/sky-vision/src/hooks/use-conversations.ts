@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@clerk/react";
 
 export interface Message {
   id: string;
@@ -17,56 +16,45 @@ export interface Conversation {
   messages?: Message[];
 }
 
-async function authFetch(url: string, getToken: () => Promise<string | null>, options: RequestInit = {}) {
-  const token = await getToken();
-  return fetch(url, {
+async function apiFetch(url: string, options: RequestInit = {}) {
+  const res = await fetch(url, {
     ...options,
     credentials: "include",
     headers: {
+      "Content-Type": "application/json",
       ...(options.headers as Record<string, string> | undefined),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  return res.json();
 }
 
 export function useConversations() {
-  const { getToken } = useAuth();
   return useQuery<Conversation[]>({
     queryKey: ["conversations"],
-    queryFn: async () => {
-      const res = await authFetch("/api/sky-vision/conversations", getToken);
-      if (!res.ok) throw new Error("Failed to fetch conversations");
-      return res.json();
-    },
+    queryFn: () => apiFetch("/api/sky-vision/conversations"),
   });
 }
 
 export function useConversation(id: string | null) {
-  const { getToken } = useAuth();
   return useQuery<Conversation>({
     queryKey: ["conversations", id],
-    queryFn: async () => {
+    queryFn: () => {
       if (!id) throw new Error("No id");
-      const res = await authFetch(`/api/sky-vision/conversations/${id}`, getToken);
-      if (!res.ok) throw new Error("Failed to fetch conversation");
-      return res.json();
+      return apiFetch(`/api/sky-vision/conversations/${id}`);
     },
     enabled: !!id,
   });
 }
 
 export function useCreateConversation() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (title?: string) => {
-      const res = await authFetch("/api/sky-vision/conversations", getToken, {
+      return apiFetch("/api/sky-vision/conversations", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title }),
-      });
-      if (!res.ok) throw new Error("Failed to create conversation");
-      return res.json() as Promise<Conversation>;
+      }) as Promise<Conversation>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
@@ -75,17 +63,13 @@ export function useCreateConversation() {
 }
 
 export function useUpdateConversation() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, title }: { id: string; title: string }) => {
-      const res = await authFetch(`/api/sky-vision/conversations/${id}`, getToken, {
+      return apiFetch(`/api/sky-vision/conversations/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title }),
-      });
-      if (!res.ok) throw new Error("Failed to update conversation");
-      return res.json() as Promise<Conversation>;
+      }) as Promise<Conversation>;
     },
     onSuccess: (data, { id }) => {
       queryClient.setQueryData(["conversations"], (old: Conversation[] | undefined) => {
@@ -98,12 +82,12 @@ export function useUpdateConversation() {
 }
 
 export function useDeleteConversation() {
-  const { getToken } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await authFetch(`/api/sky-vision/conversations/${id}`, getToken, {
+      const res = await fetch(`/api/sky-vision/conversations/${id}`, {
         method: "DELETE",
+        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to delete conversation");
     },
