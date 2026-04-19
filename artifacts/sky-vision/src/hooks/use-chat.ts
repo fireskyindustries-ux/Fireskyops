@@ -135,12 +135,15 @@ export function useChat(conversationId: string | null) {
           variant: "destructive",
         });
       } finally {
-        // Clear streaming state first so the streaming bubble disappears only
-        // after the cache already has the real content above.
+        // Clear streaming state — the cache already has the full content so
+        // the streaming bubble disappears with no gap.
         setStreamState({ isStreaming: false, streamingMessage: "" });
-        // Background sync with server — replaces the local IDs with real DB IDs.
-        // Since the cache already has the correct content this refetch is invisible.
-        queryClient.invalidateQueries({ queryKey: ["conversations", id] });
+        // Only refresh the sidebar list (to show auto-title updates etc.).
+        // We deliberately do NOT refetch the individual conversation here because
+        // the cache already has the correct content and a refetch would swap
+        // local placeholder IDs for real DB IDs, causing React to re-render all
+        // message bubbles (visible flicker). The real IDs arrive on next page load.
+        queryClient.invalidateQueries({ queryKey: ["conversations"], exact: true });
       }
     },
     [queryClient, toast]
