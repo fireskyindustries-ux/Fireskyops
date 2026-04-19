@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/react";
 import { useToast } from "@/hooks/use-toast";
 
 interface StreamState {
@@ -12,6 +13,7 @@ export function useChat(conversationId: string | null) {
     isStreaming: false,
     streamingMessage: "",
   });
+  const { getToken } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -22,10 +24,14 @@ export function useChat(conversationId: string | null) {
       setStreamState({ isStreaming: true, streamingMessage: "" });
 
       try {
+        const token = await getToken();
         const response = await fetch(`/api/sky-vision/conversations/${conversationId}/chat`, {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({ message }),
         });
 
@@ -82,11 +88,10 @@ export function useChat(conversationId: string | null) {
         });
       } finally {
         setStreamState({ isStreaming: false, streamingMessage: "" });
-        // Refetch to get the final saved messages
         queryClient.invalidateQueries({ queryKey: ["conversations", conversationId] });
       }
     },
-    [conversationId, queryClient, toast]
+    [conversationId, getToken, queryClient, toast]
   );
 
   return {
