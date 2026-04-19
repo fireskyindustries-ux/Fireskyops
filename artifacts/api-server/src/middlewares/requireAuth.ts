@@ -56,6 +56,9 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const auth = getAuth(req);
   const userId = auth?.userId;
   if (!userId) {
+    const hasCookie = !!(req.headers.cookie?.includes("__session") || req.headers.cookie?.includes("__client"));
+    const hasBearer = !!req.headers.authorization?.startsWith("Bearer ");
+    console.error(`[requireAuth] 401 path=${req.path} hasCookie=${hasCookie} hasBearer=${hasBearer} authKeys=${JSON.stringify(Object.keys(auth ?? {}))}`);
     return res.status(401).json({ error: "Unauthorized" });
   }
   (req as any).userId = userId;
