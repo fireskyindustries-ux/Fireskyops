@@ -367,6 +367,53 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
   }
 });
 
+// ─── Text-to-speech ───────────────────────────────────────────────────────────
+router.post("/sky-vision/tts", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { text } = req.body as { text: string };
+  if (!text?.trim()) { res.status(400).json({ error: "text required" }); return; }
+
+  try {
+    const mp3 = await openai.audio.speech.create({
+      model: "tts-1",
+      voice: "nova",
+      input: text.trim().slice(0, 4096),
+    });
+    const buffer = Buffer.from(await mp3.arrayBuffer());
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Content-Length", buffer.length);
+    res.send(buffer);
+  } catch (err: any) {
+    console.error("TTS error:", err?.message);
+    res.status(500).json({ error: "TTS failed" });
+  }
+});
+
+// ─── Speech-to-text ───────────────────────────────────────────────────────────
+router.post("/sky-vision/transcribe", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { audioBase64, mimeType = "audio/webm" } = req.body as { audioBase64: string; mimeType?: string };
+  if (!audioBase64) { res.status(400).json({ error: "audioBase64 required" }); return; }
+
+  try {
+    const ext = mimeType.includes("mp4") ? "mp4" : mimeType.includes("ogg") ? "ogg" : "webm";
+    const buffer = Buffer.from(audioBase64, "base64");
+    const audioFile = await toFile(buffer, `audio.${ext}`, { type: mimeType });
+    const transcription = await openai.audio.transcriptions.create({
+      model: "whisper-1",
+      file: audioFile,
+    });
+    res.json({ text: transcription.text });
+  } catch (err: any) {
+    console.error("Transcription error:", err?.message);
+    res.status(500).json({ error: "Transcription failed" });
+  }
+});
+
 // ─── Image editing ────────────────────────────────────────────────────────────
 router.post("/sky-vision/edit-image", async (req, res): Promise<void> => {
   const userId = (req as any).userId;

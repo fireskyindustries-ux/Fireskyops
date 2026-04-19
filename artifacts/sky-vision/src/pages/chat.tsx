@@ -2,10 +2,12 @@ import { useState, useEffect, useRef, useCallback, memo, type KeyboardEvent, typ
 import { Sidebar } from "@/components/chat/sidebar";
 import { useConversation, useCreateConversation, type Message } from "@/hooks/use-conversations";
 import { useChat, type ImageAttachment } from "@/hooks/use-chat";
+import { useVoice } from "@/hooks/use-voice";
 import { CameraMode } from "@/components/camera-mode";
+import { VoiceOverlay } from "@/components/voice-overlay";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, X, RotateCcw, Sparkles, ChevronRight, RefreshCw, Camera, ImageIcon, Copy, Check, Zap, Brain, Wand2, Pencil, Eye } from "lucide-react";
+import { Send, X, RotateCcw, Sparkles, ChevronRight, RefreshCw, Camera, ImageIcon, Copy, Check, Zap, Brain, Wand2, Pencil, Eye, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ModelMode = "auto" | "fast" | "smart";
@@ -301,10 +303,12 @@ export function ChatPage() {
   const [activeId, setActiveId] = useState<string>("");
   const [cameraOpen, setCameraOpen] = useState(false);
   const [modelMode, setModelMode] = useState<ModelMode>("auto");
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [lastTranscript, setLastTranscript] = useState("");
 
   const { data: conversation, isLoading } = useConversation(activeId || null);
   const createConv = useCreateConversation();
-  const { sendMessage, editImage, isStreaming, isEditing, streamingMessage, activeModel } = useChat(activeId || null);
+  const { sendMessage, editImage, isStreaming, isEditing, streamingMessage, activeModel, lastCompletedResponse } = useChat(activeId || null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollDone = useRef(false);
@@ -376,6 +380,34 @@ export function ChatPage() {
     setModelMode((prev) => prev === "auto" ? "fast" : prev === "fast" ? "smart" : "auto");
   }, []);
 
+  // Voice transcript handler — sends speech as a chat message
+  const handleVoiceTranscript = useCallback(async (text: string) => {
+    setLastTranscript(text);
+    const targetId = await ensureConversation();
+    if (!targetId) return;
+    sendMessage(text, targetId, undefined, modelMode);
+  }, [ensureConversation, sendMessage, modelMode]);
+
+  const { isListening, isSpeaking, isTranscribing, startListening, cancelSpeaking, speak } = useVoice({
+    onTranscript: handleVoiceTranscript,
+    autoLoop: voiceMode,
+  });
+
+  // Auto-speak Sky's response when in voice mode
+  const spokenResponseRef = useRef("");
+  useEffect(() => {
+    if (!voiceMode || !lastCompletedResponse || lastCompletedResponse === spokenResponseRef.current) return;
+    spokenResponseRef.current = lastCompletedResponse;
+    speak(lastCompletedResponse);
+  }, [voiceMode, lastCompletedResponse, speak]);
+
+  // Exit voice mode cleanly
+  const exitVoiceMode = useCallback(() => {
+    setVoiceMode(false);
+    cancelSpeaking();
+    setLastTranscript("");
+  }, [cancelSpeaking]);
+
   const messages: Message[] = conversation?.messages || [];
   const showWelcome = !activeId || (!isLoading && messages.length === 0);
   const currentModeConfig = MODEL_MODES.find((m) => m.mode === modelMode)!;
@@ -423,6 +455,29 @@ export function ChatPage() {
                 <span className="hidden sm:inline">{currentModeConfig.label}</span>
               </button>
 
+              {/* Voice mode toggle */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-8 w-8 hover:bg-primary-foreground/20",
+                  voiceMode
+                    ? "text-primary-foreground bg-primary-foreground/25"
+                    : "text-primary-foreground"
+                )}
+                onClick={() => {
+                  if (voiceMode) {
+                    exitVoiceMode();
+                  } else {
+                    setVoiceMode(true);
+                    setTimeout(() => startListening(), 300);
+                  }
+                }}
+                title={voiceMode ? "Exit voice mode" : "Voice mode (hands-free)"}
+              >
+                <Mic className="h-4 w-4" />
+              </Button>
+
               {messages.length > 0 && !isStreaming && (
                 <Button
                   variant="ghost"
@@ -446,7 +501,18 @@ export function ChatPage() {
           </div>
 
           {/* Message area */}
-          <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
+          <div className="flex-1 min-h-0 relative">
+          {voiceMode && (
+            <VoiceOverlay
+              isListening={isListening}
+              isSpeaking={isSpeaking}
+              isTranscribing={isTranscribing}
+              lastTranscript={lastTranscript}
+              onMicToggle={startListening}
+              onClose={exitVoiceMode}
+            />
+          )}
+          <div ref={scrollRef} className="h-full overflow-y-auto">
             <div className="p-4 space-y-4">
               {showWelcome ? (
                 <div className="space-y-4">
@@ -495,6 +561,7 @@ export function ChatPage() {
                 </div>
               )}
             </div>
+          </div>
           </div>
 
           <ChatInput

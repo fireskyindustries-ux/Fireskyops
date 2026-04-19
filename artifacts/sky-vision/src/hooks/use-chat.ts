@@ -7,6 +7,7 @@ interface StreamState {
   isStreaming: boolean;
   streamingMessage: string;
   activeModel: string | null;
+  lastCompletedResponse: string;
 }
 
 export interface ImageAttachment {
@@ -20,6 +21,7 @@ export function useChat(conversationId: string | null) {
     isStreaming: false,
     streamingMessage: "",
     activeModel: null,
+    lastCompletedResponse: "",
   });
   const [isEditing, setIsEditing] = useState(false);
   const queryClient = useQueryClient();
@@ -141,7 +143,13 @@ export function useChat(conversationId: string | null) {
           variant: "destructive",
         });
       } finally {
-        setStreamState((prev) => ({ ...prev, isStreaming: false, streamingMessage: "", activeModel: resolvedModel }));
+        setStreamState((prev) => ({
+          ...prev,
+          isStreaming: false,
+          streamingMessage: "",
+          activeModel: resolvedModel,
+          lastCompletedResponse: fullResponse || prev.lastCompletedResponse,
+        }));
         queryClient.invalidateQueries({ queryKey: ["conversations"], exact: true });
       }
     },
