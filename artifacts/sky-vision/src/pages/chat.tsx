@@ -484,7 +484,7 @@ export function ChatPage() {
     const targetId = await ensureConversation();
     if (!targetId) { setPendingStart(false); return; }
     setActiveId(String(targetId));
-    setPendingStart(false);
+    // Do NOT reset pendingStart here — keep welcome hidden until a message arrives
     chatInputRef.current?.activateGenerateMode();
   }, [ensureConversation, pendingStart]);
 
@@ -505,6 +505,12 @@ export function ChatPage() {
     autoLoop: voiceMode,
   });
 
+  // Reset pendingStart once messages arrive (handles the "Create image" flow)
+  const messages: Message[] = conversation?.messages || [];
+  useEffect(() => {
+    if (pendingStart && messages.length > 0) setPendingStart(false);
+  }, [pendingStart, messages.length]);
+
   // Auto-speak Sky's response when in voice mode
   const spokenResponseRef = useRef("");
   useEffect(() => {
@@ -520,7 +526,6 @@ export function ChatPage() {
     setLastTranscript("");
   }, [cancelSpeaking]);
 
-  const messages: Message[] = conversation?.messages || [];
   const showWelcome = !pendingStart && !isStreaming && !isGenerating && (!activeId || (!isLoading && messages.length === 0));
   const currentModeConfig = MODEL_MODES.find((m) => m.mode === modelMode)!;
 
