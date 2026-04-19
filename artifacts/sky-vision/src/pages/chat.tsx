@@ -352,22 +352,6 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
           <Button
             variant="ghost"
             size="icon"
-            className={cn(
-              "h-10 w-10 rounded-xl flex-shrink-0 transition-colors",
-              generateMode
-                ? "bg-primary/15 text-primary hover:bg-primary/25"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            )}
-            onClick={() => { setGenerateMode((v) => !v); setImage(null); }}
-            disabled={busy}
-            title="Generate an image from text"
-          >
-            <ImagePlus className="h-4 w-4" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
             className="h-10 w-10 rounded-xl flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
             onClick={onCameraOpen}
             disabled={busy}
@@ -400,7 +384,7 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
           </Button>
         </div>
         <p className="text-[10px] text-muted-foreground text-center mt-2">
-          {generateMode ? "Describe what you want — Sky will create it using DALL-E 3" : "Attach an image to analyse or edit · tap \u{1F5BC}\uFE0F to generate from text"}
+          {generateMode ? "Describe what you want — Sky will create it using DALL-E 3" : "Attach an image to analyse or edit it with AI"}
         </p>
       </div>
     </div>
@@ -413,6 +397,7 @@ export function ChatPage() {
   const [modelMode, setModelMode] = useState<ModelMode>("auto");
   const [voiceMode, setVoiceMode] = useState(false);
   const [lastTranscript, setLastTranscript] = useState("");
+  const [pendingStart, setPendingStart] = useState(false);
   const chatInputRef = useRef<ChatInputHandle>(null);
 
   const { data: conversation, isLoading } = useConversation(activeId || null);
@@ -485,11 +470,23 @@ export function ChatPage() {
   }, [ensureConversation, generateImage]);
 
   const handleSuggestion = useCallback(async (message: string) => {
-    if (isStreaming) return;
+    if (isStreaming || pendingStart) return;
+    setPendingStart(true);
     const targetId = await ensureConversation();
-    if (!targetId) return;
+    if (!targetId) { setPendingStart(false); return; }
+    setPendingStart(false);
     sendMessage(message, targetId, undefined, modelMode);
-  }, [ensureConversation, isStreaming, sendMessage, modelMode]);
+  }, [ensureConversation, isStreaming, pendingStart, sendMessage, modelMode]);
+
+  const handleQuickGenerate = useCallback(async () => {
+    if (pendingStart) return;
+    setPendingStart(true);
+    const targetId = await ensureConversation();
+    if (!targetId) { setPendingStart(false); return; }
+    setActiveId(String(targetId));
+    setPendingStart(false);
+    chatInputRef.current?.activateGenerateMode();
+  }, [ensureConversation, pendingStart]);
 
   const cycleModel = useCallback(() => {
     setModelMode((prev) => prev === "auto" ? "fast" : prev === "fast" ? "smart" : "auto");
@@ -524,7 +521,7 @@ export function ChatPage() {
   }, [cancelSpeaking]);
 
   const messages: Message[] = conversation?.messages || [];
-  const showWelcome = !activeId || (!isLoading && messages.length === 0);
+  const showWelcome = !pendingStart && !isStreaming && !isGenerating && (!activeId || (!isLoading && messages.length === 0));
   const currentModeConfig = MODEL_MODES.find((m) => m.mode === modelMode)!;
 
   return (
@@ -652,7 +649,7 @@ export function ChatPage() {
                           key={action.label}
                           onClick={() => {
                             if (action.action === "generate") {
-                              chatInputRef.current?.activateGenerateMode();
+                              handleQuickGenerate();
                             } else if (action.message) {
                               handleSuggestion(action.message);
                             }
