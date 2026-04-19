@@ -239,6 +239,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <NavItem key={item.href} item={item} location={location} />
           ))}
         </nav>
+        {!isGuest && (
+          <div className="px-3 pb-2">
+            <a href="/sky-vision/" target="_blank" rel="noopener noreferrer">
+              <div className="flex items-center gap-3 h-11 px-3 rounded-xl text-sm font-medium transition-all cursor-pointer bg-primary/5 text-primary hover:bg-primary/10 border border-primary/20">
+                <Sparkles className="h-5 w-5 flex-shrink-0" />
+                <span>Sky Vision</span>
+                <ExternalLink className="h-3.5 w-3.5 ml-auto opacity-60" />
+              </div>
+            </a>
+          </div>
+        )}
         <div className="px-3 pb-3 pt-2">
           <Link href={ctaLink}>
             <Button className="w-full h-11 px-6 font-semibold tracking-wide text-sm">
@@ -286,6 +297,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <NavItem key={item.href} item={item} location={location} onClick={() => setMobileOpen(false)} />
               ))}
             </nav>
+            {!isGuest && (
+              <div className="px-3 pb-2">
+                <a href="/sky-vision/" target="_blank" rel="noopener noreferrer" onClick={() => setMobileOpen(false)}>
+                  <div className="flex items-center gap-3 h-11 px-3 rounded-xl text-sm font-medium transition-all cursor-pointer bg-primary/5 text-primary hover:bg-primary/10 border border-primary/20">
+                    <Sparkles className="h-5 w-5 flex-shrink-0" />
+                    <span>Sky Vision</span>
+                    <ExternalLink className="h-3.5 w-3.5 ml-auto opacity-60" />
+                  </div>
+                </a>
+              </div>
+            )}
             <div className="px-3 pb-3 pt-2">
               <Link href={ctaLink} onClick={() => setMobileOpen(false)}>
                 <Button className="w-full h-11 px-6 font-semibold text-sm">
