@@ -5,16 +5,9 @@ import { useChat, type ImageAttachment } from "@/hooks/use-chat";
 import { CameraMode } from "@/components/camera-mode";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, X, RotateCcw, ChevronRight, RefreshCw, Camera, ImageIcon, Copy, Check } from "lucide-react";
+import { Send, X, RotateCcw, Sparkles, ChevronRight, RefreshCw, Camera, ImageIcon, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-function SkyIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 180 180" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="180" height="180" rx="36" fill="currentColor" />
-    </svg>
-  );
-}
 
 const SUGGESTED_ACTIONS = [
   { label: "What can you help me with?", message: "Give me a quick overview of everything you can help me with." },
@@ -50,10 +43,10 @@ function MessageBubble({ role, content, imagePreview, isThinking }: {
   return (
     <div className={cn("flex gap-3", isUser && "flex-row-reverse")}>
       {!isUser && (
-        <div className={cn("flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center mt-1", isThinking ? "bg-amber-500" : "bg-primary")}>
+        <div className={cn("flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-1", isThinking ? "bg-amber-500" : "bg-primary")}>
           {isThinking
             ? <RefreshCw className="h-3.5 w-3.5 text-white animate-spin" />
-            : <SkyIcon className="h-4 w-4 text-white" />
+            : <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
           }
         </div>
       )}
@@ -336,7 +329,7 @@ export function ChatPage() {
               <div className="md:hidden">
                 <Sidebar activeId={activeId} onSelect={setActiveId} isMobile />
               </div>
-              <SkyIcon className="h-5 w-5 hidden md:block text-primary-foreground" />
+              <Sparkles className="h-5 w-5 hidden md:block" />
               <div>
                 <span className="font-bold text-lg tracking-tight">Sky</span>
                 <div className="flex items-center gap-1 -mt-0.5">
@@ -375,7 +368,9 @@ export function ChatPage() {
               {showWelcome ? (
                 <div className="space-y-4">
                   <div className="text-center py-6">
-                    <SkyIcon className="h-14 w-14 mx-auto mb-3 text-primary" />
+                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                      <Sparkles className="h-7 w-7 text-primary" />
+                    </div>
                     <p className="font-semibold text-foreground">Sky is ready.</p>
                     <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
                       Ask me anything, or attach an image to analyse visuals instantly.
