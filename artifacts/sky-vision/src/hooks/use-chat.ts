@@ -55,7 +55,7 @@ export function useChat(conversationId: string | null) {
         };
       });
 
-      setStreamState({ isStreaming: true, streamingMessage: "", activeModel: null });
+      setStreamState((prev) => ({ ...prev, isStreaming: true, streamingMessage: "", activeModel: null }));
 
       let fullResponse = "";
       let resolvedModel: string | null = null;

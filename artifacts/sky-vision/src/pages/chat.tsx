@@ -1,4 +1,8 @@
 import { useState, useEffect, useRef, useCallback, memo, type KeyboardEvent, type ChangeEvent } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Sidebar } from "@/components/chat/sidebar";
 import { useConversation, useCreateConversation, type Message } from "@/hooks/use-conversations";
 import { useChat, type ImageAttachment } from "@/hooks/use-chat";
@@ -9,6 +13,34 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Send, X, RotateCcw, Sparkles, ChevronRight, RefreshCw, Camera, ImageIcon, Copy, Check, Zap, Brain, Wand2, Pencil, Eye, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const markdownComponents: Record<string, React.FC<any>> = {
+  code({ inline, className, children, ...props }: any) {
+    const match = /language-(\w+)/.exec(className || "");
+    return !inline && match ? (
+      <SyntaxHighlighter style={oneDark} language={match[1]} PreTag="div" className="rounded-xl text-xs my-2" {...props}>
+        {String(children).replace(/\n$/, "")}
+      </SyntaxHighlighter>
+    ) : (
+      <code className="bg-black/20 rounded px-1 py-0.5 text-xs font-mono" {...props}>{children}</code>
+    );
+  },
+  p: ({ children }: any) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+  ul: ({ children }: any) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
+  ol: ({ children }: any) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
+  li: ({ children }: any) => <li className="text-sm leading-relaxed">{children}</li>,
+  h1: ({ children }: any) => <h1 className="text-base font-bold mb-1 mt-2">{children}</h1>,
+  h2: ({ children }: any) => <h2 className="text-sm font-bold mb-1 mt-2">{children}</h2>,
+  h3: ({ children }: any) => <h3 className="text-sm font-semibold mb-1 mt-1">{children}</h3>,
+  strong: ({ children }: any) => <strong className="font-semibold">{children}</strong>,
+  em: ({ children }: any) => <em className="italic opacity-90">{children}</em>,
+  blockquote: ({ children }: any) => <blockquote className="border-l-2 border-primary/50 pl-3 italic text-foreground/70 my-1">{children}</blockquote>,
+  hr: () => <hr className="border-border my-2" />,
+  a: ({ href, children }: any) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:opacity-80">{children}</a>,
+  table: ({ children }: any) => <div className="overflow-x-auto my-2"><table className="text-xs border-collapse w-full">{children}</table></div>,
+  th: ({ children }: any) => <th className="border border-border px-2 py-1 bg-muted font-semibold text-left">{children}</th>,
+  td: ({ children }: any) => <td className="border border-border px-2 py-1">{children}</td>,
+};
 
 type ModelMode = "auto" | "fast" | "smart";
 
@@ -70,20 +102,18 @@ function MessageBubble({ role, content, imagePreview, resultImage, isThinking }:
         )}
         {content && (
           <div className={cn(
-            "rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
+            "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
             isUser
-              ? "bg-primary text-primary-foreground rounded-tr-sm"
+              ? "bg-primary text-primary-foreground rounded-tr-sm whitespace-pre-wrap"
               : isThinking
               ? "bg-amber-500/10 text-amber-200 border border-amber-500/30 rounded-tl-sm italic"
               : "bg-muted text-foreground rounded-tl-sm"
           )}>
-            {!content ? (
-              <span className="flex gap-1 items-center text-muted-foreground">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-bounce" />
-              </span>
-            ) : content}
+            {isUser || isThinking ? content : (
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                {content}
+              </ReactMarkdown>
+            )}
           </div>
         )}
         {isThinking && !content && (
@@ -346,7 +376,7 @@ export function ChatPage() {
   const ensureConversation = useCallback(async (): Promise<string | null> => {
     if (activeId) return activeId;
     try {
-      const newConv = await createConv.mutateAsync();
+      const newConv = await createConv.mutateAsync(undefined);
       setActiveId(newConv.id);
       return newConv.id;
     } catch {
@@ -423,26 +453,38 @@ export function ChatPage() {
 
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-primary text-primary-foreground flex-shrink-0">
-            <div className="flex items-center gap-2.5">
+          <div
+            className="flex items-center justify-between px-4 py-3 text-white flex-shrink-0 relative overflow-hidden"
+            style={{ background: "linear-gradient(135deg, #B82200 0%, #FF3C00 45%, #FF6B30 80%, #FF8C42 100%)" }}
+          >
+            {/* Shine overlay */}
+            <div className="absolute inset-0 bg-gradient-to-b from-white/15 via-transparent to-black/10 pointer-events-none" />
+            {/* Subtle radial glow behind logo */}
+            <div className="absolute left-0 top-0 w-32 h-full bg-[radial-gradient(ellipse_at_left_center,_rgba(255,255,255,0.12)_0%,_transparent_70%)] pointer-events-none" />
+
+            <div className="flex items-center gap-2.5 relative z-10">
               <div className="md:hidden">
                 <Sidebar activeId={activeId} onSelect={setActiveId} isMobile />
               </div>
-              <Sparkles className="h-5 w-5 hidden md:block" />
+              {/* Animated icon */}
+              <div className="hidden md:flex relative items-center justify-center w-8 h-8 rounded-full bg-white/15 backdrop-blur-sm border border-white/20">
+                <Sparkles className="h-4 w-4 text-white" />
+                <span className="absolute inset-0 rounded-full animate-ping bg-white/20 opacity-40" />
+              </div>
               <div>
-                <span className="font-bold text-lg tracking-tight">Sky</span>
-                <div className="flex items-center gap-1 -mt-0.5">
-                  <ChevronRight className="h-3 w-3 opacity-60" />
-                  <span className="text-xs opacity-80 font-medium">System Brain</span>
+                <span className="font-bold text-lg tracking-tight drop-shadow-sm">Sky</span>
+                <div className="flex items-center gap-1.5 -mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_6px_#4ade80] animate-pulse" />
+                  <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.75)" }}>System Brain</span>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 relative z-10">
               {/* Model mode toggle */}
               <button
                 onClick={cycleModel}
                 title={currentModeConfig.title}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-primary-foreground/15 hover:bg-primary-foreground/25 transition-colors text-primary-foreground"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-white/15 hover:bg-white/25 transition-colors text-white border border-white/10"
               >
                 {currentModeConfig.icon}
                 <span className="hidden sm:inline">{currentModeConfig.label}</span>
@@ -453,10 +495,8 @@ export function ChatPage() {
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  "h-8 w-8 hover:bg-primary-foreground/20",
-                  voiceMode
-                    ? "text-primary-foreground bg-primary-foreground/25"
-                    : "text-primary-foreground"
+                  "h-8 w-8 hover:bg-white/20 text-white",
+                  voiceMode && "bg-white/25"
                 )}
                 onClick={() => {
                   if (voiceMode) {
@@ -475,7 +515,7 @@ export function ChatPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+                  className="h-8 w-8 text-white hover:bg-white/20"
                   onClick={() => setActiveId("")}
                   title="New conversation"
                 >
@@ -485,7 +525,7 @@ export function ChatPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+                className="h-8 w-8 text-white hover:bg-white/20"
                 onClick={() => window.close()}
               >
                 <X className="h-5 w-5" />
