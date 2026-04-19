@@ -104,7 +104,16 @@ export function useChat(conversationId: string | null) {
                 setStreamState((prev) => ({ ...prev, activeModel: data.model }));
               }
               if (data.title) {
-                queryClient.invalidateQueries({ queryKey: ["conversations"] });
+                // Update the title in the conversation cache immediately
+                queryClient.setQueryData(["conversations", id], (old: Conversation | undefined) => {
+                  if (!old) return old;
+                  return { ...old, title: data.title };
+                });
+                // Also update the conversations list cache
+                queryClient.setQueryData(["conversations"], (old: Conversation[] | undefined) => {
+                  if (!old) return old;
+                  return old.map((c) => c.id === id ? { ...c, title: data.title } : c);
+                });
               }
               if (data.error) {
                 toast({ title: "Error", description: data.error, variant: "destructive" });

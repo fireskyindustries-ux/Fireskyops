@@ -333,13 +333,13 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
     if (convo.title === "New conversation" && fullResponse) {
       try {
         const titleResp = await openai.chat.completions.create({
-          model: GPT_MODEL,
+          model: FAST_MODEL,
           messages: [
-            ...openaiMessages,
+            { role: "user", content: message.trim() },
             { role: "assistant", content: fullResponse },
-            { role: "user", content: 'Give this conversation a short title in 5 words or fewer. Reply with ONLY the title text — no quotes, no punctuation.' },
+            { role: "user", content: 'Give this conversation a short title in 5 words or fewer. Reply with ONLY the title — no quotes, no punctuation, no full stop.' },
           ],
-          max_completion_tokens: 20,
+          max_tokens: 20,
         });
         const autoTitle = titleResp.choices[0]?.message?.content?.trim();
         if (autoTitle) {
