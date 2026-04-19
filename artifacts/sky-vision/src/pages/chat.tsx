@@ -135,21 +135,30 @@ export function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const initialScrollDone = useRef(false);
   const prevMessageCount = useRef(0);
+  const wasStreaming = useRef(false);
 
+  // Handle initial load and new confirmed messages — not triggered by streaming chunks
   useEffect(() => {
     const count = conversation?.messages?.length ?? 0;
     const isNewMessage = count > prevMessageCount.current;
     prevMessageCount.current = count;
 
     if (!initialScrollDone.current && count > 0) {
-      // First load — jump instantly, no animation
+      // First load — jump instantly with no animation
       bottomRef.current?.scrollIntoView({ behavior: "instant" });
       initialScrollDone.current = true;
-    } else if (isNewMessage || streamingMessage) {
-      // New message or streaming — smooth scroll
+    } else if (isNewMessage) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [conversation?.messages, streamingMessage]);
+  }, [conversation?.messages]);
+
+  // Scroll once when streaming starts — not on every chunk
+  useEffect(() => {
+    if (isStreaming && !wasStreaming.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    wasStreaming.current = isStreaming;
+  }, [isStreaming]);
 
   // Reset scroll tracking when switching conversations
   useEffect(() => {
