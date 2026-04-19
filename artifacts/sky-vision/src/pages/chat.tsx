@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, memo, type KeyboardEvent, type ChangeEvent } from "react";
+import { useState, useEffect, useRef, useCallback, memo, forwardRef, useImperativeHandle, type KeyboardEvent, type ChangeEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -11,7 +11,7 @@ import { CameraMode } from "@/components/camera-mode";
 import { VoiceOverlay } from "@/components/voice-overlay";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, X, RotateCcw, Sparkles, ChevronRight, RefreshCw, Camera, ImageIcon, Copy, Check, Zap, Brain, Wand2, Pencil, Eye, Mic, ImagePlus } from "lucide-react";
+import { Send, X, RotateCcw, Sparkles, ChevronRight, RefreshCw, Camera, ImageIcon, Copy, Check, Zap, Brain, Wand2, Pencil, Eye, Mic, ImagePlus, BarChart3, Lightbulb, PenLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const markdownComponents: Record<string, React.FC<any>> = {
@@ -50,13 +50,35 @@ const MODEL_MODES: { mode: ModelMode; label: string; icon: React.ReactNode; titl
   { mode: "smart", label: "Smart", icon: <Brain className="h-3.5 w-3.5" />, title: "Smart — full power model for complex tasks" },
 ];
 
-const SUGGESTED_ACTIONS = [
-  { label: "What can you help me with?", message: "Give me a quick overview of everything you can help me with." },
-  { label: "Write something for me", message: "I need help writing something — a professional email, a report, a message, or anything else. What do you need from me to get started?" },
-  { label: "Explain a concept", message: "I want to understand something better. What topic would you like me to explain?" },
-  { label: "Help me think through a problem", message: "I have a problem or decision I need to work through. Can you help me think it out clearly?" },
-  { label: "Research or summarise a topic", message: "I need you to research or summarise something for me. What would you like to know about?" },
-  { label: "What's in stock?", message: "Check our current stock levels and tell me what we have and what's running low." },
+const QUICK_ACTIONS: {
+  label: string;
+  icon: React.FC<{ className?: string }>;
+  action: "generate" | "chat";
+  message?: string;
+}[] = [
+  {
+    label: "Create image",
+    icon: ImagePlus,
+    action: "generate",
+  },
+  {
+    label: "Analyse data",
+    icon: BarChart3,
+    action: "chat",
+    message: "I have some data I'd like you to analyse — it could be numbers, a report, a chart, or a table. What would you like me to look at?",
+  },
+  {
+    label: "Get advice",
+    icon: Lightbulb,
+    action: "chat",
+    message: "I need some expert advice. What topic or situation would you like guidance on?",
+  },
+  {
+    label: "Help me write",
+    icon: PenLine,
+    action: "chat",
+    message: "I need help writing something — an email, a report, a message, or anything else. What would you like to create?",
+  },
 ];
 
 interface PendingImage {
@@ -154,16 +176,10 @@ function isImageGenRequest(text: string): boolean {
   return IMAGE_GEN_REGEX.test(text);
 }
 
+type ChatInputHandle = { activateGenerateMode: () => void };
+
 // Isolated input — its own state so streaming re-renders never touch it
-const ChatInput = memo(function ChatInput({
-  isStreaming,
-  isEditing,
-  isGenerating,
-  onSend,
-  onEdit,
-  onGenerate,
-  onCameraOpen,
-}: {
+const ChatInput = memo(forwardRef<ChatInputHandle, {
   isStreaming: boolean;
   isEditing: boolean;
   isGenerating: boolean;
@@ -171,7 +187,15 @@ const ChatInput = memo(function ChatInput({
   onEdit: (text: string, image: PendingImage) => void;
   onGenerate: (text: string) => void;
   onCameraOpen: () => void;
-}) {
+}>(function ChatInput({
+  isStreaming,
+  isEditing,
+  isGenerating,
+  onSend,
+  onEdit,
+  onGenerate,
+  onCameraOpen,
+}, ref) {
   const [input, setInput] = useState("");
   const [image, setImage] = useState<PendingImage | null>(null);
   const [imageMode, setImageMode] = useState<"analyze" | "edit">("analyze");
@@ -183,6 +207,10 @@ const ChatInput = memo(function ChatInput({
   useEffect(() => { onSendRef.current = onSend; }, [onSend]);
   useEffect(() => { onEditRef.current = onEdit; }, [onEdit]);
   useEffect(() => { onGenerateRef.current = onGenerate; }, [onGenerate]);
+
+  useImperativeHandle(ref, () => ({
+    activateGenerateMode: () => { setGenerateMode(true); setImage(null); },
+  }));
 
   // Reset edit mode when image is cleared
   useEffect(() => { if (!image) setImageMode("analyze"); }, [image]);
@@ -377,7 +405,7 @@ const ChatInput = memo(function ChatInput({
       </div>
     </div>
   );
-});
+}));
 
 export function ChatPage() {
   const [activeId, setActiveId] = useState<string>("");
@@ -385,6 +413,7 @@ export function ChatPage() {
   const [modelMode, setModelMode] = useState<ModelMode>("auto");
   const [voiceMode, setVoiceMode] = useState(false);
   const [lastTranscript, setLastTranscript] = useState("");
+  const chatInputRef = useRef<ChatInputHandle>(null);
 
   const { data: conversation, isLoading } = useConversation(activeId || null);
   const createConv = useCreateConversation();
@@ -604,29 +633,36 @@ export function ChatPage() {
           <div ref={scrollRef} className="h-full overflow-y-auto">
             <div className="p-4 space-y-4">
               {showWelcome ? (
-                <div className="space-y-4">
-                  <div className="text-center py-6">
-                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                      <Sparkles className="h-7 w-7 text-primary" />
+                <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 px-2">
+                  <div className="text-center space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-4">
+                      <Sparkles className="h-6 w-6 text-primary" />
                     </div>
-                    <p className="font-semibold text-foreground">Sky is ready.</p>
-                    <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
-                      Ask me anything, attach an image to analyse or edit it with AI.
-                    </p>
+                    <h2 className="text-2xl font-bold tracking-tight text-foreground">What can I help with?</h2>
                   </div>
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Quick starts</p>
-                    {SUGGESTED_ACTIONS.map((action) => (
-                      <button
-                        key={action.label}
-                        onClick={() => handleSuggestion(action.message)}
-                        disabled={isStreaming}
-                        className="w-full text-left px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted/60 transition-colors text-sm font-medium flex items-center justify-between gap-2 group"
-                      >
-                        <span>{action.label}</span>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
+                    {QUICK_ACTIONS.map((action) => {
+                      const Icon = action.icon;
+                      return (
+                        <button
+                          key={action.label}
+                          onClick={() => {
+                            if (action.action === "generate") {
+                              chatInputRef.current?.activateGenerateMode();
+                            } else if (action.message) {
+                              handleSuggestion(action.message);
+                            }
+                          }}
+                          disabled={isStreaming || isGenerating}
+                          className="flex items-center gap-3 px-4 py-4 rounded-2xl border border-border bg-card hover:bg-muted/60 active:scale-[0.97] transition-all text-sm font-medium text-foreground group"
+                        >
+                          <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 transition-colors">
+                            <Icon className="h-4 w-4 text-primary" />
+                          </div>
+                          <span className="text-left leading-tight">{action.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ) : isLoading ? (
@@ -654,6 +690,7 @@ export function ChatPage() {
           </div>
 
           <ChatInput
+            ref={chatInputRef}
             isStreaming={isStreaming}
             isEditing={isEditing}
             isGenerating={isGenerating}
