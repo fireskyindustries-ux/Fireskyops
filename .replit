@@ -35,6 +35,9 @@ VAPID_PUBLIC_KEY = "BJSsTi9AaD4sIg7Spgl2xPoMO-SPp5_ukaQdicEgVbfnE1pcr80yz9-0KTdx
 VAPID_PRIVATE_KEY = "_u4hJ6KFm9JOuMVG9i-pJRke79fG4cElTIt6lyGhams"
 VAPID_EMAIL = "info@fireskyindustries.co.za"
 
+[userenv.production]
+CLERK_PROXY_URL = "https://fireskyops.tech/api/__clerk"
+
 [[ports]]
 localPort = 8080
 externalPort = 8080
