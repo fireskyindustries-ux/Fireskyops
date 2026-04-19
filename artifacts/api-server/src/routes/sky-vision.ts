@@ -377,7 +377,7 @@ router.post("/sky-vision/tts", async (req, res): Promise<void> => {
 
   try {
     const mp3 = await openai.audio.speech.create({
-      model: "tts-1",
+      model: "gpt-4o-mini-tts",
       voice: "nova",
       input: text.trim().slice(0, 4096),
     });
