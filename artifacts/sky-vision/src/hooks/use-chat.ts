@@ -6,6 +6,7 @@ import type { Conversation } from "./use-conversations";
 interface StreamState {
   isStreaming: boolean;
   streamingMessage: string;
+  suggestions: string[];
 }
 
 export interface ImageAttachment {
@@ -17,6 +18,7 @@ export function useChat(conversationId: string | null) {
   const [streamState, setStreamState] = useState<StreamState>({
     isStreaming: false,
     streamingMessage: "",
+    suggestions: [],
   });
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -48,7 +50,7 @@ export function useChat(conversationId: string | null) {
         };
       });
 
-      setStreamState({ isStreaming: true, streamingMessage: "" });
+      setStreamState({ isStreaming: true, streamingMessage: "", suggestions: [] });
 
       let fullResponse = "";
 
@@ -91,6 +93,9 @@ export function useChat(conversationId: string | null) {
               }
               if (data.title) {
                 queryClient.invalidateQueries({ queryKey: ["conversations"] });
+              }
+              if (data.suggestions) {
+                setStreamState((prev) => ({ ...prev, suggestions: data.suggestions }));
               }
               if (data.error) {
                 toast({ title: "Error", description: data.error, variant: "destructive" });
@@ -137,7 +142,7 @@ export function useChat(conversationId: string | null) {
       } finally {
         // Clear streaming state — the cache already has the full content so
         // the streaming bubble disappears with no gap.
-        setStreamState({ isStreaming: false, streamingMessage: "" });
+        setStreamState((prev) => ({ ...prev, isStreaming: false, streamingMessage: "" }));
         // Only refresh the sidebar list (to show auto-title updates etc.).
         // We deliberately do NOT refetch the individual conversation here because
         // the cache already has the correct content and a refetch would swap

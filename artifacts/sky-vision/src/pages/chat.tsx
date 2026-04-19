@@ -5,8 +5,16 @@ import { useChat, type ImageAttachment } from "@/hooks/use-chat";
 import { CameraMode } from "@/components/camera-mode";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, X, RotateCcw, Sparkles, ChevronRight, RefreshCw, Camera, ImageIcon } from "lucide-react";
+import { Send, X, RotateCcw, ChevronRight, RefreshCw, Camera, ImageIcon, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+function SkyIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 180 180" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="180" height="180" rx="36" fill="currentColor" />
+    </svg>
+  );
+}
 
 const SUGGESTED_ACTIONS = [
   { label: "What can you help me with?", message: "Give me a quick overview of everything you can help me with." },
@@ -30,13 +38,22 @@ function MessageBubble({ role, content, imagePreview, isThinking }: {
   isThinking?: boolean;
 }) {
   const isUser = role === "user";
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [content]);
+
   return (
     <div className={cn("flex gap-3", isUser && "flex-row-reverse")}>
       {!isUser && (
-        <div className={cn("flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-1", isThinking ? "bg-amber-500" : "bg-primary")}>
+        <div className={cn("flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center mt-1", isThinking ? "bg-amber-500" : "bg-primary")}>
           {isThinking
             ? <RefreshCw className="h-3.5 w-3.5 text-white animate-spin" />
-            : <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+            : <SkyIcon className="h-4 w-4 text-white" />
           }
         </div>
       )}
@@ -74,6 +91,17 @@ function MessageBubble({ role, content, imagePreview, isThinking }: {
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-bounce" />
             </span>
           </div>
+        )}
+        {!isUser && !isThinking && content && (
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors mt-0.5 px-1"
+          >
+            {copied
+              ? <><Check className="h-3 w-3 text-green-500" /><span className="text-green-500">Copied</span></>
+              : <><Copy className="h-3 w-3" /><span>Copy</span></>
+            }
+          </button>
         )}
       </div>
     </div>
@@ -214,7 +242,7 @@ export function ChatPage() {
 
   const { data: conversation, isLoading } = useConversation(activeId || null);
   const createConv = useCreateConversation();
-  const { sendMessage, isStreaming, streamingMessage } = useChat(activeId || null);
+  const { sendMessage, isStreaming, streamingMessage, suggestions } = useChat(activeId || null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollDone = useRef(false);
@@ -308,7 +336,7 @@ export function ChatPage() {
               <div className="md:hidden">
                 <Sidebar activeId={activeId} onSelect={setActiveId} isMobile />
               </div>
-              <Sparkles className="h-5 w-5 hidden md:block" />
+              <SkyIcon className="h-5 w-5 hidden md:block text-primary-foreground" />
               <div>
                 <span className="font-bold text-lg tracking-tight">Sky</span>
                 <div className="flex items-center gap-1 -mt-0.5">
@@ -347,9 +375,7 @@ export function ChatPage() {
               {showWelcome ? (
                 <div className="space-y-4">
                   <div className="text-center py-6">
-                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                      <Sparkles className="h-7 w-7 text-primary" />
-                    </div>
+                    <SkyIcon className="h-14 w-14 mx-auto mb-3 text-primary" />
                     <p className="font-semibold text-foreground">Sky is ready.</p>
                     <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
                       Ask me anything, or attach an image to analyse visuals instantly.
@@ -385,6 +411,20 @@ export function ChatPage() {
                   ))}
                   {isStreaming && (
                     <MessageBubble role="assistant" content={streamingMessage} isThinking={!streamingMessage} />
+                  )}
+                  {!isStreaming && suggestions.length > 0 && (
+                    <div className="flex flex-col gap-2 pt-1">
+                      {suggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          onClick={() => handleSuggestion(s)}
+                          className="w-full text-left px-3 py-2 rounded-xl border border-border bg-card hover:bg-muted/60 transition-colors text-xs text-muted-foreground hover:text-foreground flex items-center gap-2 group"
+                        >
+                          <ChevronRight className="h-3 w-3 flex-shrink-0 text-primary group-hover:translate-x-0.5 transition-transform" />
+                          <span>{s}</span>
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}

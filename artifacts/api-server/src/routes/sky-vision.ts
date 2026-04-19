@@ -342,6 +342,30 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
         .where(eq(conversations.id, convId));
     }
 
+    // Generate 3 follow-up suggestions after every reply
+    if (fullResponse) {
+      try {
+        const suggestResp = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            ...openaiMessages,
+            { role: "assistant", content: fullResponse },
+            { role: "user", content: 'Suggest 3 short follow-up questions I might want to ask next. Reply with ONLY a JSON array of exactly 3 strings, each 7 words or fewer. No markdown, no explanation.' },
+          ],
+          max_completion_tokens: 80,
+        });
+        const raw = suggestResp.choices[0]?.message?.content?.trim();
+        if (raw) {
+          const suggestions = JSON.parse(raw);
+          if (Array.isArray(suggestions) && suggestions.length > 0) {
+            sseWrite({ suggestions: suggestions.slice(0, 3) });
+          }
+        }
+      } catch {
+        // suggestions are optional
+      }
+    }
+
     sseWrite({ done: true });
     res.end();
   } catch (err: any) {
