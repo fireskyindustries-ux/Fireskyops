@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Router as WouterRouter, Switch, Route, Redirect, useLocation } from "wouter";
 import { ClerkProvider, SignIn, useAuth, useClerk } from "@clerk/react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
@@ -84,9 +84,26 @@ function SignInPage() {
 }
 
 function AuthGate() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const [tokenReady, setTokenReady] = useState(false);
 
-  if (!isLoaded) {
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+    let cancelled = false;
+    async function waitForToken() {
+      for (let i = 0; i < 10; i++) {
+        if (cancelled) return;
+        const token = await getToken();
+        if (token) { setTokenReady(true); return; }
+        await new Promise(r => setTimeout(r, 500));
+      }
+      setTokenReady(true);
+    }
+    waitForToken();
+    return () => { cancelled = true; };
+  }, [isLoaded, isSignedIn, getToken]);
+
+  if (!isLoaded || (isSignedIn && !tokenReady)) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
