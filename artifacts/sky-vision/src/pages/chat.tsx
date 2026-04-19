@@ -11,7 +11,7 @@ import { CameraMode } from "@/components/camera-mode";
 import { VoiceOverlay } from "@/components/voice-overlay";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, X, RotateCcw, Sparkles, ChevronRight, RefreshCw, Camera, ImageIcon, Copy, Check, Zap, Brain, Wand2, Pencil, Eye, Mic } from "lucide-react";
+import { Send, X, RotateCcw, Sparkles, ChevronRight, RefreshCw, Camera, ImageIcon, Copy, Check, Zap, Brain, Wand2, Pencil, Eye, Mic, ImagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const markdownComponents: Record<string, React.FC<any>> = {
@@ -148,28 +148,41 @@ function MessageBubble({ role, content, imagePreview, resultImage, isThinking }:
   );
 }
 
+const IMAGE_GEN_REGEX = /\b(create|generate|draw|make|design|paint|sketch|illustrate|produce|render)\b.{0,40}\b(image|photo|picture|illustration|artwork|painting|drawing|portrait|scene|wallpaper|logo|icon|poster|banner)\b/i;
+
+function isImageGenRequest(text: string): boolean {
+  return IMAGE_GEN_REGEX.test(text);
+}
+
 // Isolated input — its own state so streaming re-renders never touch it
 const ChatInput = memo(function ChatInput({
   isStreaming,
   isEditing,
+  isGenerating,
   onSend,
   onEdit,
+  onGenerate,
   onCameraOpen,
 }: {
   isStreaming: boolean;
   isEditing: boolean;
+  isGenerating: boolean;
   onSend: (text: string, image?: PendingImage) => void;
   onEdit: (text: string, image: PendingImage) => void;
+  onGenerate: (text: string) => void;
   onCameraOpen: () => void;
 }) {
   const [input, setInput] = useState("");
   const [image, setImage] = useState<PendingImage | null>(null);
   const [imageMode, setImageMode] = useState<"analyze" | "edit">("analyze");
+  const [generateMode, setGenerateMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const onSendRef = useRef(onSend);
   const onEditRef = useRef(onEdit);
+  const onGenerateRef = useRef(onGenerate);
   useEffect(() => { onSendRef.current = onSend; }, [onSend]);
   useEffect(() => { onEditRef.current = onEdit; }, [onEdit]);
+  useEffect(() => { onGenerateRef.current = onGenerate; }, [onGenerate]);
 
   // Reset edit mode when image is cleared
   useEffect(() => { if (!image) setImageMode("analyze"); }, [image]);
@@ -189,7 +202,7 @@ const ChatInput = memo(function ChatInput({
     e.target.value = "";
   }, [handleImageFile]);
 
-  const busy = isStreaming || isEditing;
+  const busy = isStreaming || isEditing || isGenerating;
 
   const handleSend = useCallback(() => {
     const text = input.trim();
@@ -199,10 +212,13 @@ const ChatInput = memo(function ChatInput({
     setImage(null);
     if (img && imageMode === "edit") {
       onEditRef.current(text || "Edit this image", img);
+    } else if (generateMode || (!img && isImageGenRequest(text))) {
+      setGenerateMode(false);
+      onGenerateRef.current(text);
     } else {
       onSendRef.current(text || "What's in this image?", img ?? undefined);
     }
-  }, [input, image, busy, imageMode]);
+  }, [input, image, busy, imageMode, generateMode]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -211,11 +227,13 @@ const ChatInput = memo(function ChatInput({
     }
   }, [handleSend]);
 
-  const placeholder = image
-    ? imageMode === "edit"
-      ? "Describe the edit you want (e.g. 'remove the background')"
-      : "Ask Sky about this image..."
-    : "Ask Sky anything...";
+  const placeholder = generateMode
+    ? "Describe the image you want to create..."
+    : image
+      ? imageMode === "edit"
+        ? "Describe the edit you want (e.g. 'remove the background')"
+        : "Ask Sky about this image..."
+      : "Ask Sky anything...";
 
   return (
     <div className="border-t border-border flex-shrink-0 bg-background">
@@ -277,16 +295,46 @@ const ChatInput = memo(function ChatInput({
           className="hidden"
           onChange={handleFileChange}
         />
+        {generateMode && (
+          <div className="mb-2 flex items-center gap-2 px-1">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+              <ImagePlus className="h-3.5 w-3.5" />
+              Image generation mode
+            </div>
+            <button
+              onClick={() => setGenerateMode(false)}
+              className="ml-auto text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+            >
+              <X className="h-3 w-3" /> Cancel
+            </button>
+          </div>
+        )}
         <div className="flex gap-2 items-end">
           <Button
             variant="ghost"
             size="icon"
             className="h-10 w-10 rounded-xl flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
             onClick={() => fileInputRef.current?.click()}
-            disabled={busy}
+            disabled={busy || generateMode}
             title="Attach an image"
           >
             <ImageIcon className="h-4 w-4" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-10 w-10 rounded-xl flex-shrink-0 transition-colors",
+              generateMode
+                ? "bg-primary/15 text-primary hover:bg-primary/25"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            )}
+            onClick={() => { setGenerateMode((v) => !v); setImage(null); }}
+            disabled={busy}
+            title="Generate an image from text"
+          >
+            <ImagePlus className="h-4 w-4" />
           </Button>
 
           <Button
@@ -311,18 +359,20 @@ const ChatInput = memo(function ChatInput({
           />
           <Button
             size="icon"
-            className="h-10 w-10 rounded-xl flex-shrink-0"
+            className={cn("h-10 w-10 rounded-xl flex-shrink-0", generateMode && "bg-primary")}
             onClick={handleSend}
             disabled={(!input.trim() && !image) || busy}
           >
-            {isEditing
+            {isGenerating
               ? <RefreshCw className="h-4 w-4 animate-spin" />
-              : <Send className="h-4 w-4" />
+              : isEditing
+                ? <RefreshCw className="h-4 w-4 animate-spin" />
+                : <Send className="h-4 w-4" />
             }
           </Button>
         </div>
         <p className="text-[10px] text-muted-foreground text-center mt-2">
-          Attach an image to analyse or edit it with AI
+          {generateMode ? "Describe what you want — Sky will create it using DALL-E 3" : "Attach an image to analyse or edit · tap \u{1F5BC}\uFE0F to generate from text"}
         </p>
       </div>
     </div>
@@ -338,7 +388,7 @@ export function ChatPage() {
 
   const { data: conversation, isLoading } = useConversation(activeId || null);
   const createConv = useCreateConversation();
-  const { sendMessage, editImage, isStreaming, isEditing, streamingMessage, activeModel, lastCompletedResponse } = useChat(activeId || null);
+  const { sendMessage, editImage, generateImage, isStreaming, isEditing, isGenerating, streamingMessage, activeModel, lastCompletedResponse } = useChat(activeId || null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollDone = useRef(false);
@@ -398,6 +448,12 @@ export function ChatPage() {
     if (!targetId) return;
     editImage(text, targetId, { base64: image.base64, mimeType: image.mimeType, dataUrl: image.preview });
   }, [ensureConversation, editImage]);
+
+  const handleGenerate = useCallback(async (prompt: string) => {
+    const targetId = await ensureConversation();
+    if (!targetId) return;
+    generateImage(prompt, targetId);
+  }, [ensureConversation, generateImage]);
 
   const handleSuggestion = useCallback(async (message: string) => {
     if (isStreaming) return;
@@ -600,8 +656,10 @@ export function ChatPage() {
           <ChatInput
             isStreaming={isStreaming}
             isEditing={isEditing}
+            isGenerating={isGenerating}
             onSend={handleSend}
             onEdit={handleEdit}
+            onGenerate={handleGenerate}
             onCameraOpen={() => setCameraOpen(true)}
           />
         </div>

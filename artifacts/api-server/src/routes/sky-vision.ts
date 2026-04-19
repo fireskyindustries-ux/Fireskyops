@@ -414,6 +414,37 @@ router.post("/sky-vision/transcribe", async (req, res): Promise<void> => {
   }
 });
 
+// ─── Image generation (text → image) ─────────────────────────────────────────
+router.post("/sky-vision/generate-image", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { prompt } = req.body as { prompt: string };
+  if (!prompt?.trim()) {
+    res.status(400).json({ error: "prompt is required" });
+    return;
+  }
+
+  try {
+    const result = await openai.images.generate({
+      model: "dall-e-3",
+      prompt: prompt.trim(),
+      n: 1,
+      size: "1024x1024",
+      response_format: "b64_json",
+    });
+
+    const b64 = result.data?.[0]?.b64_json;
+    const revisedPrompt = result.data?.[0]?.revised_prompt;
+    if (!b64) throw new Error("No image returned");
+
+    res.json({ imageBase64: b64, mimeType: "image/png", revisedPrompt });
+  } catch (err: any) {
+    console.error("Image generation error:", err?.message);
+    res.status(500).json({ error: "Image generation failed. Please try a different prompt." });
+  }
+});
+
 // ─── Image editing ────────────────────────────────────────────────────────────
 router.post("/sky-vision/edit-image", async (req, res): Promise<void> => {
   const userId = (req as any).userId;
