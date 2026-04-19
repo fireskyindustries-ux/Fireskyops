@@ -5,8 +5,7 @@ import { useChat, type ImageAttachment } from "@/hooks/use-chat";
 import { CameraMode } from "@/components/camera-mode";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Send, X, RotateCcw, Sparkles, ChevronRight, Database, RefreshCw, Camera, ImageIcon } from "lucide-react";
+import { Send, X, RotateCcw, Sparkles, ChevronRight, RefreshCw, Camera, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SUGGESTED_ACTIONS = [
@@ -77,20 +76,6 @@ function MessageBubble({ role, content, imagePreview, isThinking }: {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function StatusBar() {
-  return (
-    <div className="px-3 py-1.5 border-b border-border bg-muted/30 flex items-center gap-2">
-      <div className="flex items-center gap-1.5 text-xs font-medium text-green-400">
-        <Database className="h-3 w-3" />
-        System connected
-      </div>
-      <Badge className="h-5 text-[10px] px-1.5 text-green-400 bg-green-400/10 border-green-400/30 hover:bg-green-400/10">
-        Pipeline healthy
-      </Badge>
     </div>
   );
 }
@@ -354,8 +339,6 @@ export function ChatPage() {
               </Button>
             </div>
           </div>
-
-          <StatusBar />
 
           {/* Message area — plain div so scroll position is owned by the DOM element,
                not reset by a Radix viewport on every re-render */}
