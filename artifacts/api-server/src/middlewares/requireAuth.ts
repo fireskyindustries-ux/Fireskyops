@@ -1,5 +1,6 @@
 import { getAuth, clerkClient } from "@clerk/express";
 import { Request, Response, NextFunction } from "express";
+import { logger } from "../lib/logger";
 
 /**
  * Role hierarchy:
@@ -58,7 +59,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!userId) {
     const hasCookie = !!(req.headers.cookie?.includes("__session") || req.headers.cookie?.includes("__client"));
     const hasBearer = !!req.headers.authorization?.startsWith("Bearer ");
-    console.error(`[requireAuth] 401 path=${req.path} hasCookie=${hasCookie} hasBearer=${hasBearer} authKeys=${JSON.stringify(Object.keys(auth ?? {}))}`);
+    logger.warn({ path: req.path, hasCookie, hasBearer, authKeys: Object.keys(auth ?? {}) }, "[requireAuth] 401 - unauthenticated");
     return res.status(401).json({ error: "Unauthorized" });
   }
   (req as any).userId = userId;
