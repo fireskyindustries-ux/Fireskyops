@@ -6,7 +6,6 @@ import { CameraMode } from "@/components/camera-mode";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, X, RotateCcw, Sparkles, ChevronRight, Database, RefreshCw, Camera, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -232,10 +231,16 @@ export function ChatPage() {
   const createConv = useCreateConversation();
   const { sendMessage, isStreaming, streamingMessage } = useChat(activeId || null);
 
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollDone = useRef(false);
   const prevMessageCount = useRef(0);
   const wasStreaming = useRef(false);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+  }, []);
 
   // Handle initial load and new confirmed messages — not triggered by streaming chunks
   useEffect(() => {
@@ -244,20 +249,20 @@ export function ChatPage() {
     prevMessageCount.current = count;
 
     if (!initialScrollDone.current && count > 0) {
-      bottomRef.current?.scrollIntoView({ behavior: "instant" });
+      scrollToBottom("instant");
       initialScrollDone.current = true;
     } else if (isNewMessage) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      scrollToBottom("smooth");
     }
-  }, [conversation?.messages]);
+  }, [conversation?.messages, scrollToBottom]);
 
   // Scroll once when streaming starts — not on every chunk
   useEffect(() => {
     if (isStreaming && !wasStreaming.current) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      scrollToBottom("smooth");
     }
     wasStreaming.current = isStreaming;
-  }, [isStreaming]);
+  }, [isStreaming, scrollToBottom]);
 
   // Reset scroll tracking when switching conversations
   useEffect(() => {
@@ -352,8 +357,9 @@ export function ChatPage() {
 
           <StatusBar />
 
-          {/* Message area */}
-          <ScrollArea className="flex-1 min-h-0">
+          {/* Message area — plain div so scroll position is owned by the DOM element,
+               not reset by a Radix viewport on every re-render */}
+          <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-4 space-y-4">
               {showWelcome ? (
                 <div className="space-y-4">
@@ -399,9 +405,8 @@ export function ChatPage() {
                   )}
                 </div>
               )}
-              <div ref={bottomRef} />
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Input — isolated, unaffected by streaming re-renders */}
           <ChatInput
