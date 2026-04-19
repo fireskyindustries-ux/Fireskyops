@@ -633,14 +633,18 @@ export function ChatPage() {
           <div ref={scrollRef} className="h-full overflow-y-auto">
             <div className="p-4 space-y-4">
               {showWelcome ? (
-                <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 px-2">
-                  <div className="text-center space-y-2">
-                    <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-4">
-                      <Sparkles className="h-6 w-6 text-primary" />
+                <div className="space-y-4">
+                  <div className="text-center py-6">
+                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                      <Sparkles className="h-7 w-7 text-primary" />
                     </div>
-                    <h2 className="text-2xl font-bold tracking-tight text-foreground">What can I help with?</h2>
+                    <p className="font-semibold text-foreground">Sky is ready.</p>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
+                      Ask me anything, attach an image to analyse or edit it with AI.
+                    </p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Quick starts</p>
                     {QUICK_ACTIONS.map((action) => {
                       const Icon = action.icon;
                       return (
@@ -654,12 +658,13 @@ export function ChatPage() {
                             }
                           }}
                           disabled={isStreaming || isGenerating}
-                          className="flex items-center gap-3 px-4 py-4 rounded-2xl border border-border bg-card hover:bg-muted/60 active:scale-[0.97] transition-all text-sm font-medium text-foreground group"
+                          className="w-full text-left px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted/60 transition-colors text-sm font-medium flex items-center gap-3 group"
                         >
-                          <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 transition-colors">
-                            <Icon className="h-4 w-4 text-primary" />
+                          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                            <Icon className="h-3.5 w-3.5 text-primary" />
                           </div>
-                          <span className="text-left leading-tight">{action.label}</span>
+                          <span className="flex-1">{action.label}</span>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
                         </button>
                       );
                     })}
