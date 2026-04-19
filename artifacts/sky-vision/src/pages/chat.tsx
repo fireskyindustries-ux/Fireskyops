@@ -412,11 +412,6 @@ export function ChatPage() {
   const showWelcome = !activeId || (!isLoading && messages.length === 0);
   const currentModeConfig = MODEL_MODES.find((m) => m.mode === modelMode)!;
 
-  // What model was actually used for the last reply (if auto mode chose)
-  const modelLabel = activeModel
-    ? activeModel.includes("mini") ? "Fast" : "Smart"
-    : null;
-
   return (
     <>
       {cameraOpen && <CameraMode onClose={() => setCameraOpen(false)} />}
@@ -438,9 +433,7 @@ export function ChatPage() {
                 <span className="font-bold text-lg tracking-tight">Sky</span>
                 <div className="flex items-center gap-1 -mt-0.5">
                   <ChevronRight className="h-3 w-3 opacity-60" />
-                  <span className="text-xs opacity-80 font-medium">
-                    {modelLabel && !isStreaming ? modelLabel : "System Brain"}
-                  </span>
+                  <span className="text-xs opacity-80 font-medium">System Brain</span>
                 </div>
               </div>
             </div>
