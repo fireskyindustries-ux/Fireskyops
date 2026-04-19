@@ -28,8 +28,9 @@ export function useChat(conversationId: string | null) {
       const id = overrideConversationId || conversationIdRef.current;
       if (!id) return;
 
-      // Optimistically add user message immediately so it shows before the server responds
       const optimisticId = `opt-${Date.now()}`;
+
+      // Optimistically insert user message so it shows immediately
       queryClient.setQueryData(["conversations", id], (old: Conversation | undefined) => {
         if (!old) return old;
         return {
@@ -48,6 +49,8 @@ export function useChat(conversationId: string | null) {
       });
 
       setStreamState({ isStreaming: true, streamingMessage: "" });
+
+      let fullResponse = "";
 
       try {
         const response = await fetch(`/api/sky-vision/conversations/${id}/chat`, {
@@ -80,6 +83,7 @@ export function useChat(conversationId: string | null) {
             try {
               const data = JSON.parse(line.slice(6));
               if (data.content) {
+                fullResponse += data.content;
                 setStreamState((prev) => ({
                   ...prev,
                   streamingMessage: prev.streamingMessage + data.content,
@@ -96,8 +100,28 @@ export function useChat(conversationId: string | null) {
             }
           }
         }
+
+        // Streaming done — write both messages directly into the cache so there
+        // is no gap between the streaming bubble disappearing and the server
+        // refetch completing. The background invalidation below will eventually
+        // replace these with the real server IDs, but the content is identical.
+        if (fullResponse) {
+          queryClient.setQueryData(["conversations", id], (old: Conversation | undefined) => {
+            if (!old) return old;
+            const withoutOptimistic = (old.messages || []).filter((m) => m.id !== optimisticId);
+            const now = new Date().toISOString();
+            return {
+              ...old,
+              messages: [
+                ...withoutOptimistic,
+                { id: `local-user-${Date.now()}`, conversationId: id, role: "user" as const, content: message, createdAt: now },
+                { id: `local-ai-${Date.now()}`, conversationId: id, role: "assistant" as const, content: fullResponse, createdAt: now },
+              ],
+            };
+          });
+        }
       } catch {
-        // Roll back the optimistic message on failure
+        // Roll back optimistic message on failure
         queryClient.setQueryData(["conversations", id], (old: Conversation | undefined) => {
           if (!old) return old;
           return {
@@ -111,8 +135,11 @@ export function useChat(conversationId: string | null) {
           variant: "destructive",
         });
       } finally {
+        // Clear streaming state first so the streaming bubble disappears only
+        // after the cache already has the real content above.
         setStreamState({ isStreaming: false, streamingMessage: "" });
-        // Sync final state from server (replaces optimistic message with real one)
+        // Background sync with server — replaces the local IDs with real DB IDs.
+        // Since the cache already has the correct content this refetch is invisible.
         queryClient.invalidateQueries({ queryKey: ["conversations", id] });
       }
     },
