@@ -342,8 +342,11 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
         .where(eq(conversations.id, convId));
     }
 
-    // Generate 3 follow-up suggestions after every reply
+    // Generate 3 follow-up suggestions — hard timeout so a slow API call
+    // never holds the stream open and leaves the client input disabled.
     if (fullResponse) {
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), 4000);
       try {
         const suggestResp = await openai.chat.completions.create({
           model: "gpt-4o-mini",
@@ -353,7 +356,7 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
             { role: "user", content: 'Suggest 3 short follow-up questions I might want to ask next. Reply with ONLY a JSON array of exactly 3 strings, each 7 words or fewer. No markdown, no explanation.' },
           ],
           max_completion_tokens: 80,
-        });
+        }, { signal: ac.signal });
         const raw = suggestResp.choices[0]?.message?.content?.trim();
         if (raw) {
           const suggestions = JSON.parse(raw);
@@ -362,7 +365,9 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
           }
         }
       } catch {
-        // suggestions are optional
+        // suggestions are optional — timeout or any error just skips them
+      } finally {
+        clearTimeout(timer);
       }
     }
 
