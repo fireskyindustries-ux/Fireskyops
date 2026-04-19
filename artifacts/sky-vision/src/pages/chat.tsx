@@ -1,11 +1,70 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type KeyboardEvent } from "react";
 import { Sidebar } from "@/components/chat/sidebar";
 import { useConversation, useCreateConversation, Message } from "@/hooks/use-conversations";
 import { useChat } from "@/hooks/use-chat";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizontal, Sparkles, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Send, X, RotateCcw, Sparkles, ChevronRight, Database, RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const SUGGESTED_ACTIONS = [
+  { label: "What needs my attention today?", message: "Looking at the live system data, what are the most important things I should focus on today? Prioritise by urgency." },
+  { label: "Pipeline briefing", message: "Give me a full pipeline briefing — how many jobs are in each stage, which ones are stalled, and what the overall health of the pipeline looks like." },
+  { label: "Which quotes are overdue?", message: "Which jobs have been in the quoting or quoted stage for too long? List them with how many days they've been waiting." },
+  { label: "Enquiries awaiting response", message: "Are there any new enquiries that haven't been responded to or progressed? List them by name and how long they've been waiting." },
+  { label: "What's in stock?", message: "Check our current stock levels and tell me what we have and what's running low." },
+  { label: "Summarise the week", message: "Give me a brief summary of where the business stands right now — customers, pipeline, any urgent items that need action." },
+];
+
+function MessageBubble({ role, content, isThinking }: { role: "user" | "assistant"; content: string; isThinking?: boolean }) {
+  const isUser = role === "user";
+  return (
+    <div className={cn("flex gap-3", isUser && "flex-row-reverse")}>
+      {!isUser && (
+        <div className={cn("flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-1", isThinking ? "bg-amber-500" : "bg-primary")}>
+          {isThinking
+            ? <RefreshCw className="h-3.5 w-3.5 text-white animate-spin" />
+            : <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+          }
+        </div>
+      )}
+      <div className={cn(
+        "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
+        isUser
+          ? "bg-primary text-primary-foreground rounded-tr-sm"
+          : isThinking
+          ? "bg-amber-500/10 text-amber-200 border border-amber-500/30 rounded-tl-sm italic"
+          : "bg-muted text-foreground rounded-tl-sm"
+      )}>
+        {!content ? (
+          <span className="flex gap-1 items-center text-muted-foreground">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-bounce" />
+          </span>
+        ) : content}
+      </div>
+    </div>
+  );
+}
+
+function StatusBar() {
+  return (
+    <div className="px-3 py-1.5 border-b border-border bg-muted/30 flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-green-400">
+          <Database className="h-3 w-3" />
+          System connected
+        </div>
+        <Badge className="h-5 text-[10px] px-1.5 text-green-400 bg-green-400/10 border-green-400/30 hover:bg-green-400/10">
+          Pipeline healthy
+        </Badge>
+      </div>
+    </div>
+  );
+}
 
 export function ChatPage() {
   const [activeId, setActiveId] = useState<string>("");
@@ -14,36 +73,30 @@ export function ChatPage() {
   const { sendMessage, isStreaming, streamingMessage } = useChat(activeId || null);
 
   const [input, setInput] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-scroll to bottom
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [conversation?.messages, streamingMessage, isStreaming]);
 
-  // Focus input when conversation changes
   useEffect(() => {
     if (activeId && !isLoading) {
-      inputRef.current?.focus();
+      textareaRef.current?.focus();
     }
   }, [activeId, isLoading]);
 
   const handleSend = async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || isStreaming) return;
 
     let targetId = activeId;
-    
-    // Create conversation on the fly if there isn't one
     if (!targetId) {
       try {
         const newConv = await createConv.mutateAsync();
         targetId = newConv.id;
         setActiveId(targetId);
-      } catch (e) {
+      } catch {
         return;
       }
     }
@@ -52,132 +105,163 @@ export function ChatPage() {
     sendMessage(text, targetId);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
+  const handleSuggestion = async (message: string) => {
+    if (isStreaming) return;
+    let targetId = activeId;
+    if (!targetId) {
+      try {
+        const newConv = await createConv.mutateAsync();
+        targetId = newConv.id;
+        setActiveId(targetId);
+      } catch {
+        return;
+      }
+    }
+    sendMessage(message, targetId);
+  };
+
+  const handleClear = () => {
+    setActiveId("");
+  };
+
   const messages: Message[] = conversation?.messages || [];
 
   return (
     <div className="flex h-[100dvh] bg-background text-foreground overflow-hidden">
-      <Sidebar activeId={activeId} onSelect={setActiveId} />
-      
-      <main className="flex-1 flex flex-col min-w-0 relative">
-        {/* Mobile Header */}
-        <header className="md:hidden flex items-center p-3 border-b border-border bg-background/95 backdrop-blur z-10">
-          <Sidebar activeId={activeId} onSelect={setActiveId} isMobile />
-          <span className="font-semibold ml-2 flex-1">Sky Vision</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            onClick={() => window.close()}
-            title="Close Sky Vision"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        </header>
+      {/* Desktop sidebar */}
+      <div className="hidden md:block h-full">
+        <Sidebar activeId={activeId} onSelect={setActiveId} />
+      </div>
 
-        {/* Chat Area */}
-        {!activeId && !isLoading ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-              <Sparkles className="w-8 h-8 text-primary" />
+      {/* Main panel */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header — orange, matches Sky panel */}
+        <div className="flex items-center justify-between px-4 py-3 bg-primary text-primary-foreground flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            {/* Mobile sidebar trigger */}
+            <div className="md:hidden">
+              <Sidebar activeId={activeId} onSelect={setActiveId} isMobile />
             </div>
-            <h2 className="text-2xl font-bold mb-2">Hello, I'm Sky</h2>
-            <p className="text-muted-foreground mb-8">Your Firesky AI Assistant. Ask me anything.</p>
-            <Button onClick={() => {
-              createConv.mutateAsync().then(c => setActiveId(c.id));
-            }} size="lg">
-              Start a conversation
+            <Sparkles className="h-5 w-5 hidden md:block" />
+            <div>
+              <span className="font-bold text-lg tracking-tight">Sky</span>
+              <div className="flex items-center gap-1 -mt-0.5">
+                <ChevronRight className="h-3 w-3 opacity-60" />
+                <span className="text-xs opacity-80 font-medium">System Brain</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            {messages.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+                onClick={handleClear}
+                title="New conversation"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+              onClick={() => window.close()}
+              title="Close"
+            >
+              <X className="h-5 w-5" />
             </Button>
           </div>
-        ) : (
-          <>
-            <div className="flex-1 overflow-y-auto p-4 md:p-6" ref={scrollRef}>
-              <div className="max-w-3xl mx-auto space-y-6 pb-20">
-                {isLoading && messages.length === 0 ? (
-                  <div className="flex items-center justify-center h-full mt-20">
-                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+
+        {/* Status bar */}
+        <StatusBar />
+
+        {/* Chat area */}
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="p-4 space-y-4">
+            {!activeId || (!isLoading && messages.length === 0) ? (
+              /* Empty / welcome state */
+              <div className="space-y-4">
+                <div className="text-center py-6">
+                  <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                    <Sparkles className="h-7 w-7 text-primary" />
                   </div>
-                ) : (
-                  <>
-                    {messages.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`flex gap-4 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
-                      >
-                        <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                          msg.role === "user" ? "bg-secondary" : "bg-primary"
-                        }`}>
-                          {msg.role === "user" ? (
-                            <span className="text-xs font-medium text-secondary-foreground">U</span>
-                          ) : (
-                            <span className="text-xs font-bold text-primary-foreground">S</span>
-                          )}
-                        </div>
-                        <div className={`px-4 py-3 rounded-2xl max-w-[85%] whitespace-pre-wrap ${
-                          msg.role === "user" 
-                            ? "bg-secondary text-secondary-foreground rounded-tr-sm" 
-                            : "bg-card border border-border text-card-foreground rounded-tl-sm"
-                        }`}>
-                          {msg.content}
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {isStreaming && (
-                      <div className="flex gap-4 flex-row">
-                        <div className="shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                          <span className="text-xs font-bold text-primary-foreground">S</span>
-                        </div>
-                        <div className="px-4 py-3 rounded-2xl max-w-[85%] whitespace-pre-wrap bg-card border border-border text-card-foreground rounded-tl-sm min-w-[60px]">
-                          {streamingMessage || (
-                            <span className="flex gap-1 items-center h-5">
-                              <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                              <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                              <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce" />
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </>
+                  <p className="font-semibold text-foreground">Sky is ready.</p>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
+                    I have live access to your entire business — customers, pipeline, quotes, inspections. Ask me anything.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Quick insights</p>
+                  {SUGGESTED_ACTIONS.map((action) => (
+                    <button
+                      key={action.label}
+                      onClick={() => handleSuggestion(action.message)}
+                      disabled={isStreaming}
+                      className="w-full text-left px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted/60 transition-colors text-sm font-medium flex items-center justify-between gap-2 group"
+                    >
+                      <span>{action.label}</span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : isLoading ? (
+              <div className="flex items-center justify-center h-40">
+                <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {messages.map((msg) => (
+                  <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
+                ))}
+                {isStreaming && (
+                  <MessageBubble role="assistant" content={streamingMessage} isThinking={!streamingMessage} />
                 )}
               </div>
-            </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+        </ScrollArea>
 
-            {/* Input Area */}
-            <div className="p-4 bg-background/95 backdrop-blur border-t border-border">
-              <div className="max-w-3xl mx-auto relative">
-                <Textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask Sky anything..."
-                  className="min-h-[56px] max-h-32 pr-14 resize-none bg-input border-none focus-visible:ring-1 focus-visible:ring-ring rounded-xl text-base py-4"
-                  rows={1}
-                />
-                <Button
-                  onClick={handleSend}
-                  disabled={!input.trim() || isStreaming || isLoading}
-                  size="icon"
-                  className="absolute right-2 bottom-2 rounded-lg w-10 h-10 transition-transform active:scale-95"
-                >
-                  <SendHorizontal className="w-5 h-5" />
-                </Button>
-              </div>
-              <div className="text-center mt-2 text-xs text-muted-foreground">
-                Sky may produce inaccurate information.
-              </div>
+        {/* Input row — matches Sky panel exactly */}
+        <div className="border-t border-border flex-shrink-0 bg-background">
+          <div className="p-3">
+            <div className="flex gap-2 items-end">
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask Sky a question..."
+                className="min-h-[40px] max-h-[100px] resize-none text-sm rounded-xl flex-1"
+                rows={1}
+                disabled={isStreaming}
+              />
+              <Button
+                size="icon"
+                className="h-10 w-10 rounded-xl flex-shrink-0"
+                onClick={handleSend}
+                disabled={!input.trim() || isStreaming}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
             </div>
-          </>
-        )}
-      </main>
+            <p className="text-[10px] text-muted-foreground text-center mt-2">
+              Sky reads live system data and provides business intelligence
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
