@@ -11,7 +11,8 @@ import { CameraMode } from "@/components/camera-mode";
 import { VoiceOverlay } from "@/components/voice-overlay";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, X, RotateCcw, Sparkles, ChevronRight, RefreshCw, Camera, ImageIcon, Copy, Check, Zap, Brain, Wand2, Pencil, Eye, Mic, ImagePlus, BarChart3, Lightbulb, PenLine } from "lucide-react";
+import { Send, X, RotateCcw, Sparkles, ChevronRight, RefreshCw, Camera, ImageIcon, Copy, Check, Zap, Brain, Wand2, Pencil, Eye, Mic, ImagePlus, BarChart3, Lightbulb, PenLine, Paperclip, FileText, Download, BookMarked } from "lucide-react";
+import { PromptLibrary } from "@/components/chat/prompt-library";
 import { cn } from "@/lib/utils";
 
 const markdownComponents: Record<string, React.FC<any>> = {
@@ -87,12 +88,13 @@ interface PendingImage {
   preview: string;
 }
 
-function MessageBubble({ role, content, imagePreview, resultImage, isThinking }: {
+function MessageBubble({ role, content, imagePreview, resultImage, isThinking, fileName }: {
   role: "user" | "assistant";
   content: string;
   imagePreview?: string;
   resultImage?: string;
   isThinking?: boolean;
+  fileName?: string;
 }) {
   const isUser = role === "user";
   const [copied, setCopied] = useState(false);
@@ -121,6 +123,12 @@ function MessageBubble({ role, content, imagePreview, resultImage, isThinking }:
             alt="Attached"
             className={cn("rounded-xl max-w-[220px] max-h-[160px] object-cover border", isUser ? "border-primary/40" : "border-border")}
           />
+        )}
+        {isUser && fileName && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-primary/20 border border-primary/30 text-xs font-medium text-primary-foreground max-w-[240px]">
+            <FileText className="h-3 w-3 shrink-0 text-primary-foreground/70" />
+            <span className="truncate">{fileName}</span>
+          </div>
         )}
         {content && (
           <div className={cn(
@@ -176,14 +184,16 @@ function isImageGenRequest(text: string): boolean {
   return IMAGE_GEN_REGEX.test(text);
 }
 
-type ChatInputHandle = { activateGenerateMode: () => void };
+interface DocFile { name: string; context: string; }
+
+type ChatInputHandle = { activateGenerateMode: () => void; setInputText: (text: string) => void };
 
 // Isolated input — its own state so streaming re-renders never touch it
 const ChatInput = memo(forwardRef<ChatInputHandle, {
   isStreaming: boolean;
   isEditing: boolean;
   isGenerating: boolean;
-  onSend: (text: string, image?: PendingImage) => void;
+  onSend: (text: string, image?: PendingImage, fileContext?: string, fileName?: string) => void;
   onEdit: (text: string, image: PendingImage) => void;
   onGenerate: (text: string) => void;
   onCameraOpen: () => void;
@@ -200,7 +210,11 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
   const [image, setImage] = useState<PendingImage | null>(null);
   const [imageMode, setImageMode] = useState<"analyze" | "edit">("analyze");
   const [generateMode, setGenerateMode] = useState(false);
+  const [docFile, setDocFile] = useState<DocFile | null>(null);
+  const [isParsing, setIsParsing] = useState(false);
+  const [promptLibOpen, setPromptLibOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docFileInputRef = useRef<HTMLInputElement>(null);
   const onSendRef = useRef(onSend);
   const onEditRef = useRef(onEdit);
   const onGenerateRef = useRef(onGenerate);
@@ -210,6 +224,7 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
 
   useImperativeHandle(ref, () => ({
     activateGenerateMode: () => { setGenerateMode(true); setImage(null); },
+    setInputText: (text: string) => setInput(text),
   }));
 
   // Reset edit mode when image is cleared
@@ -230,23 +245,56 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
     e.target.value = "";
   }, [handleImageFile]);
 
+  const handleDocFileChange = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setIsParsing(true);
+    try {
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          resolve(dataUrl.split(",")[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch("/api/sky-vision/parse-file", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileBase64, mimeType: file.type, fileName: file.name }),
+      });
+      if (!res.ok) throw new Error("Failed to parse file");
+      const { text } = await res.json();
+      setDocFile({ name: file.name, context: text });
+    } catch {
+      setDocFile(null);
+    } finally {
+      setIsParsing(false);
+    }
+  }, []);
+
   const busy = isStreaming || isEditing || isGenerating;
 
   const handleSend = useCallback(() => {
     const text = input.trim();
-    if ((!text && !image) || busy) return;
+    if ((!text && !image && !docFile) || busy) return;
     const img = image;
+    const doc = docFile;
     setInput("");
     setImage(null);
+    setDocFile(null);
     if (img && imageMode === "edit") {
       onEditRef.current(text || "Edit this image", img);
-    } else if (generateMode || (!img && isImageGenRequest(text))) {
+    } else if (generateMode || (!img && !doc && isImageGenRequest(text))) {
       setGenerateMode(false);
       onGenerateRef.current(text);
     } else {
-      onSendRef.current(text || "What's in this image?", img ?? undefined);
+      onSendRef.current(text || "What's in this image?", img ?? undefined, doc?.context, doc?.name);
     }
-  }, [input, image, busy, imageMode, generateMode]);
+  }, [input, image, docFile, busy, imageMode, generateMode]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -261,7 +309,9 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
       ? imageMode === "edit"
         ? "Describe the edit you want (e.g. 'remove the background')"
         : "Ask Sky about this image..."
-      : "Ask Sky anything...";
+      : docFile
+        ? `Ask Sky about ${docFile.name}...`
+        : "Ask Sky anything...";
 
   return (
     <div className="border-t border-border flex-shrink-0 bg-background">
@@ -315,6 +365,22 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
         </div>
       )}
 
+      {/* Document file badge */}
+      {docFile && (
+        <div className="px-3 pt-3 flex items-center gap-2">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 text-xs font-medium text-primary max-w-xs">
+            <FileText className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{docFile.name}</span>
+          </div>
+          <button
+            onClick={() => setDocFile(null)}
+            className="w-5 h-5 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors text-muted-foreground"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+
       <div className="p-3">
         <input
           ref={fileInputRef}
@@ -322,6 +388,13 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
           accept="image/*"
           className="hidden"
           onChange={handleFileChange}
+        />
+        <input
+          ref={docFileInputRef}
+          type="file"
+          accept=".pdf,.docx,.doc,.csv,.txt,.md"
+          className="hidden"
+          onChange={handleDocFileChange}
         />
         {generateMode && (
           <div className="mb-2 flex items-center gap-2 px-1">
@@ -352,6 +425,21 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
           <Button
             variant="ghost"
             size="icon"
+            className={cn("h-10 w-10 rounded-xl flex-shrink-0 hover:bg-muted relative", docFile ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+            onClick={() => docFileInputRef.current?.click()}
+            disabled={busy || generateMode || isParsing}
+            title="Attach a document (PDF, DOCX, CSV, TXT)"
+          >
+            {isParsing
+              ? <RefreshCw className="h-4 w-4 animate-spin" />
+              : <Paperclip className="h-4 w-4" />
+            }
+            {docFile && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary" />}
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-10 w-10 rounded-xl flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
             onClick={onCameraOpen}
             disabled={busy}
@@ -369,11 +457,23 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
             rows={1}
             disabled={busy}
           />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 rounded-xl flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+            onClick={() => setPromptLibOpen(true)}
+            disabled={busy}
+            title="Saved prompts"
+          >
+            <BookMarked className="h-4 w-4" />
+          </Button>
+
           <Button
             size="icon"
             className={cn("h-10 w-10 rounded-xl flex-shrink-0", generateMode && "bg-primary")}
             onClick={handleSend}
-            disabled={(!input.trim() && !image) || busy}
+            disabled={(!input.trim() && !image && !docFile) || busy}
           >
             {isGenerating
               ? <RefreshCw className="h-4 w-4 animate-spin" />
@@ -384,9 +484,16 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
           </Button>
         </div>
         <p className="text-[10px] text-muted-foreground text-center mt-2">
-          {generateMode ? "Describe what you want — Sky will create it using DALL-E 3" : "Attach an image to analyse or edit it with AI"}
+          {generateMode ? "Describe what you want — Sky will create it using DALL-E 3" : "Attach an image or document to analyse with AI"}
         </p>
       </div>
+
+      <PromptLibrary
+        open={promptLibOpen}
+        onOpenChange={setPromptLibOpen}
+        currentInput={input}
+        onSelect={(content) => { setInput(content); setPromptLibOpen(false); }}
+      />
     </div>
   );
 }));
@@ -402,7 +509,7 @@ export function ChatPage() {
 
   const { data: conversation, isLoading } = useConversation(activeId || null);
   const createConv = useCreateConversation();
-  const { sendMessage, editImage, generateImage, isStreaming, isSearching, isEditing, isGenerating, streamingMessage, activeModel, lastCompletedResponse } = useChat(activeId || null);
+  const { sendMessage, editImage, generateImage, isStreaming, isSearching, isEditing, isGenerating, streamingMessage, activeModel, lastCompletedResponse, suggestions } = useChat(activeId || null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollDone = useRef(false);
@@ -448,14 +555,30 @@ export function ChatPage() {
     }
   }, [activeId, createConv]);
 
-  const handleSend = useCallback(async (text: string, image?: PendingImage) => {
+  const handleSend = useCallback(async (text: string, image?: PendingImage, fileContext?: string, fileName?: string) => {
     const targetId = await ensureConversation();
     if (!targetId) return;
     const imageAttachment: ImageAttachment | undefined = image
       ? { base64: image.base64, mimeType: image.mimeType, dataUrl: image.preview }
       : undefined;
-    sendMessage(text, targetId, imageAttachment, modelMode);
+    sendMessage(text, targetId, imageAttachment, modelMode, fileContext, fileName);
   }, [ensureConversation, sendMessage, modelMode]);
+
+  const handleExport = useCallback(() => {
+    if (!messages.length) return;
+    const lines = messages.map((m) => {
+      const role = m.role === "user" ? "**You**" : "**Sky**";
+      return `${role}\n\n${m.content}`;
+    });
+    const md = lines.join("\n\n---\n\n");
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sky-conversation-${activeId || "chat"}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [messages, activeId]);
 
   const handleEdit = useCallback(async (text: string, image: PendingImage) => {
     const targetId = await ensureConversation();
@@ -599,15 +722,26 @@ export function ChatPage() {
               </Button>
 
               {messages.length > 0 && !isStreaming && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-white hover:bg-white/20"
-                  onClick={() => setActiveId("")}
-                  title="New conversation"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                </Button>
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-white hover:bg-white/20"
+                    onClick={handleExport}
+                    title="Export conversation"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-white hover:bg-white/20"
+                    onClick={() => setActiveId("")}
+                    title="New conversation"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                </>
               )}
               <Button
                 variant="ghost"
@@ -685,6 +819,7 @@ export function ChatPage() {
                       content={msg.content}
                       imagePreview={msg.imagePreview}
                       resultImage={msg.resultImage}
+                      fileName={(msg as any).fileName}
                     />
                   ))}
                   {isStreaming && (
@@ -700,6 +835,21 @@ export function ChatPage() {
                       )}
                       <MessageBubble role="assistant" content={streamingMessage} isThinking={!streamingMessage && !isSearching} />
                     </>
+                  )}
+                  {/* Follow-up suggestion chips */}
+                  {!isStreaming && suggestions.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1 pl-10">
+                      {suggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          onClick={() => handleSuggestion(s)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                        >
+                          <ChevronRight className="h-3 w-3" />
+                          {s}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}

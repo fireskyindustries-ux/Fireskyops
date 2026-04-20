@@ -7,6 +7,7 @@ interface StreamState {
   isStreaming: boolean;
   isSearching: boolean;
   streamingMessage: string;
+  suggestions: string[];
   activeModel: string | null;
   lastCompletedResponse: string;
 }
@@ -22,6 +23,7 @@ export function useChat(conversationId: string | null) {
     isStreaming: false,
     isSearching: false,
     streamingMessage: "",
+    suggestions: [],
     activeModel: null,
     lastCompletedResponse: "",
   });
@@ -33,7 +35,7 @@ export function useChat(conversationId: string | null) {
   useEffect(() => { conversationIdRef.current = conversationId; }, [conversationId]);
 
   const sendMessage = useCallback(
-    async (message: string, overrideConversationId?: string, image?: ImageAttachment, modelMode = "auto") => {
+    async (message: string, overrideConversationId?: string, image?: ImageAttachment, modelMode = "auto", fileContext?: string, fileName?: string) => {
       const id = overrideConversationId || conversationIdRef.current;
       if (!id) return;
 
@@ -53,12 +55,13 @@ export function useChat(conversationId: string | null) {
               content: message,
               createdAt: new Date().toISOString(),
               imagePreview: image?.dataUrl,
+              fileName,
             },
           ],
         };
       });
 
-      setStreamState((prev) => ({ ...prev, isStreaming: true, isSearching: false, streamingMessage: "", activeModel: null }));
+      setStreamState((prev) => ({ ...prev, isStreaming: true, isSearching: false, streamingMessage: "", suggestions: [], activeModel: null }));
 
       let fullResponse = "";
       let resolvedModel: string | null = null;
@@ -73,6 +76,8 @@ export function useChat(conversationId: string | null) {
             imageBase64: image?.base64,
             mimeType: image?.mimeType,
             modelMode,
+            fileContext,
+            fileName,
           }),
         });
 
@@ -109,6 +114,9 @@ export function useChat(conversationId: string | null) {
               if (typeof data.searching === "boolean") {
                 setStreamState((prev) => ({ ...prev, isSearching: data.searching }));
               }
+              if (Array.isArray(data.suggestions)) {
+                setStreamState((prev) => ({ ...prev, suggestions: data.suggestions }));
+              }
               if (data.title) {
                 // Update the title in the conversation cache immediately
                 queryClient.setQueryData(["conversations", id], (old: Conversation | undefined) => {
@@ -139,7 +147,7 @@ export function useChat(conversationId: string | null) {
               ...old,
               messages: [
                 ...withoutOptimistic,
-                { id: `local-user-${Date.now()}`, conversationId: id, role: "user" as const, content: message, createdAt: now, imagePreview: image?.dataUrl },
+                { id: `local-user-${Date.now()}`, conversationId: id, role: "user" as const, content: message, createdAt: now, imagePreview: image?.dataUrl, fileName },
                 { id: `local-ai-${Date.now()}`, conversationId: id, role: "assistant" as const, content: fullResponse, createdAt: now },
               ],
             };

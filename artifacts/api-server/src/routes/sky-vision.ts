@@ -1,9 +1,14 @@
 import { Router } from "express";
 import { eq, desc, and } from "drizzle-orm";
 import OpenAI, { toFile } from "openai";
-import { db, conversations, messages, userMemories } from "@workspace/db";
+import { db, conversations, messages, userMemories, savedPrompts } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { brand } from "../brand.config";
+// pdf-parse v2 has broken ESM exports — use require() via the CJS bridge in the banner
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse: (buf: Buffer) => Promise<{ text: string }> = require("pdf-parse");
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const mammoth: { extractRawText: (opts: { buffer: Buffer }) => Promise<{ value: string }> } = require("mammoth");
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const GPT_MODEL = "gpt-5";
@@ -319,11 +324,13 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const convId = Number(req.params.id);
-  const { message, imageBase64, mimeType = "image/jpeg", modelMode = "auto" } = req.body as {
+  const { message, imageBase64, mimeType = "image/jpeg", modelMode = "auto", fileContext, fileName } = req.body as {
     message: string;
     imageBase64?: string;
     mimeType?: string;
     modelMode?: string;
+    fileContext?: string;
+    fileName?: string;
   };
 
   if (!message?.trim()) { res.status(400).json({ error: "message required" }); return; }
@@ -362,11 +369,16 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
 
     let fullResponse = "";
 
+    // Build user content — include file context when present
+    const userTextContent = fileContext
+      ? `[Attached file: ${fileName || "document"}]\n\n${fileContext.slice(0, 30000)}\n\n---\n${message.trim()}`
+      : message.trim();
+
     if (imageBase64) {
       // ── Image path: Chat Completions (multimodal, no web search) ──────────
       const currentUserContent: any = [
         { type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
-        { type: "text", text: message.trim() },
+        { type: "text", text: userTextContent },
       ];
 
       const openaiMessages: any[] = [
@@ -389,7 +401,7 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
       // ── Text path: Responses API with web search ──────────────────────────
       const responsesInput: any[] = [
         ...historyMessages,
-        { role: "user", content: message.trim() },
+        { role: "user", content: userTextContent },
       ];
 
       const responseStream = await withRetry(() => (openai as any).responses.create({
@@ -450,6 +462,24 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
       await db.update(conversations)
         .set({ updatedAt: new Date() })
         .where(eq(conversations.id, convId));
+    }
+
+    // Generate follow-up suggestions
+    if (fullResponse) {
+      try {
+        const suggestResp = await openai.chat.completions.create({
+          model: FAST_MODEL,
+          messages: [
+            { role: "user", content: message.trim() },
+            { role: "assistant", content: fullResponse.slice(0, 800) },
+            { role: "user", content: "Give exactly 3 short follow-up questions or actions the user might want next. Reply with ONLY a JSON array of 3 strings, no other text." },
+          ],
+          max_tokens: 120,
+        });
+        const raw = suggestResp.choices[0]?.message?.content?.trim() ?? "[]";
+        const suggestions = JSON.parse(raw.replace(/```json|```/g, "").trim());
+        if (Array.isArray(suggestions) && suggestions.length) sseWrite({ suggestions });
+      } catch { /* suggestions optional */ }
     }
 
     sseWrite({ done: true });
@@ -574,6 +604,91 @@ router.post("/sky-vision/edit-image", async (req, res): Promise<void> => {
   } catch (err: any) {
     console.error("Image edit error:", err?.message);
     res.status(500).json({ error: "Image editing failed. Please try a different prompt or image." });
+  }
+});
+
+// ─── Memory CRUD ─────────────────────────────────────────────────────────────
+router.get("/sky-vision/memory", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const [row] = await db.select().from(userMemories).where(eq(userMemories.userId, userId));
+  res.json({ content: row?.content ?? "" });
+});
+
+router.put("/sky-vision/memory", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { content } = req.body as { content: string };
+  await db.insert(userMemories).values({ userId, content: content ?? "", updatedAt: new Date() })
+    .onConflictDoUpdate({ target: userMemories.userId, set: { content: content ?? "", updatedAt: new Date() } });
+  res.json({ ok: true });
+});
+
+router.delete("/sky-vision/memory", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  await db.update(userMemories).set({ content: "", updatedAt: new Date() }).where(eq(userMemories.userId, userId));
+  res.json({ ok: true });
+});
+
+// ─── Saved Prompts CRUD ───────────────────────────────────────────────────────
+router.get("/sky-vision/prompts", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const prompts = await db.select().from(savedPrompts)
+    .where(eq(savedPrompts.userId, userId))
+    .orderBy(desc(savedPrompts.createdAt));
+  res.json(prompts);
+});
+
+router.post("/sky-vision/prompts", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { title, content } = req.body as { title: string; content: string };
+  if (!title?.trim() || !content?.trim()) { res.status(400).json({ error: "title and content required" }); return; }
+  const [prompt] = await db.insert(savedPrompts).values({ userId, title: title.trim(), content: content.trim() }).returning();
+  res.status(201).json(prompt);
+});
+
+router.delete("/sky-vision/prompts/:id", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const id = Number(req.params.id);
+  await db.delete(savedPrompts).where(and(eq(savedPrompts.id, id), eq(savedPrompts.userId, userId)));
+  res.status(204).send();
+});
+
+// ─── File parsing (PDF / DOCX / CSV / TXT) ───────────────────────────────────
+router.post("/sky-vision/parse-file", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { fileBase64, mimeType, fileName } = req.body as { fileBase64: string; mimeType: string; fileName: string };
+  if (!fileBase64 || !mimeType) { res.status(400).json({ error: "fileBase64 and mimeType required" }); return; }
+
+  try {
+    const buffer = Buffer.from(fileBase64, "base64");
+    let text = "";
+
+    if (mimeType === "application/pdf") {
+      const parsed = await pdfParse(buffer);
+      text = parsed.text;
+    } else if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || mimeType === "application/msword") {
+      const result = await mammoth.extractRawText({ buffer });
+      text = result.value;
+    } else {
+      // CSV, TXT, and any other text-based files
+      text = buffer.toString("utf-8");
+    }
+
+    // Trim and cap at 40 000 chars (~30k tokens)
+    text = text.trim().slice(0, 40000);
+    if (!text) { res.status(422).json({ error: "Could not extract text from this file." }); return; }
+
+    res.json({ text, fileName });
+  } catch (err: any) {
+    console.error("File parse error:", err?.message);
+    res.status(500).json({ error: "Failed to read the file. Please try a different format." });
   }
 });
 

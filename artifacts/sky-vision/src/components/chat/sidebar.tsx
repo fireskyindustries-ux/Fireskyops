@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, MessageSquare, MoreVertical, Pencil, Trash, Menu, X } from "lucide-react";
+import { Plus, MoreVertical, Pencil, Trash, Menu, X, Search, BrainCircuit } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +14,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { MemoryPanel } from "./memory-panel";
 
 interface SidebarProps {
   activeId: string | null;
@@ -28,11 +29,20 @@ export function Sidebar({ activeId, onSelect, isMobile = false }: SidebarProps) 
   const updateConv = useUpdateConversation();
   const { toast } = useToast();
 
+  const [search, setSearch] = useState("");
+  const [memoryOpen, setMemoryOpen] = useState(false);
+
   const [renameDialog, setRenameDialog] = useState<{ isOpen: boolean; id: string; title: string }>({
     isOpen: false,
     id: "",
     title: "",
   });
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return conversations ?? [];
+    const q = search.toLowerCase();
+    return (conversations ?? []).filter((c) => c.title?.toLowerCase().includes(q));
+  }, [conversations, search]);
 
   const handleNew = async () => {
     try {
@@ -66,29 +76,45 @@ export function Sidebar({ activeId, onSelect, isMobile = false }: SidebarProps) 
 
   const content = (
     <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border w-[280px]">
-      <div className="p-4 flex items-center gap-2">
-        <Button onClick={handleNew} className="flex-1 justify-start gap-2" variant="outline">
+      <div className="p-3 flex items-center gap-2">
+        <Button onClick={handleNew} className="flex-1 justify-start gap-2 h-9" variant="outline">
           <Plus className="w-4 h-4" />
           New Chat
         </Button>
         <Button
           variant="ghost"
           size="icon"
-          className="shrink-0 text-muted-foreground hover:text-foreground"
+          className="shrink-0 h-9 w-9 text-muted-foreground hover:text-foreground"
           onClick={() => window.close()}
           title="Close Sky Vision"
         >
           <X className="w-4 h-4" />
         </Button>
       </div>
+
+      {/* Search */}
+      <div className="px-3 pb-2">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search chats..."
+            className="w-full bg-muted/50 border border-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      </div>
+
       <ScrollArea className="flex-1 px-3">
         <div className="space-y-1 pb-4">
           {isLoading ? (
             <div className="px-2 py-3 text-sm text-muted-foreground text-center">Loading...</div>
-          ) : conversations?.length === 0 ? (
-            <div className="px-2 py-3 text-sm text-muted-foreground text-center">No conversations</div>
+          ) : filtered.length === 0 ? (
+            <div className="px-2 py-3 text-sm text-muted-foreground text-center">
+              {search ? "No matching chats" : "No conversations"}
+            </div>
           ) : (
-            conversations?.map((conv) => (
+            filtered.map((conv) => (
               <div
                 key={conv.id}
                 className={`group flex items-center justify-between rounded-md px-3 py-2 text-sm cursor-pointer transition-colors ${
@@ -141,6 +167,19 @@ export function Sidebar({ activeId, onSelect, isMobile = false }: SidebarProps) 
         </div>
       </ScrollArea>
 
+      {/* Memory button */}
+      <div className="p-3 border-t border-sidebar-border">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground text-xs h-8"
+          onClick={() => setMemoryOpen(true)}
+        >
+          <BrainCircuit className="w-3.5 h-3.5" />
+          Sky's Memory
+        </Button>
+      </div>
+
       <Dialog open={renameDialog.isOpen} onOpenChange={(open) => setRenameDialog(p => ({ ...p, isOpen: open }))}>
         <DialogContent>
           <DialogHeader>
@@ -158,6 +197,8 @@ export function Sidebar({ activeId, onSelect, isMobile = false }: SidebarProps) 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <MemoryPanel open={memoryOpen} onOpenChange={setMemoryOpen} />
     </div>
   );
 

@@ -347,6 +347,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
       )}
 
+      {/* Mobile Bottom Nav — Branch Admin */}
+      {isBranchAdmin && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[72px] bg-sidebar border-t border-sidebar-border flex items-stretch justify-around px-1 z-10">
+          <BottomNavItem item={branchAdminNavItems[0]} location={location} />
+          <BottomNavItem item={branchAdminNavItems[1]} location={location} />
+          <div className="flex-1 flex justify-center items-center -mt-5">
+            <Link href="/enquiries/new">
+              <Button size="icon" className="h-[52px] w-[52px] rounded-full shadow-lg shadow-primary/30 ring-4 ring-sidebar">
+                <Plus className="h-6 w-6" />
+              </Button>
+            </Link>
+          </div>
+          <BottomNavItem item={branchAdminNavItems[4]} location={location} />
+          <BottomNavItem item={branchAdminNavItems[5]} location={location} />
+        </nav>
+      )}
+
       {/* Mobile Bottom Nav — Field Worker */}
       {isFieldWorker && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[72px] bg-sidebar border-t border-sidebar-border flex items-stretch justify-around px-1 z-10">

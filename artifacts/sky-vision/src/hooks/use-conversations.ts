@@ -8,6 +8,7 @@ export interface Message {
   createdAt: string;
   imagePreview?: string;  // in-memory: attached image shown in the bubble
   resultImage?: string;   // in-memory: AI-edited image returned in the bubble
+  fileName?: string;      // in-memory: attached document filename badge
 }
 
 export interface Conversation {

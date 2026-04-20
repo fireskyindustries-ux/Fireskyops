@@ -15,3 +15,4 @@ export * from "./stock_items";
 export * from "./stock_levels";
 export * from "./stock_movements";
 export * from "./user_memories";
+export * from "./saved_prompts";
