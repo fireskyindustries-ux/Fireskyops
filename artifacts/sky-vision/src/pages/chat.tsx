@@ -402,7 +402,7 @@ export function ChatPage() {
 
   const { data: conversation, isLoading } = useConversation(activeId || null);
   const createConv = useCreateConversation();
-  const { sendMessage, editImage, generateImage, isStreaming, isEditing, isGenerating, streamingMessage, activeModel, lastCompletedResponse } = useChat(activeId || null);
+  const { sendMessage, editImage, generateImage, isStreaming, isSearching, isEditing, isGenerating, streamingMessage, activeModel, lastCompletedResponse } = useChat(activeId || null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollDone = useRef(false);
@@ -688,7 +688,18 @@ export function ChatPage() {
                     />
                   ))}
                   {isStreaming && (
-                    <MessageBubble role="assistant" content={streamingMessage} isThinking={!streamingMessage} />
+                    <>
+                      {isSearching && !streamingMessage && (
+                        <div className="flex items-center gap-2 px-1 text-sm text-orange-400 animate-pulse">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle cx="11" cy="11" r="8" strokeWidth="2" />
+                            <path d="m21 21-4.35-4.35" strokeWidth="2" strokeLinecap="round" />
+                          </svg>
+                          Searching the web...
+                        </div>
+                      )}
+                      <MessageBubble role="assistant" content={streamingMessage} isThinking={!streamingMessage && !isSearching} />
+                    </>
                   )}
                 </div>
               )}

@@ -5,6 +5,7 @@ import type { Conversation } from "./use-conversations";
 
 interface StreamState {
   isStreaming: boolean;
+  isSearching: boolean;
   streamingMessage: string;
   activeModel: string | null;
   lastCompletedResponse: string;
@@ -19,6 +20,7 @@ export interface ImageAttachment {
 export function useChat(conversationId: string | null) {
   const [streamState, setStreamState] = useState<StreamState>({
     isStreaming: false,
+    isSearching: false,
     streamingMessage: "",
     activeModel: null,
     lastCompletedResponse: "",
@@ -56,7 +58,7 @@ export function useChat(conversationId: string | null) {
         };
       });
 
-      setStreamState((prev) => ({ ...prev, isStreaming: true, streamingMessage: "", activeModel: null }));
+      setStreamState((prev) => ({ ...prev, isStreaming: true, isSearching: false, streamingMessage: "", activeModel: null }));
 
       let fullResponse = "";
       let resolvedModel: string | null = null;
@@ -96,12 +98,16 @@ export function useChat(conversationId: string | null) {
                 fullResponse += data.content;
                 setStreamState((prev) => ({
                   ...prev,
+                  isSearching: false,
                   streamingMessage: prev.streamingMessage + data.content,
                 }));
               }
               if (data.model) {
                 resolvedModel = data.model;
                 setStreamState((prev) => ({ ...prev, activeModel: data.model }));
+              }
+              if (typeof data.searching === "boolean") {
+                setStreamState((prev) => ({ ...prev, isSearching: data.searching }));
               }
               if (data.title) {
                 // Update the title in the conversation cache immediately
@@ -156,6 +162,7 @@ export function useChat(conversationId: string | null) {
         setStreamState((prev) => ({
           ...prev,
           isStreaming: false,
+          isSearching: false,
           streamingMessage: "",
           activeModel: resolvedModel,
           lastCompletedResponse: fullResponse || prev.lastCompletedResponse,

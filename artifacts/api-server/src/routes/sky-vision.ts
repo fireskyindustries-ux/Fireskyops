@@ -355,37 +355,60 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
 
   try {
     // Build message history — all but last message are text-only
-    const historyMessages = history.slice(0, -1).map((m) => ({ role: m.role, content: m.content }));
-
-    // Current user turn — multimodal if image provided
-    const currentUserContent: any = imageBase64
-      ? [
-          { type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
-          { type: "text", text: message.trim() },
-        ]
-      : message.trim();
-
-    const openaiMessages: any[] = [
-      { role: "system", content: buildSystemPrompt(memory) },
-      ...historyMessages,
-      { role: "user", content: currentUserContent },
-    ];
+    const historyMessages = history.slice(0, -1).map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
     const chosenModel = selectModel(modelMode, message.trim());
     sseWrite({ model: chosenModel });
 
     let fullResponse = "";
-    const stream = await withRetry(() => openai.chat.completions.create({
-      model: chosenModel,
-      messages: openaiMessages,
-      stream: true,
-    }));
 
-    for await (const chunk of stream) {
-      const text = chunk.choices[0]?.delta?.content ?? "";
-      if (text) {
-        fullResponse += text;
-        sseWrite({ content: text });
+    if (imageBase64) {
+      // ── Image path: Chat Completions (multimodal, no web search) ──────────
+      const currentUserContent: any = [
+        { type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+        { type: "text", text: message.trim() },
+      ];
+
+      const openaiMessages: any[] = [
+        { role: "system", content: buildSystemPrompt(memory) },
+        ...historyMessages,
+        { role: "user", content: currentUserContent },
+      ];
+
+      const stream = await withRetry(() => openai.chat.completions.create({
+        model: chosenModel,
+        messages: openaiMessages,
+        stream: true,
+      }));
+
+      for await (const chunk of stream) {
+        const text = chunk.choices[0]?.delta?.content ?? "";
+        if (text) { fullResponse += text; sseWrite({ content: text }); }
+      }
+    } else {
+      // ── Text path: Responses API with web search ──────────────────────────
+      const responsesInput: any[] = [
+        ...historyMessages,
+        { role: "user", content: message.trim() },
+      ];
+
+      const responseStream = await withRetry(() => (openai as any).responses.create({
+        model: chosenModel,
+        instructions: buildSystemPrompt(memory),
+        input: responsesInput,
+        tools: [{ type: "web_search_preview" }],
+        stream: true,
+      }));
+
+      for await (const event of responseStream as AsyncIterable<any>) {
+        if (event.type === "response.output_text.delta") {
+          const text = event.delta ?? "";
+          if (text) { fullResponse += text; sseWrite({ content: text }); }
+        } else if (event.type === "response.web_search_call.in_progress") {
+          sseWrite({ searching: true });
+        } else if (event.type === "response.web_search_call.completed") {
+          sseWrite({ searching: false });
+        }
       }
     }
 
