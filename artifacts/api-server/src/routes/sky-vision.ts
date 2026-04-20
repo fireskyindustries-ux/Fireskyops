@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, desc, and } from "drizzle-orm";
 import OpenAI, { toFile } from "openai";
-import { db, conversations, messages } from "@workspace/db";
+import { db, conversations, messages, userMemories } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { brand } from "../brand.config";
 
@@ -36,7 +36,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   throw lastErr;
 }
 
-const SYSTEM_PROMPT = `You are Sky, a highly capable general-purpose AI assistant. You help with any topic, question, or task — there are no subject restrictions.
+const BASE_SYSTEM_PROMPT = `You are Sky, a highly capable general-purpose AI assistant. You help with any topic, question, or task — there are no subject restrictions.
 
 Background knowledge (use when relevant, never force it):
 - You are deployed through Firesky Industries, a South African company that supplies and installs water storage tanks and related equipment.
@@ -60,6 +60,70 @@ Formatting rules:
 - When listing items, use a dash and space at the start of each point on its own line.
 - Group related information under plain-text headings followed by a colon, only when it helps readability.
 - Never use emoji.`;
+
+function buildSystemPrompt(memory: string): string {
+  if (!memory.trim()) return BASE_SYSTEM_PROMPT;
+  return `${BASE_SYSTEM_PROMPT}
+
+What you remember about this user (from previous conversations — use naturally, never recite robotically):
+${memory.trim()}`;
+}
+
+async function getUserMemory(userId: string): Promise<string> {
+  try {
+    const [row] = await db.select().from(userMemories).where(eq(userMemories.userId, userId));
+    return row?.content ?? "";
+  } catch {
+    return "";
+  }
+}
+
+async function updateUserMemory(
+  userId: string,
+  currentMemory: string,
+  userMessage: string,
+  assistantReply: string,
+): Promise<void> {
+  try {
+    const prompt = currentMemory.trim()
+      ? `You maintain a concise memory of facts about a user based on their conversations with an AI assistant named Sky.
+
+Current memory:
+${currentMemory}
+
+New conversation exchange:
+User: ${userMessage.slice(0, 1000)}
+Sky: ${assistantReply.slice(0, 1000)}
+
+Update the memory to include any new important facts about the user (name, role, preferences, projects, recurring topics, goals, language, location, etc). Remove outdated or superseded facts. Keep the total memory under 300 words. Write it as a plain list of concise facts, one per line starting with a dash. If nothing meaningful is worth remembering, return the existing memory unchanged. Return ONLY the updated memory text, nothing else.`
+      : `You extract memorable facts about a user from a conversation with an AI assistant named Sky.
+
+Conversation:
+User: ${userMessage.slice(0, 1000)}
+Sky: ${assistantReply.slice(0, 1000)}
+
+Extract any facts worth remembering about the user (name, role, preferences, projects, recurring topics, goals, language, location, etc). If nothing meaningful is revealed, reply with an empty string. Return ONLY a plain list of concise facts, one per line starting with a dash. Keep it under 300 words.`;
+
+    const resp = await openai.chat.completions.create({
+      model: FAST_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 400,
+    });
+
+    const updated = resp.choices[0]?.message?.content?.trim() ?? "";
+    if (!updated) return;
+
+    await db
+      .insert(userMemories)
+      .values({ userId, content: updated, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: userMemories.userId,
+        set: { content: updated, updatedAt: new Date() },
+      });
+  } catch (err) {
+    console.error("Memory update error:", err);
+  }
+}
 
 const router = Router();
 
@@ -267,8 +331,11 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
     .where(and(eq(conversations.id, convId), eq(conversations.userId, userId)));
   if (!convo) { res.status(404).json({ error: "Not found" }); return; }
 
-  // Save user message (text only — image is sent to AI for context but not stored)
-  await db.insert(messages).values({ conversationId: convId, role: "user", content: message.trim() });
+  // Load user memory and save user message in parallel
+  const [memory] = await Promise.all([
+    getUserMemory(userId),
+    db.insert(messages).values({ conversationId: convId, role: "user", content: message.trim() }),
+  ]);
 
   // Load full history for context
   const history = await db.select().from(messages)
@@ -297,7 +364,7 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
       : message.trim();
 
     const openaiMessages: any[] = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: buildSystemPrompt(memory) },
       ...historyMessages,
       { role: "user", content: currentUserContent },
     ];
@@ -327,6 +394,9 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
         role: "assistant",
         content: fullResponse,
       });
+
+      // Fire-and-forget: update user memory in background (does not block response)
+      updateUserMemory(userId, memory, message.trim(), fullResponse).catch(() => {});
     }
 
     // Auto-title the conversation on first reply (title was "New conversation")
