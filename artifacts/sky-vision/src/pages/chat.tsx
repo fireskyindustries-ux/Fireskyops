@@ -470,8 +470,8 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className="min-h-[80px] max-h-[160px] resize-none text-sm rounded-xl flex-1"
-            rows={3}
+            className="min-h-[56px] max-h-[160px] resize-none text-sm rounded-xl flex-1"
+            rows={2}
             disabled={busy}
           />
 
