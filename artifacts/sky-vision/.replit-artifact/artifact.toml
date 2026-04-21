@@ -15,7 +15,7 @@ paths = [ "/sky-vision/" ]
 localPort = 3001
 
 [services.development]
-run = "PORT=3001 node /home/runner/workspace/artifacts/sky-vision/node_modules/.bin/vite --config /home/runner/workspace/artifacts/sky-vision/vite.config.ts --host 0.0.0.0"
+run = "pnpm --filter @workspace/sky-vision run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/sky-vision", "run", "build" ]
