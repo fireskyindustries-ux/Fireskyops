@@ -1,27 +1,22 @@
-import { defineConfig, Plugin } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
-function healthCheck(): Plugin {
-  return {
-    name: "health-check",
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        if (req.url === "/" || req.url === "/healthz") {
-          res.writeHead(200, { "Content-Type": "text/plain" });
-          res.end("OK");
-          return;
-        }
-        next();
-      });
-    },
-  };
+const rawPort = process.env.PORT;
+
+if (!rawPort) {
+  throw new Error(
+    "PORT environment variable is required but was not provided.",
+  );
 }
 
-const rawPort = process.env.PORT || "8082";
 const port = Number(rawPort);
+
+if (Number.isNaN(port) || port <= 0) {
+  throw new Error(`Invalid PORT value: "${rawPort}"`);
+}
 
 const basePath = process.env.BASE_PATH || "/sky-vision/";
 
@@ -32,7 +27,6 @@ export default defineConfig({
     "import.meta.env.VITE_CLERK_PROXY_URL": JSON.stringify(process.env.VITE_CLERK_PROXY_URL || ""),
   },
   plugins: [
-    healthCheck(),
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
@@ -65,7 +59,6 @@ export default defineConfig({
   server: {
     port,
     host: "0.0.0.0",
-    strictPort: false,
     allowedHosts: true,
     fs: {
       strict: true,

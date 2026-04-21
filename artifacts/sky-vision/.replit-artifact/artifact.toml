@@ -12,10 +12,10 @@ version = "1.0.0"
 [[services]]
 name = "web"
 paths = [ "/sky-vision/" ]
-localPort = 8081
+localPort = 3001
 
 [services.development]
-run = "pnpm --filter @workspace/sky-vision run dev"
+run = "PORT=3001 node /home/runner/workspace/artifacts/sky-vision/node_modules/.bin/vite --config /home/runner/workspace/artifacts/sky-vision/vite.config.ts --host 0.0.0.0"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/sky-vision", "run", "build" ]
@@ -27,5 +27,5 @@ from = "/*"
 to = "/index.html"
 
 [services.env]
-PORT = "8081"
+PORT = "3001"
 BASE_PATH = "/sky-vision/"

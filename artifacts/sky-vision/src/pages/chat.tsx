@@ -508,6 +508,7 @@ export function ChatPage() {
   const chatInputRef = useRef<ChatInputHandle>(null);
 
   const { data: conversation, isLoading } = useConversation(activeId || null);
+  const messages: Message[] = conversation?.messages || [];
   const createConv = useCreateConversation();
   const { sendMessage, editImage, generateImage, isStreaming, isSearching, isEditing, isGenerating, streamingMessage, activeModel, lastCompletedResponse, suggestions } = useChat(activeId || null);
 
@@ -629,7 +630,6 @@ export function ChatPage() {
   });
 
   // Reset pendingStart once messages arrive (handles the "Create image" flow)
-  const messages: Message[] = conversation?.messages || [];
   useEffect(() => {
     if (pendingStart && messages.length > 0) setPendingStart(false);
   }, [pendingStart, messages.length]);

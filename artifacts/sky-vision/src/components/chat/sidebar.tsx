@@ -46,7 +46,7 @@ export function Sidebar({ activeId, onSelect, isMobile = false }: SidebarProps) 
 
   const handleNew = async () => {
     try {
-      const conv = await createConv.mutateAsync();
+      const conv = await createConv.mutateAsync(undefined);
       onSelect(conv.id);
     } catch (e) {
       toast({ title: "Failed to create conversation", variant: "destructive" });
