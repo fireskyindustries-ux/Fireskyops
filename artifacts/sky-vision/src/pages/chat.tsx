@@ -396,25 +396,13 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
           className="hidden"
           onChange={handleDocFileChange}
         />
-        {generateMode && (
-          <div className="mb-2 flex items-center gap-2 px-1">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
-              <ImagePlus className="h-3.5 w-3.5" />
-              Image generation mode
-            </div>
-            <button
-              onClick={() => setGenerateMode(false)}
-              className="ml-auto text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
-            >
-              <X className="h-3 w-3" /> Cancel
-            </button>
-          </div>
-        )}
-        <div className="flex gap-2 items-end">
+
+        {/* Top toolbar — all action buttons */}
+        <div className="flex items-center gap-1 mb-2">
           <Button
             variant="ghost"
             size="icon"
-            className="h-10 w-10 rounded-xl flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+            className="h-9 w-9 rounded-xl flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
             onClick={() => fileInputRef.current?.click()}
             disabled={busy || generateMode}
             title="Attach an image"
@@ -425,7 +413,7 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
           <Button
             variant="ghost"
             size="icon"
-            className={cn("h-10 w-10 rounded-xl flex-shrink-0 hover:bg-muted relative", docFile ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+            className={cn("h-9 w-9 rounded-xl flex-shrink-0 hover:bg-muted relative", docFile ? "text-primary" : "text-muted-foreground hover:text-foreground")}
             onClick={() => docFileInputRef.current?.click()}
             disabled={busy || generateMode || isParsing}
             title="Attach a document (PDF, DOCX, CSV, TXT)"
@@ -437,20 +425,10 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
             {docFile && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary" />}
           </Button>
 
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            className="min-h-[40px] max-h-[100px] resize-none text-sm rounded-xl flex-1"
-            rows={1}
-            disabled={busy}
-          />
-
           <Button
             variant="ghost"
             size="icon"
-            className="h-10 w-10 rounded-xl flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+            className="h-9 w-9 rounded-xl flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
             onClick={onCameraOpen}
             disabled={busy}
             title="Open live camera"
@@ -461,13 +439,41 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
           <Button
             variant="ghost"
             size="icon"
-            className="h-10 w-10 rounded-xl flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+            className="h-9 w-9 rounded-xl flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
             onClick={() => setPromptLibOpen(true)}
             disabled={busy}
             title="Saved prompts"
           >
             <BookMarked className="h-4 w-4" />
           </Button>
+
+          {generateMode && (
+            <div className="flex items-center gap-2 ml-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                <ImagePlus className="h-3.5 w-3.5" />
+                Image generation mode
+              </div>
+              <button
+                onClick={() => setGenerateMode(false)}
+                className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+              >
+                <X className="h-3 w-3" /> Cancel
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Bottom row — textarea + send */}
+        <div className="flex gap-2 items-end">
+          <Textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            className="min-h-[80px] max-h-[160px] resize-none text-sm rounded-xl flex-1"
+            rows={3}
+            disabled={busy}
+          />
 
           <Button
             size="icon"
@@ -483,9 +489,6 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
             }
           </Button>
         </div>
-        <p className="text-[10px] text-muted-foreground text-center mt-2">
-          {generateMode ? "Describe what you want — Sky will create it using DALL-E 3" : "Attach an image or document to analyse with AI"}
-        </p>
       </div>
 
       <PromptLibrary
@@ -835,21 +838,6 @@ export function ChatPage() {
                       )}
                       <MessageBubble role="assistant" content={streamingMessage} isThinking={!streamingMessage && !isSearching} />
                     </>
-                  )}
-                  {/* Follow-up suggestion chips */}
-                  {!isStreaming && suggestions.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-1 pl-10">
-                      {suggestions.map((s, i) => (
-                        <button
-                          key={i}
-                          onClick={() => handleSuggestion(s)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
-                        >
-                          <ChevronRight className="h-3 w-3" />
-                          {s}
-                        </button>
-                      ))}
-                    </div>
                   )}
                 </div>
               )}
