@@ -1,6 +1,6 @@
-import { useRef, useEffect, useState, type KeyboardEvent } from "react";
+import { useRef, useEffect, useState, type KeyboardEvent, type ChangeEvent } from "react";
 import { brand } from "@/brand.config";
-import { Sparkles, X, Send, RotateCcw, ChevronRight, Database, RefreshCw, AlertCircle, Camera } from "lucide-react";
+import { Sparkles, X, Send, RotateCcw, ChevronRight, Database, RefreshCw, AlertCircle, Camera, Paperclip, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -193,8 +193,41 @@ export function SkyPanel() {
 
   const [input, setInput] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [docFile, setDocFile] = useState<{ name: string; context: string } | null>(null);
+  const [isParsing, setIsParsing] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const handleDocFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setIsParsing(true);
+    try {
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch(`${BASE}/api/sky-vision/parse-file`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileBase64, mimeType: file.type, fileName: file.name }),
+      });
+      if (!res.ok) throw new Error("Parse failed");
+      const { text } = await res.json();
+      setDocFile({ name: file.name, context: text });
+    } catch {
+      setDocFile(null);
+    } finally {
+      setIsParsing(false);
+    }
+  };
 
   const isGuest = role === "guest";
   const isBranchAdmin = role === "branch_admin";
@@ -217,8 +250,11 @@ export function SkyPanel() {
   const handleSend = () => {
     const msg = input.trim();
     if (!msg || isStreaming) return;
+    const fc = docFile?.context;
+    const fn = docFile?.name;
     setInput("");
-    sendMessage(msg);
+    setDocFile(null);
+    sendMessage(msg, fc, fn);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -349,6 +385,24 @@ export function SkyPanel() {
 
         {/* Input */}
         <div className="border-t border-border flex-shrink-0 bg-background">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.txt,.csv"
+            className="hidden"
+            onChange={handleDocFileChange}
+          />
+          {docFile && (
+            <div className="px-3 pt-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
+                <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="truncate flex-1">{docFile.name}</span>
+                <button onClick={() => setDocFile(null)} className="text-primary/60 hover:text-primary ml-1">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
           <div className="p-3">
             <div className="flex gap-2 items-end">
               <Button
@@ -360,12 +414,26 @@ export function SkyPanel() {
               >
                 <Camera className="h-4 w-4" />
               </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-10 w-10 rounded-xl flex-shrink-0"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isParsing || isStreaming}
+                title="Attach a document (PDF, Word, TXT, CSV)"
+              >
+                {isParsing ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Paperclip className="h-4 w-4" />
+                )}
+              </Button>
               <Textarea
                 ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={`Ask ${brand.ai.name} a question...`}
+                placeholder={docFile ? `Ask about ${docFile.name}...` : `Ask ${brand.ai.name} a question...`}
                 className="min-h-[40px] max-h-[100px] resize-none text-sm rounded-xl"
                 rows={1}
                 disabled={isStreaming}

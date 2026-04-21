@@ -1345,6 +1345,8 @@ router.post("/sky/chat", async (req, res) => {
     userRole,
     systemSnapshot,
     currentPage,
+    fileContext,
+    fileName,
   } = req.body as {
     message: string;
     contextType?: string;
@@ -1354,6 +1356,8 @@ router.post("/sky/chat", async (req, res) => {
     userRole?: string;
     systemSnapshot?: Record<string, unknown>;
     currentPage?: string;
+    fileContext?: string;
+    fileName?: string;
   };
 
   if (!message || typeof message !== "string") {
@@ -1384,7 +1388,10 @@ router.post("/sky/chat", async (req, res) => {
           ? `\n\nBRANCH ADMIN CONTEXT:\nYou are assisting ${userName ? userName + ", a" : "a"} branch admin. Their branch ID is ${verifiedBranchId ?? "unknown"}. All stock tool calls are automatically applied to their branch — you never need to ask which branch or specify a branch ID, it is always pre-filled.\n\nYou have access to the following stock tools for your branch:\n- check_stock: see current stock levels at your branch\n- list_stock_items: see the full catalogue of items\n- record_stock_movement: add stock (in), remove stock (out), or set an exact level (adjustment)\n- create_stock_item: add a new item to the catalogue\n\nWhen asked to check stock, update stock, or record a movement, use your tools directly — do not ask the user to do it manually. Always confirm what was done and show the updated quantity.`
           : buildFieldContextBlock(contextType, contextData, userName));
 
-    const messages = buildMessages(systemInstruction, history, message);
+    const userMessage = fileContext
+      ? `[Attached document: ${fileName || "document"}]\n\n${fileContext.slice(0, 30000)}\n\n---\n${message.trim()}`
+      : message;
+    const messages = buildMessages(systemInstruction, history, userMessage);
 
     if (isGuest) {
       // ── Guest / customer: no tools, streaming ────────────────────────────
