@@ -437,6 +437,16 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
             {docFile && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary" />}
           </Button>
 
+          <Textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            className="min-h-[40px] max-h-[100px] resize-none text-sm rounded-xl flex-1"
+            rows={1}
+            disabled={busy}
+          />
+
           <Button
             variant="ghost"
             size="icon"
@@ -447,16 +457,6 @@ const ChatInput = memo(forwardRef<ChatInputHandle, {
           >
             <Camera className="h-4 w-4" />
           </Button>
-
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            className="min-h-[40px] max-h-[100px] resize-none text-sm rounded-xl flex-1"
-            rows={1}
-            disabled={busy}
-          />
 
           <Button
             variant="ghost"
