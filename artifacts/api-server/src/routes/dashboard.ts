@@ -20,8 +20,8 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
          noNextActionEnquiries, noNextActionJobs,
          quotedNoFollowUp, lostNoReason, highAccessRiskJobs] = await Promise.all([
     db.select().from(customersTable),
-    db.select().from(enquiriesTable),
-    db.select().from(jobsTable),
+    db.select().from(enquiriesTable).where(notInArray(enquiriesTable.status, ["won", "lost", "closed"])),
+    db.select().from(jobsTable).where(notInArray(jobsTable.stage, ["won", "lost", "closed"])),
     db
       .select({
         id: enquiriesTable.id,
@@ -39,11 +39,13 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
       })
       .from(enquiriesTable)
       .leftJoin(customersTable, eq(enquiriesTable.customerId, customersTable.id))
+      .where(notInArray(enquiriesTable.status, ["won", "lost", "closed"]))
       .orderBy(desc(enquiriesTable.createdAt))
       .limit(5),
     db
       .select()
       .from(jobsTable)
+      .where(notInArray(jobsTable.stage, ["won", "lost", "closed"]))
       .orderBy(desc(jobsTable.createdAt))
       .limit(5),
     db.select({ count: count() }).from(enquiriesTable).where(
@@ -222,12 +224,12 @@ router.get("/dashboard/branch-summary", async (req, res): Promise<void> => {
   ] = await Promise.all([
     db.select().from(branchesTable).where(eq(branchesTable.id, branchId)).limit(1),
 
-    // All jobs for this branch (for stage breakdown)
-    db.select({ stage: jobsTable.stage }).from(jobsTable).where(B(jobsTable.branchId)),
+    // All active jobs for this branch (for stage breakdown)
+    db.select({ stage: jobsTable.stage }).from(jobsTable).where(and(B(jobsTable.branchId), notInArray(jobsTable.stage, ["won", "lost", "closed"]))),
 
     // Stat counts
     db.select({ count: count() }).from(customersTable).where(B(customersTable.branchId)),
-    db.select({ count: count() }).from(enquiriesTable).where(and(B(enquiriesTable.branchId), notInArray(enquiriesTable.status, ["won", "lost"]))),
+    db.select({ count: count() }).from(enquiriesTable).where(and(B(enquiriesTable.branchId), notInArray(enquiriesTable.status, ["won", "lost", "closed"]))),
 
     // Stale
     db.select({ count: count() }).from(enquiriesTable).where(and(B(enquiriesTable.branchId), inArray(enquiriesTable.status, ["new", "in_progress"]), lt(enquiriesTable.updatedAt, staleThreshold))),
@@ -252,7 +254,7 @@ router.get("/dashboard/branch-summary", async (req, res): Promise<void> => {
     db.select({ count: count() }).from(jobsTable).where(and(B(jobsTable.branchId), eq(jobsTable.stage, "lost"), isNull(jobsTable.lostReason))),
     db.select({ count: count() }).from(jobsTable).where(and(B(jobsTable.branchId), eq(jobsTable.accessRisk, "high"))),
 
-    // Recent enquiries
+    // Recent active enquiries
     db.select({
       id: enquiriesTable.id,
       customerId: enquiriesTable.customerId,
@@ -263,11 +265,11 @@ router.get("/dashboard/branch-summary", async (req, res): Promise<void> => {
       createdAt: enquiriesTable.createdAt,
     }).from(enquiriesTable)
       .leftJoin(customersTable, eq(enquiriesTable.customerId, customersTable.id))
-      .where(B(enquiriesTable.branchId))
+      .where(and(B(enquiriesTable.branchId), notInArray(enquiriesTable.status, ["won", "lost", "closed"])))
       .orderBy(desc(enquiriesTable.createdAt))
       .limit(5),
 
-    // Recent jobs
+    // Recent active jobs
     db.select({
       id: jobsTable.id,
       customerId: jobsTable.customerId,
@@ -280,7 +282,7 @@ router.get("/dashboard/branch-summary", async (req, res): Promise<void> => {
       createdAt: jobsTable.createdAt,
     }).from(jobsTable)
       .leftJoin(customersTable, eq(jobsTable.customerId, customersTable.id))
-      .where(B(jobsTable.branchId))
+      .where(and(B(jobsTable.branchId), notInArray(jobsTable.stage, ["won", "lost", "closed"])))
       .orderBy(desc(jobsTable.createdAt))
       .limit(5),
 
