@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { desc, inArray, eq, and, lt, notInArray, count, gt, isNull, or, sql } from "drizzle-orm";
-import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable, branchesTable, stockLevelsTable, stockItemsTable } from "@workspace/db";
+import { desc, inArray, eq, and, lt, notInArray, count, gt, gte, lte, isNull, or, sql } from "drizzle-orm";
+import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable, branchesTable, stockLevelsTable, stockItemsTable, quotesTable } from "@workspace/db";
 import { loadSchedulerState, STALE_MS } from "../lib/scheduler-state";
 import { isAdmin, getBranchId } from "../middlewares/requireAuth";
 
@@ -13,15 +13,28 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
 
   const today = new Date().toISOString().slice(0, 10);
 
+  // Optional date range filtering
+  const fromParam = req.query.from ? new Date(req.query.from as string) : null;
+  const toParam = req.query.to ? new Date(req.query.to as string) : null;
+  const dr = (col: any) => {
+    if (fromParam && toParam) return and(gte(col, fromParam), lte(col, toParam));
+    if (fromParam) return gte(col, fromParam);
+    if (toParam) return lte(col, toParam);
+    return undefined;
+  };
+
+  const INACTIVE = ["won", "lost", "closed"] as const;
+
   const [customers, enquiries, jobs, recentEnquiriesRaw, recentJobsRaw,
          staleEnquiries, staleJobs, urgentEnquiries, urgentJobs,
          newCustomers, newEnquiries, newJobs, newInspections,
          overdueFollowUpEnquiries, overdueFollowUpJobs,
          noNextActionEnquiries, noNextActionJobs,
-         quotedNoFollowUp, lostNoReason, highAccessRiskJobs] = await Promise.all([
+         quotedNoFollowUp, lostNoReason, highAccessRiskJobs,
+         customerDeclinedQuotes] = await Promise.all([
     db.select().from(customersTable),
-    db.select().from(enquiriesTable).where(notInArray(enquiriesTable.status, ["won", "lost", "closed"])),
-    db.select().from(jobsTable).where(notInArray(jobsTable.stage, ["won", "lost", "closed"])),
+    db.select().from(enquiriesTable).where(and(notInArray(enquiriesTable.status, INACTIVE), dr(enquiriesTable.createdAt))),
+    db.select().from(jobsTable).where(and(notInArray(jobsTable.stage, INACTIVE), dr(jobsTable.createdAt))),
     db
       .select({
         id: enquiriesTable.id,
@@ -39,23 +52,23 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
       })
       .from(enquiriesTable)
       .leftJoin(customersTable, eq(enquiriesTable.customerId, customersTable.id))
-      .where(notInArray(enquiriesTable.status, ["won", "lost", "closed"]))
+      .where(and(notInArray(enquiriesTable.status, INACTIVE), dr(enquiriesTable.createdAt)))
       .orderBy(desc(enquiriesTable.createdAt))
       .limit(5),
     db
       .select()
       .from(jobsTable)
-      .where(notInArray(jobsTable.stage, ["won", "lost", "closed"]))
+      .where(and(notInArray(jobsTable.stage, INACTIVE), dr(jobsTable.createdAt)))
       .orderBy(desc(jobsTable.createdAt))
       .limit(5),
     db.select({ count: count() }).from(enquiriesTable).where(
-      and(inArray(enquiriesTable.status, ["new", "in_progress"]), lt(enquiriesTable.updatedAt, staleThreshold)),
+      and(inArray(enquiriesTable.status, ["new", "in_progress"]), lt(enquiriesTable.updatedAt, staleThreshold), dr(enquiriesTable.createdAt)),
     ),
     db.select({ count: count() }).from(jobsTable).where(
-      and(notInArray(jobsTable.stage, ["won", "lost", "closed"]), lt(jobsTable.updatedAt, staleThreshold)),
+      and(notInArray(jobsTable.stage, INACTIVE), lt(jobsTable.updatedAt, staleThreshold), dr(jobsTable.createdAt)),
     ),
-    db.select({ count: count() }).from(enquiriesTable).where(and(notInArray(enquiriesTable.status, ["won", "lost", "closed"]), eq(enquiriesTable.priority, "high"))),
-    db.select({ count: count() }).from(jobsTable).where(and(notInArray(jobsTable.stage, ["won", "lost", "closed"]), eq(jobsTable.priority, "high"))),
+    db.select({ count: count() }).from(enquiriesTable).where(and(notInArray(enquiriesTable.status, INACTIVE), eq(enquiriesTable.priority, "high"), dr(enquiriesTable.createdAt))),
+    db.select({ count: count() }).from(jobsTable).where(and(notInArray(jobsTable.stage, INACTIVE), eq(jobsTable.priority, "high"), dr(jobsTable.createdAt))),
     // New records since last scheduler check
     db.select({ count: count() }).from(customersTable).where(gt(customersTable.createdAt, since)),
     db.select({ count: count() }).from(enquiriesTable).where(gt(enquiriesTable.createdAt, since)),
@@ -64,41 +77,49 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     // Data quality — overdue follow-up
     db.select({ count: count() }).from(enquiriesTable).where(
       and(
-        notInArray(enquiriesTable.status, ["won", "lost", "closed"]),
+        notInArray(enquiriesTable.status, INACTIVE),
         sql`${enquiriesTable.followUpDueDate} is not null`,
         sql`${enquiriesTable.followUpDueDate} < ${today}`,
+        dr(enquiriesTable.createdAt),
       ),
     ),
     db.select({ count: count() }).from(jobsTable).where(
       and(
-        notInArray(jobsTable.stage, ["won", "lost", "closed"]),
+        notInArray(jobsTable.stage, INACTIVE),
         sql`${jobsTable.followUpDueDate} is not null`,
         sql`${jobsTable.followUpDueDate} < ${today}`,
+        dr(jobsTable.createdAt),
       ),
     ),
     // Data quality — no next action (null or empty string)
     db.select({ count: count() }).from(enquiriesTable).where(
       and(
-        notInArray(enquiriesTable.status, ["won", "lost", "closed"]),
+        notInArray(enquiriesTable.status, INACTIVE),
         or(isNull(enquiriesTable.nextAction), eq(enquiriesTable.nextAction, "")),
+        dr(enquiriesTable.createdAt),
       ),
     ),
     db.select({ count: count() }).from(jobsTable).where(
       and(
-        notInArray(jobsTable.stage, ["won", "lost", "closed"]),
+        notInArray(jobsTable.stage, INACTIVE),
         or(isNull(jobsTable.nextAction), eq(jobsTable.nextAction, "")),
+        dr(jobsTable.createdAt),
       ),
     ),
     // Data quality — quoted with no follow-up date
     db.select({ count: count() }).from(jobsTable).where(
-      and(eq(jobsTable.stage, "quoted"), isNull(jobsTable.followUpDueDate)),
+      and(eq(jobsTable.stage, "quoted"), isNull(jobsTable.followUpDueDate), dr(jobsTable.createdAt)),
     ),
     // Data quality — lost with no reason
     db.select({ count: count() }).from(jobsTable).where(
-      and(eq(jobsTable.stage, "lost"), isNull(jobsTable.lostReason)),
+      and(eq(jobsTable.stage, "lost"), isNull(jobsTable.lostReason), dr(jobsTable.createdAt)),
     ),
     // Data quality — high access risk
-    db.select({ count: count() }).from(jobsTable).where(eq(jobsTable.accessRisk, "high")),
+    db.select({ count: count() }).from(jobsTable).where(and(eq(jobsTable.accessRisk, "high"), dr(jobsTable.createdAt))),
+    // Data quality — customer declined quote (active jobs/enquiries with a rejected quote)
+    db.select({ count: count() }).from(quotesTable).where(
+      and(eq(quotesTable.status, "rejected"), dr(quotesTable.updatedAt)),
+    ),
   ]);
 
   // Branch breakdown — run in parallel with enquiry link lookups
@@ -182,6 +203,7 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     quotedNoFollowUp: Number(quotedNoFollowUp[0].count),
     lostNoReason: Number(lostNoReason[0].count),
     highAccessRiskJobs: Number(highAccessRiskJobs[0].count),
+    customerDeclinedQuotes: Number(customerDeclinedQuotes[0].count),
     lastChecked: schedulerState.lastSuccessfulCheck,
     jobsByStage,
     recentEnquiries,

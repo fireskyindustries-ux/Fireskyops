@@ -1,13 +1,23 @@
-import { useGetDashboardSummary } from "@workspace/api-client-react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Users, FileText, Briefcase, Plus, ArrowRight, ChevronRight, Clock, AlertTriangle, Sparkles, CalendarX, CircleSlash, ShieldAlert, Download, Building2 } from "lucide-react";
+import { Users, FileText, Briefcase, Plus, ArrowRight, ChevronRight, Clock, AlertTriangle, Sparkles, CalendarX, CircleSlash, ShieldAlert, Download, Building2, ThumbsDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
 import { SkyInlineButton } from "@/components/sky";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/react";
+
+async function apiFetch(path: string) {
+  const res = await fetch(`/api${path}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch");
+  return res.json();
+}
+
+type DatePreset = "all" | "today" | "week" | "month";
+const PRESET_LABELS: Record<DatePreset, string> = { all: "All Time", today: "Today", week: "This Week", month: "This Month" };
 
 const ENQUIRY_STATUS_STYLES: Record<string, { dot: string; badge: string; label: string }> = {
   new:              { dot: "bg-blue-500",   badge: "bg-blue-50 text-blue-700 border-blue-200",    label: "New" },
@@ -145,10 +155,38 @@ function StatCard({ label, value, icon: Icon, iconBg, iconColor, sub, href }: {
 }
 
 export default function Dashboard() {
-  const { data: summary, isLoading, error } = useGetDashboardSummary();
   const { user } = useUser();
   const role = (user?.publicMetadata?.role as string) || "guest";
   const isAdmin = role === "admin";
+
+  const [datePreset, setDatePreset] = useState<DatePreset>("all");
+
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    if (datePreset === "today") {
+      return { from: new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString() };
+    }
+    if (datePreset === "week") {
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      const start = new Date(now.getFullYear(), now.getMonth(), diff);
+      return { from: start.toISOString() };
+    }
+    if (datePreset === "month") {
+      return { from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString() };
+    }
+    return {};
+  }, [datePreset]);
+
+  const { data: summary, isLoading, error } = useQuery({
+    queryKey: ["/api/dashboard/summary", dateRange],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (dateRange.from) params.set("from", dateRange.from);
+      const qs = params.toString();
+      return apiFetch(`/dashboard/summary${qs ? `?${qs}` : ""}`);
+    },
+  });
 
   if (isLoading) {
     return (
@@ -227,12 +265,28 @@ export default function Dashboard() {
       {/* Admin summary HUD — admin only */}
       {isAdmin && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Admin Summary</p>
-            <p className="text-[10px] text-muted-foreground">
-              Last check: {formatDistanceToNow(new Date(summary.lastChecked), { addSuffix: true })}
-            </p>
+            <div className="flex items-center gap-1.5">
+              {(Object.keys(PRESET_LABELS) as DatePreset[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setDatePreset(p)}
+                  className={cn(
+                    "text-[10px] font-semibold px-2.5 py-1 rounded-full border transition-colors",
+                    datePreset === p
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted/40 text-muted-foreground border-muted-foreground/20 hover:border-primary/40 hover:text-foreground",
+                  )}
+                >
+                  {PRESET_LABELS[p]}
+                </button>
+              ))}
+            </div>
           </div>
+          <p className="text-[10px] text-muted-foreground -mt-1">
+            Last check: {formatDistanceToNow(new Date(summary.lastChecked), { addSuffix: true })}
+          </p>
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
             <HudTile
               count={summary.newRecords}
@@ -270,7 +324,7 @@ export default function Dashboard() {
             />
           </div>
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground pt-1">Data Quality</p>
-          <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-2">
             <HudTile
               count={summary.overdueFollowUpEnquiries}
               label="Overdue Enq"
@@ -319,6 +373,12 @@ export default function Dashboard() {
               icon={ShieldAlert}
               activeClass="bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
               href="/jobs?filter=high_access_risk"
+            />
+            <HudTile
+              count={(summary as any).customerDeclinedQuotes ?? 0}
+              label="Cust. Declined"
+              icon={ThumbsDown}
+              activeClass="bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-950/40 dark:border-orange-800 dark:text-orange-400"
             />
           </div>
 
