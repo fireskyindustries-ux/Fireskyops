@@ -226,7 +226,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border pb-8">
         <div className="flex flex-col items-center px-4 pt-5 pb-4 border-b border-sidebar-border bg-sidebar">
-          <img src={`${BASE}/${brand.logoFile}`} alt={brand.name} className="h-20 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
+          <img src={`${BASE}/${brand.logoFile}`} alt={brand.name} className="h-28 w-auto object-contain" style={{ mixBlendMode: "screen" }} />
           {userBranchName && (
             <div className="mt-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
               <Building2 className="h-3 w-3 text-primary shrink-0" />

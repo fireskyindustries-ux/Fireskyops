@@ -491,8 +491,8 @@ export default function JobDetail() {
         </button>
         <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 mb-2 flex-wrap">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight break-words min-w-0">{job.title}</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight mb-2 w-full">{job.title}</h1>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               {job.priority && (
                 <Badge variant={job.priority === "high" ? "destructive" : job.priority === "medium" ? "default" : "outline"} className="uppercase">
                   {job.priority}

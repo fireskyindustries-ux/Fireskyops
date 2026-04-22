@@ -506,8 +506,8 @@ export default function EnquiryDetail() {
           <button onClick={() => navigate("/enquiries")} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
             <ChevronLeft className="h-4 w-4" /> Enquiries
           </button>
-          <div className="flex items-center gap-3 mb-2 flex-wrap">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight break-words min-w-0">{enquiry.title}</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight mb-2 w-full">{enquiry.title}</h1>
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className={cn("text-[11px] font-medium px-2.5 py-0.5 rounded-full border", statusStyle.badge)}>
               {statusStyle.label}
             </span>
