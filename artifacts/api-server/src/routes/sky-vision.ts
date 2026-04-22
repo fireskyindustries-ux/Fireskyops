@@ -529,8 +529,14 @@ router.post("/sky-vision/transcribe", async (req, res): Promise<void> => {
     const buffer = Buffer.from(audioBase64, "base64");
     const audioFile = await toFile(buffer, `audio.${ext}`, { type: mimeType });
     const transcription = await openai.audio.transcriptions.create({
-      model: "whisper-1",
+      model: "gpt-4o-transcribe",
       file: audioFile,
+      prompt:
+        "Firesky Industries, fire protection, suppression system, sprinkler, deluge, " +
+        "zone valve, HDPE pipe, CPVC, wet pipe, dry pipe, pre-action, foam system, " +
+        "hydrant, hose reel, pump set, jockey pump, diesel pump, electric pump, " +
+        "flow switch, pressure switch, alarm valve, check valve, gate valve, ball valve, " +
+        "The Factory, branch, stock, enquiry, quotation, job card, inspection.",
     });
     res.json({ text: transcription.text });
   } catch (err: any) {
