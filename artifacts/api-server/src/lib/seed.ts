@@ -1,7 +1,11 @@
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import {
   db,
   branchesTable,
+  customersTable,
+  enquiriesTable,
+  jobsTable,
+  inspectionsTable,
   stockItemsTable,
   stockLevelsTable,
   stockMovementsTable,
@@ -69,6 +73,19 @@ export async function runSeed() {
       .returning();
     branchIds = [branch.id];
     logger.info({ branch }, "Default branch created");
+  }
+
+  // ── 1b. Assign any unscoped records to the primary (default) branch ───────
+  const primaryBranchId = branchIds[0];
+  const [cAssigned, eAssigned, jAssigned, iAssigned] = await Promise.all([
+    db.update(customersTable).set({ branchId: primaryBranchId }).where(isNull(customersTable.branchId)),
+    db.update(enquiriesTable).set({ branchId: primaryBranchId }).where(isNull(enquiriesTable.branchId)),
+    db.update(jobsTable).set({ branchId: primaryBranchId }).where(isNull(jobsTable.branchId)),
+    db.update(inspectionsTable).set({ branchId: primaryBranchId }).where(isNull(inspectionsTable.branchId)),
+  ]);
+  const totalFixed = (cAssigned.rowCount ?? 0) + (eAssigned.rowCount ?? 0) + (jAssigned.rowCount ?? 0) + (iAssigned.rowCount ?? 0);
+  if (totalFixed > 0) {
+    logger.info({ totalFixed, primaryBranchId }, "Assigned unscoped records to primary branch");
   }
 
   // ── 2. Detect & replace stale placeholder items ───────────────────────────
