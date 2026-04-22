@@ -54,8 +54,8 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     db.select({ count: count() }).from(jobsTable).where(
       and(notInArray(jobsTable.stage, ["won", "lost", "closed"]), lt(jobsTable.updatedAt, staleThreshold)),
     ),
-    db.select({ count: count() }).from(enquiriesTable).where(eq(enquiriesTable.priority, "high")),
-    db.select({ count: count() }).from(jobsTable).where(eq(jobsTable.priority, "high")),
+    db.select({ count: count() }).from(enquiriesTable).where(and(notInArray(enquiriesTable.status, ["won", "lost", "closed"]), eq(enquiriesTable.priority, "high"))),
+    db.select({ count: count() }).from(jobsTable).where(and(notInArray(jobsTable.stage, ["won", "lost", "closed"]), eq(jobsTable.priority, "high"))),
     // New records since last scheduler check
     db.select({ count: count() }).from(customersTable).where(gt(customersTable.createdAt, since)),
     db.select({ count: count() }).from(enquiriesTable).where(gt(enquiriesTable.createdAt, since)),
@@ -236,7 +236,7 @@ router.get("/dashboard/branch-summary", async (req, res): Promise<void> => {
     db.select({ count: count() }).from(jobsTable).where(and(B(jobsTable.branchId), notInArray(jobsTable.stage, ["won", "lost", "closed"]), lt(jobsTable.updatedAt, staleThreshold))),
 
     // Urgent
-    db.select({ count: count() }).from(enquiriesTable).where(and(B(enquiriesTable.branchId), notInArray(enquiriesTable.status, ["won", "lost"]), eq(enquiriesTable.priority, "high"))),
+    db.select({ count: count() }).from(enquiriesTable).where(and(B(enquiriesTable.branchId), notInArray(enquiriesTable.status, ["won", "lost", "closed"]), eq(enquiriesTable.priority, "high"))),
     db.select({ count: count() }).from(jobsTable).where(and(B(jobsTable.branchId), notInArray(jobsTable.stage, ["won", "lost", "closed"]), eq(jobsTable.priority, "high"))),
 
     // New since last check
