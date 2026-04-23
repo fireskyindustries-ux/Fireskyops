@@ -28,7 +28,7 @@ export const GetDashboardSummaryResponse = zod.object({
       customerId: zod.number(),
       customerName: zod.string().optional(),
       title: zod.string(),
-      description: zod.string().optional(),
+      description: zod.string().nullish(),
       tankSize: zod.string().optional(),
       tankQuantity: zod.number().optional(),
       status: zod.enum([
@@ -38,9 +38,10 @@ export const GetDashboardSummaryResponse = zod.object({
         "quoted",
         "won",
         "lost",
+        "closed",
       ]),
       priority: zod.enum(["low", "medium", "high"]).optional(),
-      notes: zod.string().optional(),
+      notes: zod.string().nullish(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
     }),
@@ -234,7 +235,7 @@ export const ListEnquiriesResponseItem = zod.object({
   customerId: zod.number(),
   customerName: zod.string().optional(),
   title: zod.string(),
-  description: zod.string().optional(),
+  description: zod.string().nullish(),
   tankSize: zod.string().optional(),
   tankQuantity: zod.number().optional(),
   status: zod.enum([
@@ -244,9 +245,10 @@ export const ListEnquiriesResponseItem = zod.object({
     "quoted",
     "won",
     "lost",
+    "closed",
   ]),
   priority: zod.enum(["low", "medium", "high"]).optional(),
-  notes: zod.string().optional(),
+  notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -258,14 +260,22 @@ export const ListEnquiriesResponse = zod.array(ListEnquiriesResponseItem);
 export const CreateEnquiryBody = zod.object({
   customerId: zod.number(),
   title: zod.string(),
-  description: zod.string().optional(),
+  description: zod.string().nullish(),
   tankSize: zod.string().optional(),
   tankQuantity: zod.number().optional(),
   status: zod
-    .enum(["new", "in_progress", "inspection_done", "quoted", "won", "lost"])
+    .enum([
+      "new",
+      "in_progress",
+      "inspection_done",
+      "quoted",
+      "won",
+      "lost",
+      "closed",
+    ])
     .optional(),
   priority: zod.enum(["low", "medium", "high"]).optional(),
-  notes: zod.string().optional(),
+  notes: zod.string().nullish(),
 });
 
 /**
@@ -280,7 +290,7 @@ export const GetEnquiryResponse = zod.object({
   customerId: zod.number(),
   customerName: zod.string().optional(),
   title: zod.string(),
-  description: zod.string().optional(),
+  description: zod.string().nullish(),
   tankSize: zod.string().optional(),
   tankQuantity: zod.number().optional(),
   status: zod.enum([
@@ -290,9 +300,10 @@ export const GetEnquiryResponse = zod.object({
     "quoted",
     "won",
     "lost",
+    "closed",
   ]),
   priority: zod.enum(["low", "medium", "high"]).optional(),
-  notes: zod.string().optional(),
+  notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -307,14 +318,22 @@ export const UpdateEnquiryParams = zod.object({
 export const UpdateEnquiryBody = zod.object({
   customerId: zod.number(),
   title: zod.string(),
-  description: zod.string().optional(),
+  description: zod.string().nullish(),
   tankSize: zod.string().optional(),
   tankQuantity: zod.number().optional(),
   status: zod
-    .enum(["new", "in_progress", "inspection_done", "quoted", "won", "lost"])
+    .enum([
+      "new",
+      "in_progress",
+      "inspection_done",
+      "quoted",
+      "won",
+      "lost",
+      "closed",
+    ])
     .optional(),
   priority: zod.enum(["low", "medium", "high"]).optional(),
-  notes: zod.string().optional(),
+  notes: zod.string().nullish(),
 });
 
 export const UpdateEnquiryResponse = zod.object({
@@ -322,7 +341,7 @@ export const UpdateEnquiryResponse = zod.object({
   customerId: zod.number(),
   customerName: zod.string().optional(),
   title: zod.string(),
-  description: zod.string().optional(),
+  description: zod.string().nullish(),
   tankSize: zod.string().optional(),
   tankQuantity: zod.number().optional(),
   status: zod.enum([
@@ -332,9 +351,10 @@ export const UpdateEnquiryResponse = zod.object({
     "quoted",
     "won",
     "lost",
+    "closed",
   ]),
   priority: zod.enum(["low", "medium", "high"]).optional(),
-  notes: zod.string().optional(),
+  notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

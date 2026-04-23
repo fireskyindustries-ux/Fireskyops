@@ -664,18 +664,20 @@ components:
           type: string
         description:
           type: string
+          nullable: true
         tankSize:
           type: string
         tankQuantity:
           type: integer
         status:
           type: string
-          enum: [new, in_progress, inspection_done, quoted, won, lost]
+          enum: [new, in_progress, inspection_done, quoted, won, lost, closed]
         priority:
           type: string
           enum: [low, medium, high]
         notes:
           type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -699,18 +701,20 @@ components:
           type: string
         description:
           type: string
+          nullable: true
         tankSize:
           type: string
         tankQuantity:
           type: integer
         status:
           type: string
-          enum: [new, in_progress, inspection_done, quoted, won, lost]
+          enum: [new, in_progress, inspection_done, quoted, won, lost, closed]
         priority:
           type: string
           enum: [low, medium, high]
         notes:
           type: string
+          nullable: true
       required:
         - customerId
         - title

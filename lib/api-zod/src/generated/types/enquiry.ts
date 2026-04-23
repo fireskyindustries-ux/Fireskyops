@@ -13,12 +13,12 @@ export interface Enquiry {
   customerId: number;
   customerName?: string;
   title: string;
-  description?: string;
+  description?: string | null;
   tankSize?: string;
   tankQuantity?: number;
   status: EnquiryStatus;
   priority?: EnquiryPriority;
-  notes?: string;
+  notes?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

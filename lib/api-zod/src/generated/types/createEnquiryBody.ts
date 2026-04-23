@@ -11,10 +11,10 @@ import type { CreateEnquiryBodyStatus } from "./createEnquiryBodyStatus";
 export interface CreateEnquiryBody {
   customerId: number;
   title: string;
-  description?: string;
+  description?: string | null;
   tankSize?: string;
   tankQuantity?: number;
   status?: CreateEnquiryBodyStatus;
   priority?: CreateEnquiryBodyPriority;
-  notes?: string;
+  notes?: string | null;
 }

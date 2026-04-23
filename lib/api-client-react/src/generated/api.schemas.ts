@@ -20,6 +20,7 @@ export const EnquiryStatus = {
   quoted: "quoted",
   won: "won",
   lost: "lost",
+  closed: "closed",
 } as const;
 
 export type EnquiryPriority =
@@ -36,12 +37,12 @@ export interface Enquiry {
   customerId: number;
   customerName?: string;
   title: string;
-  description?: string;
+  description?: string | null;
   tankSize?: string;
   tankQuantity?: number;
   status: EnquiryStatus;
   priority?: EnquiryPriority;
-  notes?: string;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -152,6 +153,7 @@ export const CreateEnquiryBodyStatus = {
   quoted: "quoted",
   won: "won",
   lost: "lost",
+  closed: "closed",
 } as const;
 
 export type CreateEnquiryBodyPriority =
@@ -166,12 +168,12 @@ export const CreateEnquiryBodyPriority = {
 export interface CreateEnquiryBody {
   customerId: number;
   title: string;
-  description?: string;
+  description?: string | null;
   tankSize?: string;
   tankQuantity?: number;
   status?: CreateEnquiryBodyStatus;
   priority?: CreateEnquiryBodyPriority;
-  notes?: string;
+  notes?: string | null;
 }
 
 export interface Inspection {

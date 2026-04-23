@@ -15,4 +15,5 @@ export const EnquiryStatus = {
   quoted: "quoted",
   won: "won",
   lost: "lost",
+  closed: "closed",
 } as const;
