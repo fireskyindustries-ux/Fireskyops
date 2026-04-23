@@ -225,28 +225,17 @@ function SendQuoteSection({
 
     setUploading(true);
     try {
-      // Step 1: Request presigned upload URL
-      const urlRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+      // Step 1: Upload file through API server (avoids CORS issues with direct GCS upload)
+      const uploadRes = await fetch(`${BASE}/api/storage/uploads/file`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: selectedFile.name,
-          size: selectedFile.size,
-          contentType: selectedFile.type || "application/pdf",
-        }),
-      });
-      if (!urlRes.ok) throw new Error("Failed to get upload URL");
-      const { uploadURL, objectPath } = await urlRes.json();
-
-      // Step 2: Upload directly to presigned URL
-      const uploadRes = await fetch(uploadURL, {
-        method: "PUT",
-        body: selectedFile,
         headers: { "Content-Type": selectedFile.type || "application/pdf" },
+        body: selectedFile,
+        credentials: "include",
       });
       if (!uploadRes.ok) throw new Error("File upload failed");
+      const { objectPath } = await uploadRes.json();
 
-      // Step 3: Create or replace quote record
+      // Step 2: Create or replace quote record
       const quoteRes = isReplace && quoteId
         ? await fetch(`${BASE}/api/quotes/${quoteId}`, {
             method: "PUT",

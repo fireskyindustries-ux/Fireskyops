@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import express from "express";
 import { Readable } from "stream";
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
@@ -55,6 +56,42 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
     res.status(500).json({ error: "Failed to generate upload URL" });
   }
 });
+
+/**
+ * POST /storage/uploads/file
+ *
+ * Upload a file directly through the API server to object storage.
+ * Client sends the raw file bytes with the appropriate Content-Type header.
+ * Returns { objectPath } — the normalized path used to retrieve the file later.
+ *
+ * This avoids the need for direct browser-to-storage (presigned URL PUT) which
+ * requires CORS configuration on the GCS bucket.
+ */
+router.post(
+  "/storage/uploads/file",
+  express.raw({ type: "*/*", limit: "50mb" }),
+  async (req: Request, res: Response) => {
+    try {
+      const contentType =
+        (req.headers["content-type"] as string) || "application/octet-stream";
+      const buffer = req.body as Buffer;
+
+      if (!buffer || buffer.length === 0) {
+        res.status(400).json({ error: "No file data received" });
+        return;
+      }
+
+      const objectPath = await objectStorageService.uploadObjectEntity(
+        buffer,
+        contentType
+      );
+      res.json({ objectPath });
+    } catch (error) {
+      req.log.error({ err: error }, "Error uploading file to storage");
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  }
+);
 
 /**
  * GET /storage/public-objects/*
