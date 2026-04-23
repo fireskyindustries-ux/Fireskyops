@@ -3,6 +3,14 @@ import { logger } from "./lib/logger";
 import { startScheduler } from "./scheduler";
 import { runSeed } from "./lib/seed";
 
+process.on("uncaughtException", (err) => {
+  logger.error({ err }, "Uncaught exception — server staying alive");
+});
+
+process.on("unhandledRejection", (reason) => {
+  logger.error({ reason }, "Unhandled promise rejection — server staying alive");
+});
+
 const rawPort = process.env["PORT"];
 
 if (!rawPort) {

@@ -676,14 +676,21 @@ router.post("/sky-vision/parse-file", async (req, res): Promise<void> => {
     const buffer = Buffer.from(fileBase64, "base64");
     let text = "";
 
+    const timeout = <T>(ms: number, promise: Promise<T>): Promise<T> =>
+      Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error("File parse timed out")), ms)
+        ),
+      ]);
+
     if (mimeType === "application/pdf") {
-      const parsed = await pdfParse(buffer);
+      const parsed = await timeout(30000, pdfParse(buffer));
       text = parsed.text;
     } else if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || mimeType === "application/msword") {
-      const result = await mammoth.extractRawText({ buffer });
+      const result = await timeout(30000, mammoth.extractRawText({ buffer }));
       text = result.value;
     } else {
-      // CSV, TXT, and any other text-based files
       text = buffer.toString("utf-8");
     }
 
