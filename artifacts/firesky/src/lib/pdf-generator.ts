@@ -306,3 +306,187 @@ export async function generateJobPDF(job: any) {
 
   doc.save(`${refNo}_${(job.customerName || "job").replace(/\s+/g, "_")}.pdf`);
 }
+
+const LOAD_STATUS_LABELS: Record<string, string> = {
+  pending: "Pending",
+  in_progress: "In Progress",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+};
+
+export async function generateDeliveryNotePDF(job: any, loads: any[]) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const col2x = pw / 2 + 2;
+  const colW = (pw - margin * 2) / 2;
+
+  const refNo = `DN-${String(job.id).padStart(5, "0")}`;
+  const jobRef = `JOB-${String(job.id).padStart(5, "0")}`;
+  const today = new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" });
+
+  header(doc, "DELIVERY NOTE / JOB CARD", refNo);
+
+  let y = 36;
+
+  // ── Customer + Job Details ────────────────────────────────────────────────
+  y = sectionTitle(doc, "Customer Details", y);
+  const custStart = y;
+  y = row(doc, "Name", job.customerName || `#${job.customerId}`, margin, y, colW);
+  if (job.customerPhone) y = row(doc, "Phone", job.customerPhone, margin, y, colW);
+  if (job.customerEmail) y = row(doc, "Email", job.customerEmail, margin, y, colW);
+  if (job.customerVatNumber) y = row(doc, "VAT No", job.customerVatNumber, margin, y, colW);
+  if (job.customerBillingAddress) {
+    const billing = [job.customerBillingAddress, job.customerBillingCity, job.customerBillingProvince, job.customerBillingPostalCode].filter(Boolean).join(", ");
+    y = row(doc, "Billing", billing, margin, y, colW);
+  }
+  const custEnd = y;
+
+  let jy = custStart;
+  jy = row(doc, "Reference", jobRef, col2x, jy, colW);
+  if (job.jobType) jy = row(doc, "Type", job.jobType.replace(/_/g, " "), col2x, jy, colW);
+  if (job.tankSize || job.tankQuantity) jy = row(doc, "Tanks", `${job.tankQuantity ?? 1}x ${job.tankSize || "—"}`, col2x, jy, colW);
+  if (job.assignedStaff) jy = row(doc, "Assigned", job.assignedStaff, col2x, jy, colW);
+
+  y = Math.max(custEnd, jy) + 6;
+
+  // ── Goods Ordered ─────────────────────────────────────────────────────────
+  if (job.tankSize || job.tankQuantity) {
+    y = sectionTitle(doc, "Goods Ordered", y);
+    setColor(doc, ORANGE, "draw");
+    doc.setLineWidth(0.5);
+    const boxH = 14;
+    doc.rect(margin, y - 2, pw - margin * 2, boxH);
+    setColor(doc, DARK, "text");
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${job.tankQuantity ?? 1}x ${job.tankSize || "Tank"}`, margin + 3, y + 5);
+    const typeLabel = (job.jobType || "full_install") === "delivery_only" ? "Delivery Only" : "Full Installation";
+    setColor(doc, GRAY, "text");
+    doc.setFont("helvetica", "normal");
+    doc.text(typeLabel, pw - margin - 3, y + 5, { align: "right" });
+    y += boxH + 4;
+  }
+
+  // ── Delivery Loads Table ──────────────────────────────────────────────────
+  y = sectionTitle(doc, "Delivery Loads", y);
+
+  const cols = [
+    { label: "Load", x: margin, w: 18 },
+    { label: "Items", x: margin + 18, w: 40 },
+    { label: "Scheduled Date", x: margin + 58, w: 42 },
+    { label: "Driver", x: margin + 100, w: 42 },
+    { label: "Status", x: margin + 142, w: pw - margin - margin - 142 },
+  ];
+
+  // Table header row
+  setColor(doc, LIGHT_GRAY, "fill");
+  doc.rect(margin, y - 3, pw - margin * 2, 8, "F");
+  setColor(doc, DARK, "text");
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "bold");
+  cols.forEach(c => doc.text(c.label, c.x + 1, y + 2));
+  y += 8;
+
+  // Table rows
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  if (loads.length === 0) {
+    setColor(doc, GRAY, "text");
+    doc.text("No delivery loads recorded", pw / 2, y + 3, { align: "center" });
+    y += 10;
+  } else {
+    loads.forEach((l, i) => {
+      if (y + 8 > ph - 20) { doc.addPage(); y = 20; }
+      if (i % 2 === 0) {
+        setColor(doc, [249, 250, 251] as any, "fill");
+        doc.rect(margin, y - 2, pw - margin * 2, 7, "F");
+      }
+      setColor(doc, DARK, "text");
+      const items = l.tankQuantity && l.tankSize ? `${l.tankQuantity}x ${l.tankSize}` : l.tankSize || l.tankQuantity || "—";
+      const sched = l.scheduledDate ? new Date(l.scheduledDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" }) : "—";
+      doc.text(`Load ${l.loadNumber}`, cols[0].x + 1, y + 3);
+      doc.text(String(items), cols[1].x + 1, y + 3);
+      doc.text(sched, cols[2].x + 1, y + 3);
+      doc.text(l.driverName || "—", cols[3].x + 1, y + 3);
+      doc.text(LOAD_STATUS_LABELS[l.status] || l.status || "—", cols[4].x + 1, y + 3);
+      setColor(doc, LIGHT_GRAY, "draw");
+      doc.setLineWidth(0.2);
+      doc.line(margin, y + 5, pw - margin, y + 5);
+      y += 7;
+    });
+  }
+  y += 6;
+
+  // ── Notes ────────────────────────────────────────────────────────────────
+  if (job.notes) {
+    if (y + 20 > ph - 40) { doc.addPage(); y = 20; }
+    y = sectionTitle(doc, "Notes", y);
+    setColor(doc, DARK, "text");
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    const lines = doc.splitTextToSize(job.notes, pw - margin * 2);
+    doc.text(lines, margin, y);
+    y += lines.length * 4.5 + 6;
+  }
+
+  // ── Signature blocks ──────────────────────────────────────────────────────
+  if (y + 40 > ph - 14) { doc.addPage(); y = 20; }
+  y += 6;
+
+  const sigW = (pw - margin * 2 - 10) / 2;
+
+  // Customer sig
+  setColor(doc, DARK, "draw");
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, margin + sigW, y);
+  setColor(doc, DARK, "text");
+  doc.setFontSize(8.5);
+  doc.setFont("helvetica", "bold");
+  doc.text("Received by (Customer)", margin, y + 5);
+  setColor(doc, GRAY, "text");
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.text("By signing below, you confirm receipt of the above goods.", margin, y + 10);
+  setColor(doc, LIGHT_GRAY, "draw");
+  doc.setLineWidth(0.3);
+  doc.line(margin, y + 26, margin + sigW, y + 26);
+  setColor(doc, GRAY, "text");
+  doc.setFontSize(7.5);
+  doc.text("Signature", margin, y + 31);
+  doc.text("Date: _______________", margin + sigW - 38, y + 31);
+
+  // Driver sig
+  const sig2x = margin + sigW + 10;
+  setColor(doc, DARK, "draw");
+  doc.setLineWidth(0.5);
+  doc.line(sig2x, y, sig2x + sigW, y);
+  setColor(doc, DARK, "text");
+  doc.setFontSize(8.5);
+  doc.setFont("helvetica", "bold");
+  doc.text("Delivered by (Driver / Agent)", sig2x, y + 5);
+  setColor(doc, GRAY, "text");
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${brand.name} representative`, sig2x, y + 10);
+  setColor(doc, LIGHT_GRAY, "draw");
+  doc.setLineWidth(0.3);
+  doc.line(sig2x, y + 26, sig2x + sigW, y + 26);
+  setColor(doc, GRAY, "text");
+  doc.setFontSize(7.5);
+  doc.text("Signature", sig2x, y + 31);
+  doc.text("Date: _______________", sig2x + sigW - 38, y + 31);
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  y = ph - 10;
+  setColor(doc, LIGHT_GRAY, "draw");
+  doc.setLineWidth(0.3);
+  doc.line(margin, y - 4, pw - margin, y - 4);
+  setColor(doc, GRAY, "text");
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${brand.name}  ·  ${refNo}  ·  Generated: ${today}`, pw / 2, y, { align: "center" });
+
+  doc.save(`${refNo}_${(job.customerName || "job").replace(/\s+/g, "_")}.pdf`);
+}

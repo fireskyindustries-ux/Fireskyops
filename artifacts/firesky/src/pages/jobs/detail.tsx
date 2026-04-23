@@ -5,7 +5,7 @@ import type { JobLoad } from "@workspace/api-client-react";
 import { useParams, Link, useLocation } from "wouter";
 import { Briefcase, CalendarDays, Calendar, Info, DollarSign, CheckCircle, ChevronLeft, Trophy, XCircle, Plus, Clock, User, MessageCircle, Bell, BellOff, Copy, Mail, Truck, Wrench, ChevronDown, ChevronUp, Trash2, Package, Printer, FileDown, PenLine, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { SignaturePad } from "@/components/signature-pad";
-import { generateJobPDF } from "@/lib/pdf-generator";
+import { generateDeliveryNotePDF } from "@/lib/pdf-generator";
 import { AssignUser } from "@/components/assign-user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -463,7 +463,8 @@ export default function JobDetail() {
     if (!job) return;
     setPdfLoading(true);
     try {
-      await generateJobPDF(job);
+      const result = await refetchJob();
+      await generateDeliveryNotePDF(result.data ?? job, jobLoads);
     } catch {
       toast({ title: "Failed to generate PDF", variant: "destructive" });
     } finally {
