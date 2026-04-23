@@ -382,7 +382,7 @@ export default function JobDetail() {
     enabled: !!id,
   });
   
-  const { data: job, isLoading, error } = useGetJob(id, { 
+  const { data: job, isLoading, error, refetch: refetchJob } = useGetJob(id, { 
     query: { enabled: !!id, queryKey: getGetJobQueryKey(id) } 
   });
 
@@ -521,7 +521,10 @@ export default function JobDetail() {
               variant="outline"
               size="sm"
               className="gap-2"
-              onClick={() => printDeliveryNote(job, jobLoads)}
+              onClick={async () => {
+                const result = await refetchJob();
+                printDeliveryNote(result.data ?? job, jobLoads);
+              }}
             >
               <Printer className="h-4 w-4" />
               Delivery Note
