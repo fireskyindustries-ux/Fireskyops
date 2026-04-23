@@ -22,6 +22,7 @@ const SELECT_FIELDS = {
   customerName: customersTable.name,
   customerEmail: customersTable.email,
   customerPhone: customersTable.phone,
+  customerVatNumber: customersTable.vatNumber,
   enquiryId: jobsTable.enquiryId,
   inspectionId: jobsTable.inspectionId,
   title: jobsTable.title,
@@ -54,6 +55,7 @@ function normalize(r: any) {
     customerName: r.customerName ?? undefined,
     customerEmail: r.customerEmail ?? undefined,
     customerPhone: r.customerPhone ?? undefined,
+    customerVatNumber: r.customerVatNumber ?? undefined,
     enquiryId: r.enquiryId ?? undefined,
     inspectionId: r.inspectionId ?? undefined,
     tankSize: r.tankSize ?? undefined,
@@ -131,7 +133,7 @@ router.post("/jobs", requireAuth, async (req, res): Promise<void> => {
     });
   }
 
-  res.status(201).json(normalize({ ...job, customerName: customer?.name, customerEmail: customer?.email, customerPhone: customer?.phone }));
+  res.status(201).json(normalize({ ...job, customerName: customer?.name, customerEmail: customer?.email, customerPhone: customer?.phone, customerVatNumber: customer?.vatNumber }));
 });
 
 router.get("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
@@ -237,7 +239,7 @@ router.put("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
-  res.json(normalize({ ...job, customerName: customer?.name, customerEmail: customer?.email, customerPhone: customer?.phone }));
+  res.json(normalize({ ...job, customerName: customer?.name, customerEmail: customer?.email, customerPhone: customer?.phone, customerVatNumber: customer?.vatNumber }));
 });
 
 router.patch("/jobs/:id/assign", requireAuth, async (req, res): Promise<void> => {

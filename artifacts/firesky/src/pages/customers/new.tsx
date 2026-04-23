@@ -9,6 +9,7 @@ const customerFields: FieldConfig[] = [
   { key: "contactName", label: "Contact Person", type: "text", placeholder: "If different from above", section: "Basic Details" },
   { key: "phone", label: "Phone Number", type: "tel", required: true, placeholder: "082 123 4567", section: "Basic Details" },
   { key: "email", label: "Email Address", type: "email", placeholder: "john@example.com", section: "Basic Details" },
+  { key: "vatNumber", label: "VAT Number", type: "text", placeholder: "4500000000", section: "Basic Details" },
   
   { key: "farmName", label: "Farm / Site Name", type: "text", placeholder: "e.g. Willow Creek", section: "Location Details" },
   { key: "nearestTown", label: "Nearest Town", type: "text", required: true, placeholder: "e.g. Bethal", helperText: "Enter the nearest town as a landmark for navigation", section: "Location Details" },

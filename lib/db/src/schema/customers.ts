@@ -10,6 +10,7 @@ export const customersTable = pgTable("customers", {
   contactName: text("contact_name"),
   phone: text("phone"),
   email: text("email"),
+  vatNumber: text("vat_number"),
   farmName: text("farm_name"),
   nearestTown: text("nearest_town"),
   province: text("province"),

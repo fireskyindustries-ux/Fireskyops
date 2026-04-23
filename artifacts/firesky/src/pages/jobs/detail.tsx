@@ -117,6 +117,7 @@ function printDeliveryNote(job: any, loads: JobLoad[]) {
       <p><span>Name:</span> ${job.customerName || "—"}</p>
       ${j.customerPhone ? `<p><span>Phone:</span> ${j.customerPhone}</p>` : ""}
       ${j.customerEmail ? `<p><span>Email:</span> ${j.customerEmail}</p>` : ""}
+      ${j.customerVatNumber ? `<p><span>VAT No:</span> ${j.customerVatNumber}</p>` : ""}
     </div>
     <div class="info-box">
       <h3>Job Details</h3>

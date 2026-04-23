@@ -133,6 +133,16 @@ export default function CustomerDetail() {
                 </div>
               </div>
             )}
+
+            {(customer as any).vatNumber && (
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">VAT Number</p>
+                  <p className="text-sm text-muted-foreground">{(customer as any).vatNumber}</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
