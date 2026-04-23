@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { brand } from "@/brand.config";
-import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2, Sparkles, BarChart2, MapPin, Pencil } from "lucide-react";
+import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2, Sparkles, BarChart2, MapPin, Info, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
