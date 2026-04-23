@@ -118,6 +118,7 @@ function printDeliveryNote(job: any, loads: JobLoad[]) {
       ${j.customerPhone ? `<p><span>Phone:</span> ${j.customerPhone}</p>` : ""}
       ${j.customerEmail ? `<p><span>Email:</span> ${j.customerEmail}</p>` : ""}
       ${j.customerVatNumber ? `<p><span>VAT No:</span> ${j.customerVatNumber}</p>` : ""}
+      ${j.customerBillingAddress ? `<p><span>Billing:</span> ${[j.customerBillingAddress, j.customerBillingCity, j.customerBillingProvince, j.customerBillingPostalCode].filter(Boolean).join(", ")}</p>` : ""}
     </div>
     <div class="info-box">
       <h3>Job Details</h3>

@@ -143,6 +143,19 @@ export default function CustomerDetail() {
                 </div>
               </div>
             )}
+
+            {((customer as any).billingAddress || (customer as any).billingCity || (customer as any).billingProvince || (customer as any).billingPostalCode) && (
+              <div className="flex items-start gap-3">
+                <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Billing Address</p>
+                  <div className="text-sm text-muted-foreground space-y-0.5">
+                    {(customer as any).billingAddress && <p>{(customer as any).billingAddress}</p>}
+                    <p>{[(customer as any).billingCity, (customer as any).billingProvince, (customer as any).billingPostalCode].filter(Boolean).join(", ")}</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

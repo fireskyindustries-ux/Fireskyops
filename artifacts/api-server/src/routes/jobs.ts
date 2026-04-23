@@ -23,6 +23,10 @@ const SELECT_FIELDS = {
   customerEmail: customersTable.email,
   customerPhone: customersTable.phone,
   customerVatNumber: customersTable.vatNumber,
+  customerBillingAddress: customersTable.billingAddress,
+  customerBillingCity: customersTable.billingCity,
+  customerBillingProvince: customersTable.billingProvince,
+  customerBillingPostalCode: customersTable.billingPostalCode,
   enquiryId: jobsTable.enquiryId,
   inspectionId: jobsTable.inspectionId,
   title: jobsTable.title,
@@ -56,6 +60,10 @@ function normalize(r: any) {
     customerEmail: r.customerEmail ?? undefined,
     customerPhone: r.customerPhone ?? undefined,
     customerVatNumber: r.customerVatNumber ?? undefined,
+    customerBillingAddress: r.customerBillingAddress ?? undefined,
+    customerBillingCity: r.customerBillingCity ?? undefined,
+    customerBillingProvince: r.customerBillingProvince ?? undefined,
+    customerBillingPostalCode: r.customerBillingPostalCode ?? undefined,
     enquiryId: r.enquiryId ?? undefined,
     inspectionId: r.inspectionId ?? undefined,
     tankSize: r.tankSize ?? undefined,
@@ -133,7 +141,7 @@ router.post("/jobs", requireAuth, async (req, res): Promise<void> => {
     });
   }
 
-  res.status(201).json(normalize({ ...job, customerName: customer?.name, customerEmail: customer?.email, customerPhone: customer?.phone, customerVatNumber: customer?.vatNumber }));
+  res.status(201).json(normalize({ ...job, customerName: customer?.name, customerEmail: customer?.email, customerPhone: customer?.phone, customerVatNumber: customer?.vatNumber, customerBillingAddress: customer?.billingAddress, customerBillingCity: customer?.billingCity, customerBillingProvince: customer?.billingProvince, customerBillingPostalCode: customer?.billingPostalCode }));
 });
 
 router.get("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
@@ -239,7 +247,7 @@ router.put("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
-  res.json(normalize({ ...job, customerName: customer?.name, customerEmail: customer?.email, customerPhone: customer?.phone, customerVatNumber: customer?.vatNumber }));
+  res.json(normalize({ ...job, customerName: customer?.name, customerEmail: customer?.email, customerPhone: customer?.phone, customerVatNumber: customer?.vatNumber, customerBillingAddress: customer?.billingAddress, customerBillingCity: customer?.billingCity, customerBillingProvince: customer?.billingProvince, customerBillingPostalCode: customer?.billingPostalCode }));
 });
 
 router.patch("/jobs/:id/assign", requireAuth, async (req, res): Promise<void> => {
