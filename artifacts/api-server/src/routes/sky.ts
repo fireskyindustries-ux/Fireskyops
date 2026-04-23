@@ -78,6 +78,7 @@ You can also answer questions about branches and stock, and take direct action o
 - list_stock_items: shows the global stock catalogue
 - record_stock_movement: adds or removes stock, or sets an exact level (use 'in', 'out', or 'adjustment')
 - create_stock_item: adds a new item to the global catalogue
+- update_stock_item: edits an existing stock item's name, description, unit, or category
 
 When a stock request mentions a specific branch name or the context makes the branch obvious, proceed directly. When the branch is not clear, call list_branches immediately and present the available branches as a short numbered list so the user can simply reply with a number or name — never ask them to supply a branch ID. After the user picks a branch, call check_stock to show what is currently there, then make the update and confirm clearly what was done and the new level.
 
@@ -546,6 +547,24 @@ const ADMIN_TOOLS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "update_stock_item",
+      description: "Edit an existing stock catalogue item — update its name, description, unit, or category. Use this when the user wants to change the details of an existing item.",
+      parameters: {
+        type: "object",
+        properties: {
+          item_name: { type: "string", description: "Current name of the item to find and update (matched by name)" },
+          new_name: { type: "string", description: "New name for the item (optional)" },
+          unit: { type: "string", description: "New unit of measurement (optional)" },
+          category: { type: "string", description: "New category (optional)" },
+          description: { type: "string", description: "New description or includes/notes text (optional)" },
+        },
+        required: ["item_name"],
+      },
+    },
+  },
 ] as const;
 
 // ADMIN_TOOLS is already in OpenAI function-calling format — used directly.
@@ -599,6 +618,24 @@ const BRANCH_ADMIN_STOCK_TOOLS = [
           description: { type: "string", description: "Optional description of the item" },
         },
         required: ["name", "unit"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "update_stock_item",
+      description: "Edit an existing stock catalogue item — update its name, description, unit, or category.",
+      parameters: {
+        type: "object",
+        properties: {
+          item_name: { type: "string", description: "Current name of the item to find and update (matched by name)" },
+          new_name: { type: "string", description: "New name for the item (optional)" },
+          unit: { type: "string", description: "New unit of measurement (optional)" },
+          category: { type: "string", description: "New category (optional)" },
+          description: { type: "string", description: "New description or includes/notes text (optional)" },
+        },
+        required: ["item_name"],
       },
     },
   },
@@ -1024,6 +1061,24 @@ async function executeTool(name: string, args: Record<string, any>): Promise<Too
         };
       }
 
+      case "update_stock_item": {
+        const { item_name, new_name, unit, category, description } = args;
+        const matches = await db.select().from(stockItemsTable).where(ilike(stockItemsTable.name, `%${item_name}%`));
+        if (matches.length === 0) return { result: `No stock item found matching "${item_name}". Use list_stock_items to see the full catalogue.` };
+        const target = matches[0];
+        const updates: Record<string, unknown> = {};
+        if (new_name) updates.name = new_name;
+        if (unit) updates.unit = unit;
+        if (category !== undefined) updates.category = category;
+        if (description !== undefined) updates.description = description;
+        if (Object.keys(updates).length === 0) return { result: `No changes provided for "${target.name}".` };
+        const [updated] = await db.update(stockItemsTable).set(updates).where(eq(stockItemsTable.id, target.id)).returning();
+        return {
+          result: `Stock item updated: "${updated.name}" — description: ${updated.description || "none"}, unit: ${updated.unit}, category: ${updated.category || "none"}.`,
+          action: { resource: "stock", id: updated.id },
+        };
+      }
+
       default:
         return { result: `Unknown tool: ${name}` };
     }
@@ -1057,6 +1112,7 @@ function getThinkingMessage(name: string, args: Record<string, any>): string {
     case "list_stock_items": return `Loading stock catalogue...`;
     case "record_stock_movement": return `Recording ${args.type} of ${args.quantity} × ${args.item_name} at Branch #${args.branch_id}...`;
     case "create_stock_item": return `Creating stock item "${args.name}"...`;
+    case "update_stock_item": return `Updating stock item "${args.item_name}"...`;
     default: return `Working on it...`;
   }
 }
