@@ -86,15 +86,17 @@ router.patch("/users/:userId/role", requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
     const { role } = req.body;
-    if (!["admin", "branch_admin", "field_worker", "user"].includes(role)) {
+    if (!["admin", "branch_admin", "field_worker", "user", "guest", "customer"].includes(role)) {
       return res.status(400).json({ error: "Invalid role" });
     }
+    // Normalise customer → guest so the frontend role check works consistently
+    const normalisedRole = role === "customer" ? "guest" : role;
     // Preserve existing metadata when updating role
     const existing = await clerkFetch(`/users/${userId}`);
     const currentMeta = existing.public_metadata ?? {};
     const user = await clerkFetch(`/users/${userId}`, {
       method: "PATCH",
-      body: JSON.stringify({ public_metadata: { ...currentMeta, role } }),
+      body: JSON.stringify({ public_metadata: { ...currentMeta, role: normalisedRole } }),
     });
     res.json({ id: user.id, role: user.public_metadata?.role, branchId: user.public_metadata?.branchId ?? null });
   } catch (err: any) {

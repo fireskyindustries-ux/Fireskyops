@@ -49,7 +49,8 @@ const ROLE_LABELS: Record<string, string> = {
   branch_admin: "Branch Admin",
   user: "Field Worker",
   field_worker: "Field Worker",
-  guest: "Guest",
+  guest: "Customer",
+  customer: "Customer",
 };
 
 interface Customer { id: number; name: string; phone: string | null; whatsapp: string | null; }
@@ -330,6 +331,7 @@ export default function AdminUsers() {
                       <Select value={user.role} onValueChange={(role) => updateRole.mutate({ userId: user.id, role })}>
                         <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="guest">Customer</SelectItem>
                           <SelectItem value="user">Field Worker</SelectItem>
                           <SelectItem value="branch_admin">Branch Admin</SelectItem>
                           <SelectItem value="admin">Super Admin</SelectItem>
