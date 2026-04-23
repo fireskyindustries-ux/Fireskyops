@@ -881,7 +881,7 @@ components:
           type: string
         stage:
           type: string
-          enum: [enquiry, inspection, quoting, quoted, won, lost]
+          enum: [enquiry, inspection, quoting, quoted, won, lost, closed]
         priority:
           type: string
           enum: [low, medium, high]
@@ -920,7 +920,7 @@ components:
           type: string
         stage:
           type: string
-          enum: [enquiry, inspection, quoting, quoted, won, lost]
+          enum: [enquiry, inspection, quoting, quoted, won, lost, closed]
         priority:
           type: string
           enum: [low, medium, high]

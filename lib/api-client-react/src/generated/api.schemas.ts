@@ -55,6 +55,7 @@ export const JobStage = {
   quoted: "quoted",
   won: "won",
   lost: "lost",
+  closed: "closed",
 } as const;
 
 export type JobPriority = (typeof JobPriority)[keyof typeof JobPriority];
@@ -245,6 +246,7 @@ export const CreateJobBodyStage = {
   quoted: "quoted",
   won: "won",
   lost: "lost",
+  closed: "closed",
 } as const;
 
 export type CreateJobBodyPriority =
