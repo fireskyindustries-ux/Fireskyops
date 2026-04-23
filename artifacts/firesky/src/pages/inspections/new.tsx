@@ -98,6 +98,10 @@ export default function NewInspection() {
   const inspectionFields: FieldConfig[] = [
     { key: "customerId", label: "Customer", type: "select", required: true, options: customerOptions, section: "General" },
     { key: "enquiryId", label: "Related Enquiry", type: "select", options: enquiryOptions, section: "General" },
+    { key: "visitType", label: "Visit Type", type: "select", required: true, options: [
+      { label: "Full Inspection", value: "inspection" },
+      { label: "Delivery Only", value: "delivery_only" },
+    ], section: "General" },
 
     { key: "farmName", label: "Farm / Site Name", type: "text", section: "Location Details" },
     { key: "nearestTown", label: "Nearest Town", type: "text", required: true, helperText: "Enter the nearest town as a landmark for navigation", section: "Location Details" },

@@ -1,9 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import {
-  db, quotesTable, enquiriesTable, customersTable, jobsTable,
+  db, quotesTable, enquiriesTable, customersTable,
 } from "@workspace/db";
-import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -29,39 +28,17 @@ router.post("/quotes", async (req, res): Promise<void> => {
       .where(eq(enquiriesTable.id, enquiryId));
   }
 
-  // Look up customer and job for email
+  // Look up customer for notification
   const [customer] = await db
     .select()
     .from(customersTable)
     .where(eq(customersTable.id, customerId));
 
-  let customerToken: string | null = null;
-  if (jobId) {
-    const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId));
-    customerToken = job?.customerToken ?? null;
-  }
-
-  // Send quote email to customer
-  if (customer?.email) {
-    try {
-      const { sendQuoteEmail } = await import("../lib/email");
-      await sendQuoteEmail({
-        customerName: customer.contactName || customer.name,
-        customerEmail: customer.email,
-        quoteToken: quote.quoteToken,
-        jobTitle: enquiryId ? `Enquiry #${enquiryId}` : `Job #${jobId}`,
-        notes: notes ?? null,
-      });
-    } catch (err) {
-      logger.error({ err }, "Failed to send quote email");
-    }
-  }
-
-  // Notify admin team
+  // Notify admin team — quote is sent via WhatsApp by the field agent
   const { notifyAdmins } = await import("../lib/notify");
   notifyAdmins(
-    `Quote sent — ${customer?.name || "Customer"}`,
-    "Quote uploaded and emailed to customer",
+    `Quote uploaded — ${customer?.name || "Customer"}`,
+    "Quote PDF uploaded. Send the link to the customer via WhatsApp.",
     enquiryId ? `/enquiries/${enquiryId}` : jobId ? `/jobs/${jobId}` : "/enquiries"
   );
 
@@ -99,30 +76,14 @@ router.put("/quotes/:id", async (req, res): Promise<void> => {
     .where(eq(quotesTable.id, id))
     .returning();
 
-  // Re-send email to customer if requested
-  if (resendEmail !== false) {
-    const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, existing.customerId));
-    if (customer?.email) {
-      try {
-        const { sendQuoteEmail } = await import("../lib/email");
-        await sendQuoteEmail({
-          customerName: customer.contactName || customer.name,
-          customerEmail: customer.email,
-          quoteToken: quote.quoteToken,
-          jobTitle: existing.enquiryId ? `Enquiry #${existing.enquiryId}` : `Job #${existing.jobId}`,
-          notes: quote.notes ?? null,
-        });
-      } catch (err) {
-        logger.error({ err }, "Failed to re-send quote email");
-      }
-    }
-    const { notifyAdmins } = await import("../lib/notify");
-    notifyAdmins(
-      `Quote replaced — ${existing.enquiryId ? `Enquiry #${existing.enquiryId}` : `Job #${existing.jobId}`}`,
-      "Quote PDF replaced and re-sent to customer",
-      existing.enquiryId ? `/enquiries/${existing.enquiryId}` : existing.jobId ? `/jobs/${existing.jobId}` : "/enquiries"
-    );
-  }
+  // Notify admin — quote is sent to customer via WhatsApp by the field agent
+  const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, existing.customerId));
+  const { notifyAdmins } = await import("../lib/notify");
+  notifyAdmins(
+    `Quote replaced — ${existing.enquiryId ? `Enquiry #${existing.enquiryId}` : `Job #${existing.jobId}`}`,
+    "Quote PDF replaced. Send the updated link to the customer via WhatsApp.",
+    existing.enquiryId ? `/enquiries/${existing.enquiryId}` : existing.jobId ? `/jobs/${existing.jobId}` : "/enquiries"
+  );
 
   res.json({ id: quote.id, quoteToken: quote.quoteToken, status: quote.status, fileUrl: quote.fileUrl, sentAt: quote.sentAt });
 });

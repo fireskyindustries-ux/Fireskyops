@@ -350,13 +350,13 @@ function SendQuoteSection({
             {replacing && (
               <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 <Upload className="h-4 w-4" />
-                Uploading a new PDF will replace the current quote and re-send the email to the customer.
+                Uploading a new PDF will replace the current quote. Use the WhatsApp button to re-send the link to the customer.
               </div>
             )}
             <p className="text-sm text-muted-foreground">
               {replacing
-                ? "Select the corrected PDF to send to the customer."
-                : "Upload a PDF quote to send to the customer. They will receive an email with a link to review and accept or decline."}
+                ? "Select the corrected PDF, then use the WhatsApp button to send the updated link to the customer."
+                : "Upload a PDF quote, then use the WhatsApp button to send the quote link to the customer."}
             </p>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Quote PDF</label>

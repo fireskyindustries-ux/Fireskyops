@@ -730,6 +730,10 @@ components:
           type: integer
         customerName:
           type: string
+        visitType:
+          type: string
+          enum: [inspection, delivery_only]
+          nullable: true
         farmName:
           type: string
         nearestTown:
@@ -800,6 +804,9 @@ components:
           type: integer
         customerId:
           type: integer
+        visitType:
+          type: string
+          enum: [inspection, delivery_only]
         farmName:
           type: string
         nearestTown:

@@ -10,6 +10,7 @@ export const inspectionsTable = pgTable("inspections", {
   branchId: integer("branch_id").references(() => branchesTable.id),
   enquiryId: integer("enquiry_id").references(() => enquiriesTable.id),
   customerId: integer("customer_id").notNull().references(() => customersTable.id),
+  visitType: text("visit_type").default("inspection"),
   farmName: text("farm_name"),
   nearestTown: text("nearest_town"),
   manualDirections: text("manual_directions"),

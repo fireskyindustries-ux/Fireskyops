@@ -113,29 +113,23 @@ export class ObjectStorageService {
   }
 
   async uploadObjectEntity(buffer: Buffer, contentType: string): Promise<string> {
-    const privateObjectDir = this.getPrivateObjectDir();
-    const objectId = randomUUID();
-    const fullPath = `${privateObjectDir}/uploads/${objectId}`;
-    const { bucketName, objectName } = parseObjectPath(fullPath);
+    // Generate a presigned upload URL (uses HMAC signing — no IAM write permission needed)
+    const uploadURL = await this.getObjectEntityUploadURL();
+    const objectPath = this.normalizeObjectEntityPath(uploadURL);
 
-    const bucket = objectStorageClient.bucket(bucketName);
-    const file = bucket.file(objectName);
-
-    await new Promise<void>((resolve, reject) => {
-      const writeStream = file.createWriteStream({
-        contentType,
-        resumable: false,
-      });
-      writeStream.on("error", reject);
-      writeStream.on("finish", resolve);
-      const readable = Readable.from(buffer);
-      readable.pipe(writeStream);
+    // PUT the file from the server using the signed URL (server-to-GCS, no CORS restriction)
+    const response = await fetch(uploadURL, {
+      method: "PUT",
+      body: buffer,
+      headers: { "Content-Type": contentType },
     });
 
-    const normalizedPath = this.normalizeObjectEntityPath(
-      `https://storage.googleapis.com/${bucketName}/${objectName}`
-    );
-    return normalizedPath;
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`GCS upload failed (${response.status}): ${text}`);
+    }
+
+    return objectPath;
   }
 
   async getObjectEntityFile(objectPath: string): Promise<File> {

@@ -176,11 +176,21 @@ export interface CreateEnquiryBody {
   notes?: string | null;
 }
 
+export type InspectionVisitType =
+  | (typeof InspectionVisitType)[keyof typeof InspectionVisitType]
+  | null;
+
+export const InspectionVisitType = {
+  inspection: "inspection",
+  delivery_only: "delivery_only",
+} as const;
+
 export interface Inspection {
   id: number;
   enquiryId?: number;
   customerId: number;
   customerName?: string;
+  visitType?: InspectionVisitType;
   farmName?: string;
   nearestTown?: string;
   manualDirections?: string;
@@ -209,9 +219,18 @@ export interface Inspection {
   updatedAt: string;
 }
 
+export type CreateInspectionBodyVisitType =
+  (typeof CreateInspectionBodyVisitType)[keyof typeof CreateInspectionBodyVisitType];
+
+export const CreateInspectionBodyVisitType = {
+  inspection: "inspection",
+  delivery_only: "delivery_only",
+} as const;
+
 export interface CreateInspectionBody {
   enquiryId?: number;
   customerId: number;
+  visitType?: CreateInspectionBodyVisitType;
   farmName?: string;
   nearestTown?: string;
   manualDirections?: string;

@@ -5,12 +5,14 @@
  * Firesky Industries Field Operations API
  * OpenAPI spec version: 0.1.0
  */
+import type { InspectionVisitType } from "./inspectionVisitType";
 
 export interface Inspection {
   id: number;
   enquiryId?: number;
   customerId: number;
   customerName?: string;
+  visitType?: InspectionVisitType;
   farmName?: string;
   nearestTown?: string;
   manualDirections?: string;

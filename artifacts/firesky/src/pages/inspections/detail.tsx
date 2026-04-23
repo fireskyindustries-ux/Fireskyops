@@ -186,9 +186,16 @@ export default function InspectionDetail() {
                 {inspection.farmName ? ` - ${inspection.farmName}` : ''}
               </p>
             </Link>
-            <p className="text-sm text-muted-foreground mt-1">
-              Inspected: {inspection.inspectedAt ? format(new Date(inspection.inspectedAt), "PPP") : "Unknown"}
-            </p>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {inspection.visitType && (
+                <Badge variant={inspection.visitType === "delivery_only" ? "secondary" : "outline"} className="text-xs">
+                  {inspection.visitType === "delivery_only" ? "Delivery Only" : "Full Inspection"}
+                </Badge>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Inspected: {inspection.inspectedAt ? format(new Date(inspection.inspectedAt), "PPP") : "Unknown"}
+              </p>
+            </div>
           </div>
           <div className="flex gap-2 w-full sm:w-auto flex-col sm:flex-row">
             <SkyInlineButton
