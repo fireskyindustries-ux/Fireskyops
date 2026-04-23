@@ -839,6 +839,20 @@ components:
           type: integer
         customerName:
           type: string
+        customerEmail:
+          type: string
+        customerPhone:
+          type: string
+        customerVatNumber:
+          type: string
+        customerBillingAddress:
+          type: string
+        customerBillingCity:
+          type: string
+        customerBillingProvince:
+          type: string
+        customerBillingPostalCode:
+          type: string
         enquiryId:
           type: integer
         inspectionId:

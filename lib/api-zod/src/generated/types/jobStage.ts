@@ -15,5 +15,4 @@ export const JobStage = {
   quoted: "quoted",
   won: "won",
   lost: "lost",
-  closed: "closed",
 } as const;

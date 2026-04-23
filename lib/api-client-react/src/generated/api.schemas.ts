@@ -42,10 +42,6 @@ export interface Enquiry {
   status: EnquiryStatus;
   priority?: EnquiryPriority;
   notes?: string;
-  nextAction?: string;
-  nextActionDate?: string;
-  followUpDueDate?: string;
-  assignedStaff?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -73,6 +69,13 @@ export interface Job {
   id: number;
   customerId: number;
   customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  customerVatNumber?: string;
+  customerBillingAddress?: string;
+  customerBillingCity?: string;
+  customerBillingProvince?: string;
+  customerBillingPostalCode?: string;
   enquiryId?: number;
   inspectionId?: number;
   title: string;
@@ -82,12 +85,6 @@ export interface Job {
   tankQuantity?: number;
   estimatedValue?: number;
   notes?: string;
-  nextAction?: string;
-  nextActionDate?: string;
-  followUpDueDate?: string;
-  quoteSentDate?: string;
-  lostReason?: string;
-  accessRisk?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -96,19 +93,6 @@ export interface DashboardSummary {
   totalCustomers: number;
   totalEnquiries: number;
   totalJobs: number;
-  staleEnquiries: number;
-  staleJobs: number;
-  urgentEnquiries: number;
-  urgentJobs: number;
-  newRecords: number;
-  overdueFollowUpEnquiries: number;
-  overdueFollowUpJobs: number;
-  noNextActionEnquiries: number;
-  noNextActionJobs: number;
-  quotedNoFollowUp: number;
-  lostNoReason: number;
-  highAccessRiskJobs: number;
-  lastChecked: string;
   jobsByStage: DashboardSummaryJobsByStage;
   recentEnquiries: Enquiry[];
   recentJobs: Job[];

@@ -12,6 +12,13 @@ export interface Job {
   id: number;
   customerId: number;
   customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  customerVatNumber?: string;
+  customerBillingAddress?: string;
+  customerBillingCity?: string;
+  customerBillingProvince?: string;
+  customerBillingPostalCode?: string;
   enquiryId?: number;
   inspectionId?: number;
   title: string;
