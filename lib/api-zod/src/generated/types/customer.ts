@@ -12,6 +12,11 @@ export interface Customer {
   contactName?: string;
   phone?: string;
   email?: string;
+  vatNumber?: string;
+  billingAddress?: string;
+  billingCity?: string;
+  billingProvince?: string;
+  billingPostalCode?: string;
   farmName?: string;
   nearestTown?: string;
   province?: string;

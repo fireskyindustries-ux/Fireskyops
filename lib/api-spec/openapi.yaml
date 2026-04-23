@@ -573,6 +573,16 @@ components:
           type: string
         email:
           type: string
+        vatNumber:
+          type: string
+        billingAddress:
+          type: string
+        billingCity:
+          type: string
+        billingProvince:
+          type: string
+        billingPostalCode:
+          type: string
         farmName:
           type: string
         nearestTown:
@@ -611,6 +621,16 @@ components:
         phone:
           type: string
         email:
+          type: string
+        vatNumber:
+          type: string
+        billingAddress:
+          type: string
+        billingCity:
+          type: string
+        billingProvince:
+          type: string
+        billingPostalCode:
           type: string
         farmName:
           type: string
