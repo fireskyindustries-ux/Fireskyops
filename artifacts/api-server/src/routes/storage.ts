@@ -4,6 +4,8 @@ import { Readable } from "stream";
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
+import { db, fileUploadsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const RequestUploadUrlBody = z.object({
   name: z.string(),
@@ -60,12 +62,13 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
 /**
  * POST /storage/uploads/file
  *
- * Upload a file directly through the API server to object storage.
+ * Upload a file through the API server, stored in the database.
  * Client sends the raw file bytes with the appropriate Content-Type header.
- * Returns { objectPath } — the normalized path used to retrieve the file later.
+ * Returns { objectPath } — the path used to retrieve the file later via
+ * GET /storage/objects/db/<id>
  *
- * This avoids the need for direct browser-to-storage (presigned URL PUT) which
- * requires CORS configuration on the GCS bucket.
+ * Uses database storage (PostgreSQL) instead of GCS to avoid IAM write
+ * permission issues in the production deployment environment.
  */
 router.post(
   "/storage/uploads/file",
@@ -74,6 +77,8 @@ router.post(
     try {
       const contentType =
         (req.headers["content-type"] as string) || "application/octet-stream";
+      const fileName =
+        (req.headers["x-file-name"] as string) || null;
       const buffer = req.body as Buffer;
 
       if (!buffer || buffer.length === 0) {
@@ -81,13 +86,17 @@ router.post(
         return;
       }
 
-      const objectPath = await objectStorageService.uploadObjectEntity(
-        buffer,
-        contentType
-      );
+      const base64Data = buffer.toString("base64");
+
+      const [record] = await db
+        .insert(fileUploadsTable)
+        .values({ fileData: base64Data, contentType, fileName })
+        .returning({ id: fileUploadsTable.id });
+
+      const objectPath = `/objects/db/${record.id}`;
       res.json({ objectPath });
     } catch (error) {
-      req.log.error({ err: error }, "Error uploading file to storage");
+      req.log.error({ err: error }, "Error storing uploaded file");
       res.status(500).json({ error: "Failed to upload file" });
     }
   }
@@ -130,14 +139,50 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
 /**
  * GET /storage/objects/*
  *
- * Serve object entities from PRIVATE_OBJECT_DIR.
- * These are served from a separate path from /public-objects and can optionally
- * be protected with authentication or ACL checks based on the use case.
+ * Serve object entities. Handles two storage backends:
+ *   - /objects/db/<id>  — database-stored files (base64 in file_uploads table)
+ *   - /objects/<path>   — GCS-stored files via PRIVATE_OBJECT_DIR
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
+  const raw = req.params.path;
+  const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
+
+  // Database-backed file: /objects/db/<id>
+  if (wildcardPath.startsWith("db/")) {
+    const id = Number(wildcardPath.slice(3));
+    if (!id) {
+      res.status(400).json({ error: "Invalid file ID" });
+      return;
+    }
+    try {
+      const [record] = await db
+        .select()
+        .from(fileUploadsTable)
+        .where(eq(fileUploadsTable.id, id));
+      if (!record) {
+        res.status(404).json({ error: "File not found" });
+        return;
+      }
+      const buffer = Buffer.from(record.fileData, "base64");
+      res.setHeader("Content-Type", record.contentType);
+      res.setHeader("Content-Length", buffer.length);
+      res.setHeader("Cache-Control", "private, max-age=3600");
+      if (record.fileName) {
+        res.setHeader(
+          "Content-Disposition",
+          `inline; filename="${record.fileName}"`
+        );
+      }
+      res.send(buffer);
+    } catch (error) {
+      req.log.error({ err: error }, "Error serving database file");
+      res.status(500).json({ error: "Failed to serve file" });
+    }
+    return;
+  }
+
+  // GCS-backed file
   try {
-    const raw = req.params.path;
-    const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 

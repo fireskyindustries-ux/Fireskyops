@@ -225,10 +225,13 @@ function SendQuoteSection({
 
     setUploading(true);
     try {
-      // Step 1: Upload file through API server (avoids CORS issues with direct GCS upload)
+      // Step 1: Upload file through API server (stored in database)
       const uploadRes = await fetch(`${BASE}/api/storage/uploads/file`, {
         method: "POST",
-        headers: { "Content-Type": selectedFile.type || "application/pdf" },
+        headers: {
+          "Content-Type": selectedFile.type || "application/pdf",
+          "x-file-name": selectedFile.name,
+        },
         body: selectedFile,
         credentials: "include",
       });
@@ -253,7 +256,17 @@ function SendQuoteSection({
         throw new Error(j.error || "Failed to save quote");
       }
 
-      toast({ title: isReplace ? "Quote replaced and re-sent to customer" : "Quote sent to customer" });
+      const quoteData = await quoteRes.json();
+      const token = quoteData.quoteToken;
+
+      // Step 3: Open WhatsApp with the quote link
+      if (token) {
+        const quoteUrl = `${window.location.origin}${BASE}/quote/${token}`;
+        const waText = brand.whatsapp.quoteReady(customerName, quoteUrl);
+        window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, "_blank");
+      }
+
+      toast({ title: "Quote uploaded — WhatsApp opened to send link to customer" });
       setSelectedFile(null);
       setNotes("");
       setReplacing(false);
@@ -392,12 +405,12 @@ function SendQuoteSection({
               <Button
                 onClick={replacing ? handleReplace : handleSend}
                 disabled={uploading || !selectedFile}
-                className="gap-2"
+                className="gap-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white"
               >
-                <Send className="h-4 w-4" />
+                <MessageCircle className="h-4 w-4" />
                 {uploading
-                  ? (replacing ? "Replacing..." : "Sending...")
-                  : (replacing ? "Replace & Re-send to Customer" : "Send Quote to Customer")}
+                  ? (replacing ? "Uploading..." : "Uploading...")
+                  : (replacing ? "Replace & Send via WhatsApp" : "Upload & Send via WhatsApp")}
               </Button>
               {replacing && (
                 <Button variant="outline" onClick={() => { setReplacing(false); setSelectedFile(null); }}>
