@@ -23,6 +23,8 @@ export interface Customer {
   manualDirections?: string;
   landmarks?: string;
   whatsappLocation?: string;
+  lat?: number;
+  lng?: number;
   accessNotes?: string;
   notes?: string;
   createdAt: Date;

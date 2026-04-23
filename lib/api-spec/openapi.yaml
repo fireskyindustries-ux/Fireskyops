@@ -595,6 +595,12 @@ components:
           type: string
         whatsappLocation:
           type: string
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
         accessNotes:
           type: string
         notes:

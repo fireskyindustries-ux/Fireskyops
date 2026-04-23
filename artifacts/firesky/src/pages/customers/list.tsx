@@ -1,12 +1,18 @@
 import { useState } from "react";
 import { useListCustomers } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getListCustomersQueryKey } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { Plus, Search, MapPin, Phone, ChevronRight, LayoutList, Map } from "lucide-react";
+import { Plus, Search, MapPin, Phone, ChevronRight, LayoutList, Map, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@clerk/react";
 import { cn } from "@/lib/utils";
+
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -34,44 +40,43 @@ function avatarColor(name: string) {
   return AVATAR_COLORS[code % AVATAR_COLORS.length];
 }
 
-interface LatLng { lat: number; lng: number; }
+const CUSTOMER_ICON = new L.Icon({
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
 
-function parseCoords(raw: string | null | undefined): LatLng | null {
-  if (!raw) return null;
-  const s = raw.trim();
+function CustomerMap({ customers, isAdmin }: { customers: any[]; isAdmin: boolean }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [geocoding, setGeocoding] = useState(false);
 
-  // Google Maps link: https://maps.google.com/?q=-25.7461,28.1881
-  const qMatch = s.match(/[?&]q=(-?\d+\.?\d*)[, ]+(-?\d+\.?\d*)/);
-  if (qMatch) {
-    const lat = parseFloat(qMatch[1]);
-    const lng = parseFloat(qMatch[2]);
-    if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+  const mapped = customers.filter(c => c.lat != null && c.lng != null);
+  const noCoords = customers.filter(c => c.lat == null || c.lng == null);
+
+  async function handleGeocodeAll() {
+    setGeocoding(true);
+    try {
+      const res = await fetch(`${BASE}/api/customers/geocode-all`, { method: "POST", credentials: "include" });
+      const data = await res.json();
+      await queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey() });
+      toast({ title: `Plotted ${data.updated} customer${data.updated !== 1 ? "s" : ""}${data.failed > 0 ? ` · ${data.failed} couldn't be found` : ""}` });
+    } catch {
+      toast({ title: "Geocoding failed", variant: "destructive" });
+    } finally {
+      setGeocoding(false);
+    }
   }
-
-  // Plain "lat, lng" or "lat,lng" format
-  const coordMatch = s.match(/^(-?\d+\.?\d*)[, ]+(-?\d+\.?\d*)$/);
-  if (coordMatch) {
-    const lat = parseFloat(coordMatch[1]);
-    const lng = parseFloat(coordMatch[2]);
-    if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
-  }
-
-  return null;
-}
-
-function CustomerMap({ customers }: { customers: any[] }) {
-  const mapped = customers
-    .map(c => ({ customer: c, coords: parseCoords(c.whatsappLocation) }))
-    .filter((x): x is { customer: any; coords: LatLng } => x.coords !== null);
 
   const center: [number, number] = mapped.length > 0
     ? [
-        mapped.reduce((s, x) => s + x.coords.lat, 0) / mapped.length,
-        mapped.reduce((s, x) => s + x.coords.lng, 0) / mapped.length,
+        mapped.reduce((s: number, c: any) => s + c.lat, 0) / mapped.length,
+        mapped.reduce((s: number, c: any) => s + c.lng, 0) / mapped.length,
       ]
-    : [-28.7, 24.8]; // South Africa centre
-
-  const noCoords = customers.filter(c => !parseCoords(c.whatsappLocation));
+    : [-28.7, 24.8];
 
   return (
     <div className="space-y-3">
@@ -85,14 +90,17 @@ function CustomerMap({ customers }: { customers: any[] }) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
-          {mapped.map(({ customer, coords }) => (
-            <Marker key={customer.id} position={[coords.lat, coords.lng]}>
+          {mapped.map((customer: any) => (
+            <Marker key={customer.id} position={[customer.lat, customer.lng]} icon={CUSTOMER_ICON}>
               <Popup>
                 <div className="space-y-1 text-sm min-w-[160px]">
                   <p className="font-semibold">{customer.name}</p>
                   {customer.farmName && <p className="text-muted-foreground text-xs">{customer.farmName}</p>}
-                  {customer.nearestTown && <p className="text-xs">Near {customer.nearestTown}</p>}
+                  {customer.nearestTown && <p className="text-xs">Near {customer.nearestTown}{customer.province ? `, ${customer.province}` : ""}</p>}
                   {customer.phone && <p className="text-xs">{customer.phone}</p>}
+                  {!customer.whatsappLocation && customer.nearestTown && (
+                    <p className="text-[10px] text-orange-500">Approximate — town centre</p>
+                  )}
                   <a
                     href={`/customers/${customer.id}`}
                     className="inline-block mt-1 text-xs font-semibold text-blue-600 hover:underline"
@@ -109,7 +117,19 @@ function CustomerMap({ customers }: { customers: any[] }) {
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">{mapped.length} of {customers.length} customers plotted</span>
         {noCoords.length > 0 && (
-          <span>{noCoords.length} without GPS location — open the customer record and capture GPS to add them.</span>
+          <span>{noCoords.length} without location</span>
+        )}
+        {isAdmin && noCoords.length > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs gap-1.5"
+            onClick={handleGeocodeAll}
+            disabled={geocoding}
+          >
+            <RefreshCw className={`h-3 w-3 ${geocoding ? "animate-spin" : ""}`} />
+            {geocoding ? "Plotting…" : "Plot all from town names"}
+          </Button>
         )}
       </div>
     </div>
@@ -122,6 +142,8 @@ export default function CustomersList() {
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const debouncedSearch = useDebounce(search, 500);
+  const { user } = useUser();
+  const isAdmin = user?.publicMetadata?.role === "admin";
 
   const { data: customers, isLoading, error } = useListCustomers({ search: debouncedSearch || undefined });
 
@@ -188,7 +210,7 @@ export default function CustomersList() {
           {search && <p className="text-sm mt-1">Try adjusting your search</p>}
         </div>
       ) : viewMode === "map" ? (
-        <CustomerMap customers={customers || []} />
+        <CustomerMap customers={customers || []} isAdmin={!!isAdmin} />
       ) : (
         <div className="space-y-2">
           {customers?.map((customer) => (

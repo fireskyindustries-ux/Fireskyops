@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { branchesTable } from "./branches";
@@ -21,6 +21,8 @@ export const customersTable = pgTable("customers", {
   manualDirections: text("manual_directions"),
   landmarks: text("landmarks"),
   whatsappLocation: text("whatsapp_location"),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
   accessNotes: text("access_notes"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
