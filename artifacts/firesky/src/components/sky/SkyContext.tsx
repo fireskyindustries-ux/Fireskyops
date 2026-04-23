@@ -38,7 +38,7 @@ interface SkyActions {
   openSky: (context?: Partial<SkyContextData>) => void;
   closeSky: () => void;
   setContext: (context: Partial<SkyContextData>) => void;
-  sendMessage: (message: string, fileContext?: string, fileName?: string) => Promise<void>;
+  sendMessage: (message: string, fileContext?: string, fileName?: string, imageBase64?: string, imageMimeType?: string) => Promise<void>;
   clearMessages: () => void;
   refreshSnapshot: () => void;
   setCurrentPage: (page: string) => void;
@@ -191,7 +191,7 @@ export function SkyProvider({ children }: { children: ReactNode }) {
   }, [isAdmin, userId]);
 
   const sendMessage = useCallback(
-    async (message: string, fileContext?: string, fileName?: string) => {
+    async (message: string, fileContext?: string, fileName?: string, imageBase64?: string, imageMimeType?: string) => {
       if (isStreaming) return;
 
       const userMsg: SkyChatMessage = { role: "user", content: message };
@@ -217,6 +217,8 @@ export function SkyProvider({ children }: { children: ReactNode }) {
             currentPage: isAdmin ? currentPage : undefined,
             fileContext,
             fileName,
+            imageBase64,
+            imageMimeType,
           }),
         });
 

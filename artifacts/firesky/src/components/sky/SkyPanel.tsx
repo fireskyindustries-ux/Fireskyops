@@ -194,6 +194,7 @@ export function SkyPanel() {
   const [input, setInput] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
   const [docFile, setDocFile] = useState<{ name: string; context: string } | null>(null);
+  const [imageFile, setImageFile] = useState<{ name: string; base64: string; mimeType: string; preview: string } | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -205,6 +206,21 @@ export function SkyPanel() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+
+    // Image file — store as base64 for vision
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(",")[1];
+        setImageFile({ name: file.name, base64, mimeType: file.type, preview: dataUrl });
+        setDocFile(null);
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    // Document file — parse text
     setIsParsing(true);
     try {
       const fileBase64 = await new Promise<string>((resolve, reject) => {
@@ -222,6 +238,7 @@ export function SkyPanel() {
       if (!res.ok) throw new Error("Parse failed");
       const { text } = await res.json();
       setDocFile({ name: file.name, context: text });
+      setImageFile(null);
     } catch {
       setDocFile(null);
     } finally {
@@ -249,12 +266,15 @@ export function SkyPanel() {
 
   const handleSend = () => {
     const msg = input.trim();
-    if (!msg || isStreaming) return;
+    if ((!msg && !imageFile) || isStreaming) return;
     const fc = docFile?.context;
     const fn = docFile?.name;
+    const imgBase64 = imageFile?.base64;
+    const imgMime = imageFile?.mimeType;
     setInput("");
     setDocFile(null);
-    sendMessage(msg, fc, fn);
+    setImageFile(null);
+    sendMessage(msg || "What can you see in this image?", fc, fn, imgBase64, imgMime);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -388,7 +408,7 @@ export function SkyPanel() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.doc,.docx,.txt,.csv"
+            accept=".pdf,.doc,.docx,.txt,.csv,image/*"
             className="hidden"
             onChange={handleDocFileChange}
           />
@@ -398,6 +418,17 @@ export function SkyPanel() {
                 <FileText className="h-3.5 w-3.5 flex-shrink-0" />
                 <span className="truncate flex-1">{docFile.name}</span>
                 <button onClick={() => setDocFile(null)} className="text-primary/60 hover:text-primary ml-1">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+          {imageFile && (
+            <div className="px-3 pt-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
+                <img src={imageFile.preview} alt="" className="h-6 w-6 rounded object-cover flex-shrink-0" />
+                <span className="truncate flex-1">{imageFile.name}</span>
+                <button onClick={() => setImageFile(null)} className="text-primary/60 hover:text-primary ml-1">
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -420,7 +451,7 @@ export function SkyPanel() {
                 className="h-10 w-10 rounded-xl flex-shrink-0"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isParsing || isStreaming}
-                title="Attach a document (PDF, Word, TXT, CSV)"
+                title="Attach a file (PDF, Word, TXT, CSV, or image)"
               >
                 {isParsing ? (
                   <RefreshCw className="h-4 w-4 animate-spin" />
@@ -433,7 +464,7 @@ export function SkyPanel() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={docFile ? `Ask about ${docFile.name}...` : `Ask ${brand.ai.name} a question...`}
+                placeholder={docFile ? `Ask about ${docFile.name}...` : imageFile ? `Ask about this image, or just send...` : `Ask ${brand.ai.name} a question...`}
                 className="min-h-[40px] max-h-[100px] resize-none text-sm rounded-xl"
                 rows={1}
                 disabled={isStreaming}
