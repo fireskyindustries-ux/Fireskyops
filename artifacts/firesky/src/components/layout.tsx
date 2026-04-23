@@ -1,8 +1,11 @@
 import { Link, useLocation } from "wouter";
 import { brand } from "@/brand.config";
-import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2, Sparkles, BarChart2, MapPin, Info } from "lucide-react";
+import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2, Sparkles, BarChart2, MapPin, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { SkyPanel, SkyFloatingButton, useSkyActions, useSkyState } from "./sky";
 import { useUser, useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
@@ -80,6 +83,37 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
   const { isDark, toggle: toggleDark } = useDarkMode();
   const { toast } = useToast();
   const [claiming, setClaiming] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameForm, setNameForm] = useState({ firstName: "", lastName: "" });
+  const [savingName, setSavingName] = useState(false);
+
+  function openEditName() {
+    setNameForm({ firstName: user?.firstName || "", lastName: user?.lastName || "" });
+    setEditingName(true);
+  }
+
+  async function saveName() {
+    if (!nameForm.firstName.trim()) return;
+    setSavingName(true);
+    try {
+      const res = await fetch("/api/users/me/name", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nameForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      toast({ title: "Name updated — Sky will use it from now on" });
+      setEditingName(false);
+      // Reload the page so Clerk's useUser hook picks up the new name
+      setTimeout(() => window.location.reload(), 800);
+    } catch (e: any) {
+      toast({ title: "Could not update name", description: e.message, variant: "destructive" });
+    } finally {
+      setSavingName(false);
+    }
+  }
 
   async function claimAdmin() {
     setClaiming(true);
@@ -97,6 +131,44 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="border-t border-sidebar-border">
+      <Dialog open={editingName} onOpenChange={setEditingName}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4 text-primary" /> Edit Display Name
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div className="space-y-1">
+              <Label className="text-xs">First name *</Label>
+              <Input
+                value={nameForm.firstName}
+                onChange={(e) => setNameForm((f) => ({ ...f, firstName: e.target.value }))}
+                placeholder="e.g. Lee"
+                className="h-10"
+                autoFocus
+                onKeyDown={(e) => e.key === "Enter" && saveName()}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Last name</Label>
+              <Input
+                value={nameForm.lastName}
+                onChange={(e) => setNameForm((f) => ({ ...f, lastName: e.target.value }))}
+                placeholder="Optional"
+                className="h-10"
+                onKeyDown={(e) => e.key === "Enter" && saveName()}
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button onClick={saveName} disabled={!nameForm.firstName.trim() || savingName} className="h-10 px-6">
+                {savingName ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+              </Button>
+              <Button variant="ghost" onClick={() => setEditingName(false)} className="h-10">Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       {role === "guest" && (
         <div className="px-3 pt-3 pb-1">
           <button
@@ -149,9 +221,16 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold truncate">
-            {user?.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : user?.emailAddresses?.[0]?.emailAddress}
-          </p>
+          <button
+            onClick={openEditName}
+            className="group flex items-center gap-1 text-left max-w-full hover:opacity-70 transition-opacity"
+            title="Edit display name"
+          >
+            <p className="text-xs font-semibold truncate">
+              {user?.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : user?.emailAddresses?.[0]?.emailAddress}
+            </p>
+            <Pencil className="h-2.5 w-2.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          </button>
           <p className="text-[10px] text-muted-foreground">
             {role === "admin" ? "Super Admin" : role === "branch_admin" ? "Branch Admin" : role === "field_worker" || role === "user" ? "Field Worker" : "Guest"}
           </p>

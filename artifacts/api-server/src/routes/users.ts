@@ -42,6 +42,24 @@ router.get("/users/me", async (req: any, res) => {
   }
 });
 
+// Update own display name (any authenticated user)
+router.patch("/users/me/name", async (req: any, res) => {
+  try {
+    const auth = getAuth(req);
+    const userId = auth?.userId;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    const { firstName, lastName } = req.body;
+    if (!firstName?.trim()) return res.status(400).json({ error: "First name is required" });
+    const user = await clerkFetch(`/users/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ first_name: firstName.trim(), last_name: (lastName || "").trim() || null }),
+    });
+    res.json({ id: user.id, firstName: user.first_name, lastName: user.last_name });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // List all users (admin only)
 router.get("/users", requireAdmin, async (_req, res) => {
   try {
