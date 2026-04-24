@@ -270,9 +270,9 @@ export function CalendarPage() {
           </div>
         </header>
 
-        <div className="flex flex-1 min-h-0">
-          {/* Calendar grid */}
-          <div className="flex-1 flex flex-col min-w-0 overflow-auto p-4">
+        <div className="relative flex-1 min-h-0 overflow-hidden">
+          {/* Calendar grid — always full width */}
+          <div className="h-full flex flex-col overflow-auto p-4">
             {/* Day headers */}
             <div className="grid grid-cols-7 gap-1 mb-1">
               {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
@@ -330,9 +330,9 @@ export function CalendarPage() {
             </div>
           </div>
 
-          {/* ── Day detail panel ──────────────────────────────────────── */}
+          {/* ── Day detail panel — floats over the grid, no squashing ── */}
           {selectedDay && (
-            <aside className="w-[280px] shrink-0 border-l border-border flex flex-col overflow-hidden">
+            <aside className="absolute right-0 top-0 bottom-0 w-[300px] border-l border-border flex flex-col bg-background shadow-xl z-10">
               <div className="px-4 py-3 border-b border-border flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold">{format(selectedDay, "EEEE")}</p>
