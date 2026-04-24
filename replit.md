@@ -133,9 +133,12 @@ A separate standalone web app for all Firesky staff at `/sky-vision/` (port 8081
 
 - **Auth**: Clerk (same account as Field Ops — no separate login needed for staff)
 - **Access**: All logged-in Firesky staff, same Clerk app
-- **Memory**: Persistent cross-session chat history per user, stored in `conversations` + `messages` DB tables (scoped by `userId`)
+- **Memory**: Three-layer memory system:
+  1. **Conversation history** — full DB-persisted message history per conversation (`conversations` + `messages` tables)
+  2. **Notepad** — curated facts auto-extracted from each exchange via GPT (`user_memories` table). User-editable.
+  3. **Vector memory** — every exchange embedded with `text-embedding-3-small` (1536 dims) and stored in `sky_memory_chunks` table with pgvector. Retrieved via cosine similarity on each new message and injected into the system prompt as "RELEVANT PAST CONTEXT".
 - **AI**: GPT-5, streaming SSE via `/api/sky-vision/conversations/:id/chat`
-- **Features**: Conversation sidebar, rename/delete, auto-titles after first AI reply, streaming typing indicator
+- **Features**: Conversation sidebar, rename/delete, auto-titles after first AI reply, streaming typing indicator, memory panel with Notepad + Conversation Memory tabs
 - **Theme**: Dark mode only, Firesky orange `#e85d04` accent
 - **API routes**: `artifacts/api-server/src/routes/sky-vision.ts` — full CRUD + SSE streaming
 - **Frontend**: `artifacts/sky-vision/` — React + Vite + Clerk, hooks in `src/hooks/`, chat UI in `src/pages/chat.tsx`
@@ -154,6 +157,7 @@ A separate standalone web app for all Firesky staff at `/sky-vision/` (port 8081
 
 - **lib/api-spec/openapi.yaml** — single source of truth for API contract
 - **lib/db/src/schema/** — Drizzle DB schema (customers, enquiries, inspections, jobs, branches, stock_items, stock_levels, stock_movements)
+- **sky_memory_chunks** — pgvector table (created at startup via seed.ts raw SQL, NOT via drizzle-kit push). Columns: id, user_id, content, embedding vector(1536), source, source_id, created_at
 - **artifacts/api-server/src/routes/sky.ts** — `/api/sky/chat` SSE endpoint with GPT-5 tool-calling, true token streaming on all paths
 - **artifacts/firesky/src/components/sky/** — Sky context provider, panel, floating button, inline button
 - **artifacts/api-server/src/routes/** — Express route handlers

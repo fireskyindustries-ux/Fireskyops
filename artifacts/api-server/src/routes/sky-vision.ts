@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import OpenAI, { toFile } from "openai";
 import { db, conversations, messages, userMemories, savedPrompts } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -68,12 +68,15 @@ Formatting rules:
 - No emoji.
 - No filler phrases. No throat-clearing. Just say the thing.`;
 
-function buildSystemPrompt(memory: string): string {
-  if (!memory.trim()) return BASE_SYSTEM_PROMPT;
-  return `${BASE_SYSTEM_PROMPT}
-
-What you remember about this user (from previous conversations — use naturally, never recite robotically):
-${memory.trim()}`;
+function buildSystemPrompt(memory: string, vectorMemories: string = ""): string {
+  let prompt = BASE_SYSTEM_PROMPT;
+  if (memory.trim()) {
+    prompt += `\n\nWhat you remember about this user (from previous conversations — use naturally, never recite robotically):\n${memory.trim()}`;
+  }
+  if (vectorMemories.trim()) {
+    prompt += `\n\n── RELEVANT PAST CONTEXT (retrieved from memory) ──\nThe following snippets from past conversations may be relevant to the current message. Reference them naturally if useful, but do not force them:\n${vectorMemories.trim()}\n── END PAST CONTEXT ──`;
+  }
+  return prompt;
 }
 
 async function getUserMemory(userId: string): Promise<string> {
@@ -129,6 +132,62 @@ Extract any facts worth remembering about the user (name, role, preferences, pro
       });
   } catch (err) {
     console.error("Memory update error:", err);
+  }
+}
+
+// ─── Vector memory helpers ────────────────────────────────────────────────────
+
+const EMBED_MODEL = "text-embedding-3-small";
+const MEMORY_TOP_K = 5;
+const MEMORY_MIN_SIMILARITY = 0.3;
+
+async function embedText(text: string): Promise<number[]> {
+  const res = await openai.embeddings.create({
+    model: EMBED_MODEL,
+    input: text.slice(0, 8000),
+  });
+  return res.data[0].embedding;
+}
+
+async function storeMemoryChunk(
+  userId: string,
+  content: string,
+  source = "conversation",
+  sourceId?: string,
+): Promise<void> {
+  try {
+    const embedding = await embedText(content);
+    const vec = `[${embedding.join(",")}]`;
+    await db.execute(
+      sql`INSERT INTO sky_memory_chunks (user_id, content, embedding, source, source_id)
+          VALUES (${userId}, ${content}, ${vec}::vector, ${source}, ${sourceId ?? null})`
+    );
+  } catch (err) {
+    console.error("[Sky memory] Failed to store chunk:", err);
+  }
+}
+
+async function retrieveVectorMemories(
+  userId: string,
+  query: string,
+  topK: number = MEMORY_TOP_K,
+): Promise<{ id: number; content: string; similarity: number }[]> {
+  try {
+    const embedding = await embedText(query);
+    const vec = `[${embedding.join(",")}]`;
+    const rows = await db.execute<{ id: number; content: string; similarity: number }>(
+      sql`SELECT id, content,
+               1 - (embedding <=> ${vec}::vector) AS similarity
+          FROM sky_memory_chunks
+          WHERE user_id = ${userId}
+            AND 1 - (embedding <=> ${vec}::vector) >= ${MEMORY_MIN_SIMILARITY}
+          ORDER BY embedding <=> ${vec}::vector
+          LIMIT ${topK}`
+    );
+    return (rows.rows ?? []) as { id: number; content: string; similarity: number }[];
+  } catch (err) {
+    console.error("[Sky memory] Retrieval failed:", err);
+    return [];
   }
 }
 
@@ -340,11 +399,13 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
     .where(and(eq(conversations.id, convId), eq(conversations.userId, userId)));
   if (!convo) { res.status(404).json({ error: "Not found" }); return; }
 
-  // Load user memory and save user message in parallel
-  const [memory] = await Promise.all([
+  // Load user memory, vector memories, and save user message in parallel
+  const [memory, vectorMemoryRows] = await Promise.all([
     getUserMemory(userId),
+    retrieveVectorMemories(userId, message.trim()),
     db.insert(messages).values({ conversationId: convId, role: "user", content: message.trim() }),
   ]);
+  const vectorMemoriesText = vectorMemoryRows.map((m) => `- ${m.content}`).join("\n");
 
   // Load full history for context
   const history = await db.select().from(messages)
@@ -382,7 +443,7 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
       ];
 
       const openaiMessages: any[] = [
-        { role: "system", content: buildSystemPrompt(memory) },
+        { role: "system", content: buildSystemPrompt(memory, vectorMemoriesText) },
         ...historyMessages,
         { role: "user", content: currentUserContent },
       ];
@@ -406,7 +467,7 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
 
       const responseStream = await withRetry(() => (openai as any).responses.create({
         model: chosenModel,
-        instructions: buildSystemPrompt(memory),
+        instructions: buildSystemPrompt(memory, vectorMemoriesText),
         input: responsesInput,
         tools: [{ type: "web_search_preview" }],
         stream: true,
@@ -432,8 +493,10 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
         content: fullResponse,
       });
 
-      // Fire-and-forget: update user memory in background (does not block response)
+      // Fire-and-forget: update user memory and embed this exchange for future recall
       updateUserMemory(userId, memory, message.trim(), fullResponse).catch(() => {});
+      const chunkText = `User: ${message.trim().slice(0, 500)}\nSky: ${fullResponse.trim().slice(0, 1500)}`;
+      storeMemoryChunk(userId, chunkText, "conversation", String(convId)).catch(() => {});
     }
 
     // Auto-title the conversation on first reply (title was "New conversation")
@@ -635,6 +698,66 @@ router.delete("/sky-vision/memory", async (req, res): Promise<void> => {
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   await db.update(userMemories).set({ content: "", updatedAt: new Date() }).where(eq(userMemories.userId, userId));
   res.json({ ok: true });
+});
+
+// ─── Vector Memory Chunks API ─────────────────────────────────────────────────
+
+router.get("/sky-vision/memories/chunks", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  try {
+    const rows = await db.execute<{ id: number; content: string; source: string; created_at: string }>(
+      sql`SELECT id, content, source, created_at
+          FROM sky_memory_chunks
+          WHERE user_id = ${userId}
+          ORDER BY created_at DESC
+          LIMIT 100`
+    );
+    res.json(rows.rows ?? []);
+  } catch (err) {
+    console.error("[Sky memory] List chunks error:", err);
+    res.json([]);
+  }
+});
+
+router.delete("/sky-vision/memories/chunks", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  try {
+    await db.execute(sql`DELETE FROM sky_memory_chunks WHERE user_id = ${userId}`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[Sky memory] Delete all chunks error:", err);
+    res.status(500).json({ error: "Failed to delete memory" });
+  }
+});
+
+router.delete("/sky-vision/memories/chunks/:id", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "Invalid id" }); return; }
+  try {
+    await db.execute(sql`DELETE FROM sky_memory_chunks WHERE id = ${id} AND user_id = ${userId}`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[Sky memory] Delete chunk error:", err);
+    res.status(500).json({ error: "Failed to delete" });
+  }
+});
+
+router.post("/sky-vision/memories/embed", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { content } = req.body as { content: string };
+  if (!content?.trim()) { res.status(400).json({ error: "content required" }); return; }
+  try {
+    await storeMemoryChunk(userId, content.trim(), "manual");
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[Sky memory] Manual embed error:", err);
+    res.status(500).json({ error: "Failed to embed" });
+  }
 });
 
 // ─── Saved Prompts CRUD ───────────────────────────────────────────────────────

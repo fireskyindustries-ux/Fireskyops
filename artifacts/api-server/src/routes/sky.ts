@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, desc, ilike, and, notInArray, count } from "drizzle-orm";
+import { eq, desc, ilike, and, notInArray, count, sql } from "drizzle-orm";
 import OpenAI from "openai";
 import {
   db,
@@ -38,6 +38,68 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
 }
 
 const router = Router();
+
+// ─── Vector memory helpers ────────────────────────────────────────────────────
+
+const EMBED_MODEL = "text-embedding-3-small";
+const MEMORY_TOP_K = 5;
+const MEMORY_MIN_SIMILARITY = 0.3;
+
+async function embedText(text: string): Promise<number[]> {
+  const res = await openai.embeddings.create({
+    model: EMBED_MODEL,
+    input: text.slice(0, 8000), // token safety limit
+  });
+  return res.data[0].embedding;
+}
+
+async function storeMemoryChunk(
+  userId: string,
+  content: string,
+  source: string = "conversation",
+  sourceId?: string,
+): Promise<void> {
+  try {
+    const embedding = await embedText(content);
+    const vec = `[${embedding.join(",")}]`;
+    await db.execute(
+      sql`INSERT INTO sky_memory_chunks (user_id, content, embedding, source, source_id)
+          VALUES (${userId}, ${content}, ${vec}::vector, ${source}, ${sourceId ?? null})`
+    );
+  } catch (err) {
+    console.error("[Sky memory] Failed to store chunk:", err);
+  }
+}
+
+async function retrieveMemories(
+  userId: string,
+  query: string,
+  topK: number = MEMORY_TOP_K,
+): Promise<{ content: string; similarity: number }[]> {
+  try {
+    const embedding = await embedText(query);
+    const vec = `[${embedding.join(",")}]`;
+    const rows = await db.execute<{ content: string; similarity: number }>(
+      sql`SELECT content,
+               1 - (embedding <=> ${vec}::vector) AS similarity
+          FROM sky_memory_chunks
+          WHERE user_id = ${userId}
+            AND 1 - (embedding <=> ${vec}::vector) >= ${MEMORY_MIN_SIMILARITY}
+          ORDER BY embedding <=> ${vec}::vector
+          LIMIT ${topK}`
+    );
+    return (rows.rows ?? []) as { content: string; similarity: number }[];
+  } catch (err) {
+    console.error("[Sky memory] Retrieval failed:", err);
+    return [];
+  }
+}
+
+function buildMemoryBlock(memories: { content: string; similarity: number }[]): string {
+  if (memories.length === 0) return "";
+  const items = memories.map((m) => `- ${m.content}`).join("\n");
+  return `\n\n── RELEVANT PAST CONTEXT (retrieved from memory) ──\nThe following snippets from past conversations may be relevant to the current message. Reference them naturally if useful, but do not force them into your reply:\n${items}\n── END PAST CONTEXT ──`;
+}
 
 // ─── System prompt ───────────────────────────────────────────────────────────
 
@@ -1439,6 +1501,14 @@ router.post("/sky/chat", async (req, res) => {
     const isGuest = verifiedRole === "guest";
     const verifiedBranchId = (req as any).userBranchId as number | null;
     const isBranchAdmin = verifiedRole === "branch_admin";
+    const userId: string | undefined = (req as any).userId;
+
+    // ── Retrieve semantically relevant past memories (non-guest, non-blocking) ─
+    let retrievedMemories: { content: string; similarity: number }[] = [];
+    if (!isGuest && userId) {
+      retrievedMemories = await retrieveMemories(userId, message).catch(() => []);
+    }
+    const memoryBlock = buildMemoryBlock(retrievedMemories);
 
     const systemInstruction = isGuest
       ? GUEST_SYSTEM_PROMPT + (userName ? `\n\nThe customer's name is ${userName}. Greet them warmly by name.` : "")
@@ -1446,7 +1516,8 @@ router.post("/sky/chat", async (req, res) => {
           ? buildAdminContextBlock(systemSnapshot, currentPage, contextType, contextData, userName)
           : isBranchAdmin
           ? `\n\nBRANCH ADMIN CONTEXT:\nYou are assisting ${userName ? userName + ", a" : "a"} branch admin. Their branch ID is ${verifiedBranchId ?? "unknown"}. All stock tool calls are automatically applied to their branch — you never need to ask which branch or specify a branch ID, it is always pre-filled.\n\nYou have access to the following stock tools for your branch:\n- check_stock: see current stock levels at your branch\n- list_stock_items: see the full catalogue of items\n- record_stock_movement: add stock (in), remove stock (out), or set an exact level (adjustment)\n- create_stock_item: add a new item to the catalogue\n\nWhen asked to check stock, update stock, or record a movement, use your tools directly — do not ask the user to do it manually. Always confirm what was done and show the updated quantity.`
-          : buildFieldContextBlock(contextType, contextData, userName));
+          : buildFieldContextBlock(contextType, contextData, userName))
+      + memoryBlock;
 
     const textContent = fileContext
       ? `[Attached document: ${fileName || "document"}]\n\n${fileContext.slice(0, 30000)}\n\n---\n${message.trim()}`
@@ -1460,6 +1531,9 @@ router.post("/sky/chat", async (req, res) => {
       : textContent;
 
     const messages = buildMessages(systemInstruction, history, userContent);
+
+    // Track the full assistant response across all paths for embedding
+    let fullAssistantResponse = "";
 
     if (isGuest) {
       // ── Guest / customer: no tools, streaming ────────────────────────────
@@ -1496,6 +1570,7 @@ router.post("/sky/chat", async (req, res) => {
           const delta = chunk.choices[0]?.delta;
           if (delta?.content) {
             assistantContent += delta.content;
+            fullAssistantResponse += delta.content;
             sseWrite({ content: delta.content });
           }
           if (delta?.tool_calls) {
@@ -1558,6 +1633,7 @@ router.post("/sky/chat", async (req, res) => {
             const delta = chunk.choices[0]?.delta;
             if (delta?.content) {
               assistantContent += delta.content;
+              fullAssistantResponse += delta.content;
               sseWrite({ content: delta.content });
             }
             if (delta?.tool_calls) {
@@ -1608,12 +1684,21 @@ router.post("/sky/chat", async (req, res) => {
 
       for await (const chunk of stream) {
         const text = chunk.choices[0]?.delta?.content ?? "";
-        if (text) sseWrite({ content: text });
+        if (text) {
+          fullAssistantResponse += text;
+          sseWrite({ content: text });
+        }
       }
     }
 
     sseWrite({ done: true });
     res.end();
+
+    // ── Fire-and-forget: embed this exchange for future recall ──────────────
+    if (userId && fullAssistantResponse.trim()) {
+      const chunkText = `User: ${message.trim().slice(0, 500)}\nSky: ${fullAssistantResponse.trim().slice(0, 1500)}`;
+      storeMemoryChunk(userId, chunkText, "conversation").catch(() => {});
+    }
   } catch (err: any) {
     console.error("Sky chat error:", err);
     sseWrite({ error: "Sky is unavailable right now. Please try again." });

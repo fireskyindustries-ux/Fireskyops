@@ -1,4 +1,4 @@
-import { eq, isNull } from "drizzle-orm";
+import { eq, isNull, sql } from "drizzle-orm";
 import {
   db,
   branchesTable,
@@ -60,6 +60,29 @@ const FIRESKY_STOCK_ITEMS: Array<{
 
 export async function runSeed() {
   logger.info("Running startup seed…");
+
+  // ── 0. Enable pgvector and ensure memory chunks table exists ─────────────
+  try {
+    await db.execute(sql`CREATE EXTENSION IF NOT EXISTS vector`);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS sky_memory_chunks (
+        id          SERIAL PRIMARY KEY,
+        user_id     TEXT NOT NULL,
+        content     TEXT NOT NULL,
+        embedding   vector(1536) NOT NULL,
+        source      TEXT NOT NULL DEFAULT 'conversation',
+        source_id   TEXT,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS sky_memory_chunks_user_idx
+        ON sky_memory_chunks (user_id)
+    `);
+    logger.info("pgvector ready — sky_memory_chunks table ensured");
+  } catch (err) {
+    logger.warn({ err }, "pgvector setup skipped (non-fatal)");
+  }
 
   // ── 1. Ensure at least one branch exists ─────────────────────────────────
   const existingBranches = await db.select().from(branchesTable);
