@@ -107,6 +107,11 @@ export async function runSeed() {
       CREATE INDEX IF NOT EXISTS sky_diary_events_user_idx
         ON sky_diary_events (user_id, start_at)
     `);
+    // Add notified_at column if it doesn't exist yet
+    await db.execute(sql`
+      ALTER TABLE sky_diary_events
+      ADD COLUMN IF NOT EXISTS notified_at TIMESTAMPTZ
+    `);
     logger.info("sky_diary_events table ensured");
   } catch (err) {
     logger.warn({ err }, "sky_diary_events setup skipped (non-fatal)");

@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameDay, isSameMonth, isToday, parseISO } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus, X, MapPin, Clock, Tag, Trash2, Pencil, Loader2, CalendarDays, MessageSquare } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, MapPin, Clock, Tag, Trash2, Pencil, Loader2, CalendarDays, MessageSquare, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 interface DiaryEvent {
   id: number;
@@ -93,6 +94,17 @@ export function CalendarPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const { supported: pushSupported, permission, subscribed, loading: pushLoading, subscribe } = usePushNotifications();
+
+  const handleEnableNotifications = async () => {
+    if (permission === "denied") {
+      toast({ title: "Notifications blocked", description: "Enable notifications in your browser settings." });
+      return;
+    }
+    const ok = await subscribe();
+    if (ok) toast({ title: "Notifications enabled", description: "You'll be reminded 15 minutes before events." });
+    else toast({ title: "Couldn't enable notifications", variant: "destructive" });
+  };
 
   const fetchEvents = useCallback(async (month: Date) => {
     setIsLoading(true);
@@ -275,6 +287,23 @@ export function CalendarPage() {
               <span className="hidden sm:inline">New event</span>
               <span className="sm:hidden">Add</span>
             </Button>
+            {pushSupported && !subscribed && permission !== "denied" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={handleEnableNotifications}
+                disabled={pushLoading}
+                title="Enable event reminders"
+              >
+                {pushLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4" />}
+              </Button>
+            )}
+            {subscribed && (
+              <div title="Reminders on" className="h-8 w-8 flex items-center justify-center text-primary">
+                <Bell className="w-4 h-4" />
+              </div>
+            )}
           </div>
         </header>
 

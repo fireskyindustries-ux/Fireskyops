@@ -136,9 +136,13 @@ function AppRoutes() {
 }
 
 function App() {
-  // Ensure document has dark class since it's the default
   useEffect(() => {
     document.documentElement.classList.add("dark");
+    // Register service worker for push notifications
+    if ("serviceWorker" in navigator) {
+      const swUrl = import.meta.env.BASE_URL + "sw.js";
+      navigator.serviceWorker.register(swUrl).catch(() => {});
+    }
   }, []);
 
   if (!clerkPubKey) {

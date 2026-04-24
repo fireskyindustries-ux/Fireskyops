@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startScheduler } from "./scheduler";
+import { startDiaryScheduler } from "./lib/diary-scheduler";
 import { runSeed } from "./lib/seed";
 
 process.on("uncaughtException", (err) => {
@@ -39,6 +40,7 @@ async function start() {
     }
     logger.info({ port }, "Server listening");
     startScheduler();
+    startDiaryScheduler();
   });
 }
 
