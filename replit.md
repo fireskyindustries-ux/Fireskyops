@@ -158,7 +158,10 @@ A separate standalone web app for all Firesky staff at `/sky-vision/` (port 8081
 - **lib/api-spec/openapi.yaml** — single source of truth for API contract
 - **lib/db/src/schema/** — Drizzle DB schema (customers, enquiries, inspections, jobs, branches, stock_items, stock_levels, stock_movements)
 - **sky_memory_chunks** — pgvector table (created at startup via seed.ts raw SQL, NOT via drizzle-kit push). Columns: id, user_id, content, embedding vector(1536), source, source_id, created_at
+- **sky_diary_events** — personal diary/calendar table (created via seed.ts raw SQL, NOT drizzle-kit). Columns: id, user_id, title, description, start_at, end_at, all_day, type (event/meeting/task/reminder), status (scheduled/completed/cancelled), location, color (orange/blue/green/red/purple), created_at, updated_at
 - **artifacts/api-server/src/routes/sky.ts** — `/api/sky/chat` SSE endpoint with GPT-5 tool-calling, true token streaming on all paths
+- **artifacts/api-server/src/routes/sky-vision.ts** — Sky Vision routes: conversations, memory chunks, diary CRUD (`/api/sky-vision/diary`), chat SSE with Responses API + diary function tools + web search
+- **artifacts/sky-vision/src/pages/calendar.tsx** — Month calendar view for Sky Vision diary; route: `/calendar`
 - **artifacts/firesky/src/components/sky/** — Sky context provider, panel, floating button, inline button
 - **artifacts/api-server/src/routes/** — Express route handlers
 - **artifacts/firesky/src/** — React frontend app
@@ -179,6 +182,7 @@ A separate standalone web app for all Firesky staff at `/sky-vision/` (port 8081
 - Dark theme: orange primary `hsl(24 90% 50%)`, no emojis, rounded-full buttons
 - `apiFetch` is defined inline in each frontend page (no shared lib/api.ts)
 - Sky AI model: `gpt-5` (OpenAI), withRetry handles 429/503. All four chat paths (guest, admin, branch_admin, field_worker) use true token streaming. Admin/branch_admin use streaming tool-call loop (accumulate tool_call deltas, execute, loop). SQL query tool uses `smartQuery()` in `lib/gemini-query.ts`
+- Sky Vision diary tools: text chat path uses Responses API with BOTH `web_search_preview` AND `function` tools (create/list/update/delete diary events). Tool-call loop max 3 rounds. Function call events: `response.output_item.added` (type=function_call), `response.function_call_arguments.delta/done`. Tool result injected via `function_call_output` input item.
 - Branch admin role = `"branch_admin"` in Clerk public metadata
 - Field worker legacy role = `"user"` in Clerk public metadata
 

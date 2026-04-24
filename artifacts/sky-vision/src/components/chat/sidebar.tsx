@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, MoreVertical, Pencil, Trash, Menu, X, Search, BrainCircuit } from "lucide-react";
+import { Plus, MoreVertical, Pencil, Trash, Menu, X, Search, BrainCircuit, CalendarDays } from "lucide-react";
+import { useLocation } from "wouter";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +16,21 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MemoryPanel } from "./memory-panel";
+
+function CalendarNavButton() {
+  const [, navigate] = useLocation();
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground text-xs h-8"
+      onClick={() => navigate("/calendar")}
+    >
+      <CalendarDays className="w-3.5 h-3.5" />
+      My Diary
+    </Button>
+  );
+}
 
 interface SidebarProps {
   activeId: string | null;
@@ -167,8 +183,9 @@ export function Sidebar({ activeId, onSelect, isMobile = false }: SidebarProps) 
         </div>
       </ScrollArea>
 
-      {/* Memory button */}
-      <div className="p-3 border-t border-sidebar-border">
+      {/* Memory + Calendar buttons */}
+      <div className="p-3 border-t border-sidebar-border space-y-1">
+        <CalendarNavButton />
         <Button
           variant="ghost"
           size="sm"

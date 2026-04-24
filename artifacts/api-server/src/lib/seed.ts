@@ -84,6 +84,34 @@ export async function runSeed() {
     logger.warn({ err }, "pgvector setup skipped (non-fatal)");
   }
 
+  // ── 0b. Ensure sky_diary_events table exists ──────────────────────────────
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS sky_diary_events (
+        id          SERIAL PRIMARY KEY,
+        user_id     TEXT NOT NULL,
+        title       TEXT NOT NULL,
+        description TEXT,
+        start_at    TIMESTAMPTZ NOT NULL,
+        end_at      TIMESTAMPTZ,
+        all_day     BOOLEAN NOT NULL DEFAULT FALSE,
+        type        TEXT NOT NULL DEFAULT 'event',
+        status      TEXT NOT NULL DEFAULT 'scheduled',
+        location    TEXT,
+        color       TEXT NOT NULL DEFAULT 'orange',
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS sky_diary_events_user_idx
+        ON sky_diary_events (user_id, start_at)
+    `);
+    logger.info("sky_diary_events table ensured");
+  } catch (err) {
+    logger.warn({ err }, "sky_diary_events setup skipped (non-fatal)");
+  }
+
   // ── 1. Ensure at least one branch exists ─────────────────────────────────
   const existingBranches = await db.select().from(branchesTable);
   let branchIds: number[] = existingBranches.map((b) => b.id);

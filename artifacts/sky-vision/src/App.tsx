@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatPage } from "./pages/chat";
+import { CalendarPage } from "./pages/calendar";
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
@@ -99,7 +100,12 @@ function AuthGate() {
     return <Redirect to="/sign-in" />;
   }
 
-  return <ChatPage />;
+  return (
+    <Switch>
+      <Route path="/calendar" component={CalendarPage} />
+      <Route component={ChatPage} />
+    </Switch>
+  );
 }
 
 function AppRoutes() {

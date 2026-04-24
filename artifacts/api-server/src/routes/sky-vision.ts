@@ -191,6 +191,137 @@ async function retrieveVectorMemories(
   }
 }
 
+// ─── Diary tools (Responses API format) ──────────────────────────────────────
+
+const DIARY_TOOLS_RESPONSES = [
+  {
+    type: "function",
+    name: "create_diary_event",
+    description: "Create a new event in the user's personal diary calendar.",
+    parameters: {
+      type: "object",
+      properties: {
+        title:       { type: "string", description: "Title of the event" },
+        start_at:    { type: "string", description: "ISO 8601 datetime with timezone (e.g. 2026-04-25T14:00:00+02:00)" },
+        end_at:      { type: "string", description: "ISO 8601 datetime for end time (optional)" },
+        all_day:     { type: "boolean", description: "True if this is an all-day event" },
+        type:        { type: "string", enum: ["event", "meeting", "task", "reminder"], description: "Type of event" },
+        description: { type: "string", description: "Optional notes or description" },
+        location:    { type: "string", description: "Optional location" },
+        color:       { type: "string", enum: ["orange", "blue", "green", "red", "purple"], description: "Event colour" },
+      },
+      required: ["title", "start_at"],
+    },
+  },
+  {
+    type: "function",
+    name: "list_diary_events",
+    description: "List the user's diary events between two dates.",
+    parameters: {
+      type: "object",
+      properties: {
+        from: { type: "string", description: "Start of range — ISO 8601 datetime (e.g. 2026-04-01T00:00:00Z)" },
+        to:   { type: "string", description: "End of range — ISO 8601 datetime (e.g. 2026-04-30T23:59:59Z)" },
+      },
+      required: ["from", "to"],
+    },
+  },
+  {
+    type: "function",
+    name: "update_diary_event",
+    description: "Update an existing diary event. Only supply fields that need to change.",
+    parameters: {
+      type: "object",
+      properties: {
+        id:          { type: "number", description: "ID of the event to update" },
+        title:       { type: "string" },
+        start_at:    { type: "string", description: "ISO 8601 datetime with timezone" },
+        end_at:      { type: "string", description: "ISO 8601 datetime with timezone" },
+        all_day:     { type: "boolean" },
+        type:        { type: "string", enum: ["event", "meeting", "task", "reminder"] },
+        description: { type: "string" },
+        location:    { type: "string" },
+        color:       { type: "string", enum: ["orange", "blue", "green", "red", "purple"] },
+        status:      { type: "string", enum: ["scheduled", "completed", "cancelled"] },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    type: "function",
+    name: "delete_diary_event",
+    description: "Permanently delete a diary event.",
+    parameters: {
+      type: "object",
+      properties: {
+        id: { type: "number", description: "ID of the event to delete" },
+      },
+      required: ["id"],
+    },
+  },
+] as const;
+
+async function executeDiaryTool(name: string, args: Record<string, any>, userId: string): Promise<unknown> {
+  try {
+    switch (name) {
+      case "create_diary_event": {
+        const rows = await db.execute<any>(sql`
+          INSERT INTO sky_diary_events
+            (user_id, title, description, start_at, end_at, all_day, type, location, color)
+          VALUES
+            (${userId}, ${args.title}, ${args.description ?? null},
+             ${args.start_at}::timestamptz, ${args.end_at ?? null}::timestamptz,
+             ${args.all_day ?? false}, ${args.type ?? "event"},
+             ${args.location ?? null}, ${args.color ?? "orange"})
+          RETURNING id, title, start_at, end_at, all_day, type, location, color, status
+        `);
+        return { success: true, event: rows.rows?.[0] };
+      }
+      case "list_diary_events": {
+        const rows = await db.execute<any>(sql`
+          SELECT id, title, description, start_at, end_at, all_day, type, status, location, color
+          FROM sky_diary_events
+          WHERE user_id = ${userId}
+            AND start_at >= ${args.from}::timestamptz
+            AND start_at <= ${args.to}::timestamptz
+            AND status != 'cancelled'
+          ORDER BY start_at ASC
+        `);
+        return { events: rows.rows ?? [] };
+      }
+      case "update_diary_event": {
+        const { id, ...fields } = args;
+        await db.execute(sql`
+          UPDATE sky_diary_events SET
+            title       = CASE WHEN ${fields.title       !== undefined} THEN ${fields.title       ?? null} ELSE title       END,
+            description = CASE WHEN ${fields.description !== undefined} THEN ${fields.description ?? null} ELSE description END,
+            start_at    = CASE WHEN ${fields.start_at    !== undefined} THEN ${fields.start_at    ?? null}::timestamptz ELSE start_at END,
+            end_at      = CASE WHEN ${fields.end_at      !== undefined} THEN ${fields.end_at      ?? null}::timestamptz ELSE end_at   END,
+            all_day     = CASE WHEN ${fields.all_day     !== undefined} THEN ${fields.all_day     ?? false} ELSE all_day    END,
+            type        = CASE WHEN ${fields.type        !== undefined} THEN ${fields.type        ?? null} ELSE type        END,
+            status      = CASE WHEN ${fields.status      !== undefined} THEN ${fields.status      ?? null} ELSE status      END,
+            location    = CASE WHEN ${fields.location    !== undefined} THEN ${fields.location    ?? null} ELSE location    END,
+            color       = CASE WHEN ${fields.color       !== undefined} THEN ${fields.color       ?? null} ELSE color       END,
+            updated_at  = NOW()
+          WHERE id = ${id} AND user_id = ${userId}
+        `);
+        return { success: true };
+      }
+      case "delete_diary_event": {
+        await db.execute(sql`
+          DELETE FROM sky_diary_events WHERE id = ${args.id} AND user_id = ${userId}
+        `);
+        return { success: true };
+      }
+      default:
+        return { error: `Unknown tool: ${name}` };
+    }
+  } catch (err: any) {
+    console.error(`[Diary tool] ${name} failed:`, err);
+    return { error: err.message ?? "Tool failed" };
+  }
+}
+
 const router = Router();
 
 router.use(requireAuth);
@@ -459,29 +590,70 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
         if (text) { fullResponse += text; sseWrite({ content: text }); }
       }
     } else {
-      // ── Text path: Responses API with web search ──────────────────────────
-      const responsesInput: any[] = [
+      // ── Text path: Responses API with web search + diary tools ────────────
+      const now = new Date();
+      const todayStr = now.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+      const diarySystemAddition = `\n\nToday is ${todayStr}. You have access to the user's personal diary via tools. When asked to schedule, list, update, or delete events, use the diary tools directly. Interpret relative dates ("tomorrow", "next Friday", "in two weeks") using today's date. Always confirm what was done after acting.`;
+
+      let responsesInput: any[] = [
         ...historyMessages,
         { role: "user", content: userTextContent },
       ];
 
-      const responseStream = await withRetry(() => (openai as any).responses.create({
-        model: chosenModel,
-        instructions: buildSystemPrompt(memory, vectorMemoriesText),
-        input: responsesInput,
-        tools: [{ type: "web_search_preview" }],
-        stream: true,
-      }));
+      const MAX_TOOL_ROUNDS = 3;
+      for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+        const responseStream = await withRetry(() => (openai as any).responses.create({
+          model: chosenModel,
+          instructions: buildSystemPrompt(memory, vectorMemoriesText) + diarySystemAddition,
+          input: responsesInput,
+          tools: [{ type: "web_search_preview" }, ...DIARY_TOOLS_RESPONSES],
+          stream: true,
+        }));
 
-      for await (const event of responseStream as AsyncIterable<any>) {
-        if (event.type === "response.output_text.delta") {
-          const text = event.delta ?? "";
-          if (text) { fullResponse += text; sseWrite({ content: text }); }
-        } else if (event.type === "response.web_search_call.in_progress") {
-          sseWrite({ searching: true });
-        } else if (event.type === "response.web_search_call.completed") {
-          sseWrite({ searching: false });
+        let pendingFunctionCall: { id: string; callId: string; name: string; args: string } | null = null;
+        let hasFunctionCall = false;
+
+        for await (const event of responseStream as AsyncIterable<any>) {
+          if (event.type === "response.output_text.delta") {
+            const text = event.delta ?? "";
+            if (text) { fullResponse += text; sseWrite({ content: text }); }
+          } else if (event.type === "response.web_search_call.in_progress") {
+            sseWrite({ searching: true });
+          } else if (event.type === "response.web_search_call.completed") {
+            sseWrite({ searching: false });
+          } else if (event.type === "response.output_item.added") {
+            const item = (event as any).item;
+            if (item?.type === "function_call") {
+              pendingFunctionCall = { id: item.id ?? "", callId: item.call_id ?? "", name: item.name ?? "", args: "" };
+              hasFunctionCall = true;
+            }
+          } else if (event.type === "response.function_call_arguments.delta") {
+            if (pendingFunctionCall) pendingFunctionCall.args += ((event as any).delta ?? "");
+          }
         }
+
+        if (!hasFunctionCall || !pendingFunctionCall) break;
+
+        sseWrite({ thinking: `Managing your diary...` });
+        let parsedArgs: Record<string, any> = {};
+        try { parsedArgs = JSON.parse(pendingFunctionCall.args || "{}"); } catch { /* ignore */ }
+        const toolResult = await executeDiaryTool(pendingFunctionCall.name, parsedArgs, userId);
+
+        responsesInput = [
+          ...responsesInput,
+          {
+            type: "function_call",
+            id: pendingFunctionCall.id,
+            call_id: pendingFunctionCall.callId,
+            name: pendingFunctionCall.name,
+            arguments: pendingFunctionCall.args,
+          },
+          {
+            type: "function_call_output",
+            call_id: pendingFunctionCall.callId,
+            output: JSON.stringify(toolResult),
+          },
+        ];
       }
     }
 
@@ -698,6 +870,88 @@ router.delete("/sky-vision/memory", async (req, res): Promise<void> => {
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   await db.update(userMemories).set({ content: "", updatedAt: new Date() }).where(eq(userMemories.userId, userId));
   res.json({ ok: true });
+});
+
+// ─── Diary CRUD ───────────────────────────────────────────────────────────────
+
+router.get("/sky-vision/diary", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { from, to } = req.query as { from?: string; to?: string };
+  try {
+    const rows = await db.execute<any>(sql`
+      SELECT id, title, description, start_at, end_at, all_day, type, status, location, color, created_at
+      FROM sky_diary_events
+      WHERE user_id = ${userId}
+        ${from ? sql`AND start_at >= ${from}::timestamptz` : sql``}
+        ${to   ? sql`AND start_at <= ${to}::timestamptz`   : sql``}
+      ORDER BY start_at ASC
+    `);
+    res.json(rows.rows ?? []);
+  } catch (err) {
+    console.error("[Diary] list error:", err);
+    res.status(500).json({ error: "Failed to load events" });
+  }
+});
+
+router.post("/sky-vision/diary", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { title, description, start_at, end_at, all_day, type, location, color } = req.body as Record<string, any>;
+  if (!title?.trim() || !start_at) { res.status(400).json({ error: "title and start_at required" }); return; }
+  try {
+    const rows = await db.execute<any>(sql`
+      INSERT INTO sky_diary_events (user_id, title, description, start_at, end_at, all_day, type, location, color)
+      VALUES (${userId}, ${title.trim()}, ${description ?? null}, ${start_at}::timestamptz,
+              ${end_at ?? null}::timestamptz, ${all_day ?? false}, ${type ?? "event"},
+              ${location ?? null}, ${color ?? "orange"})
+      RETURNING *
+    `);
+    res.status(201).json(rows.rows?.[0]);
+  } catch (err) {
+    console.error("[Diary] create error:", err);
+    res.status(500).json({ error: "Failed to create event" });
+  }
+});
+
+router.put("/sky-vision/diary/:id", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const id = Number(req.params.id);
+  const { title, description, start_at, end_at, all_day, type, status, location, color } = req.body as Record<string, any>;
+  try {
+    await db.execute(sql`
+      UPDATE sky_diary_events SET
+        title       = COALESCE(${title       ?? null}, title),
+        description = COALESCE(${description ?? null}, description),
+        start_at    = CASE WHEN ${start_at !== undefined} THEN ${start_at ?? null}::timestamptz ELSE start_at END,
+        end_at      = CASE WHEN ${end_at   !== undefined} THEN ${end_at   ?? null}::timestamptz ELSE end_at   END,
+        all_day     = COALESCE(${all_day   ?? null}, all_day),
+        type        = COALESCE(${type      ?? null}, type),
+        status      = COALESCE(${status    ?? null}, status),
+        location    = COALESCE(${location  ?? null}, location),
+        color       = COALESCE(${color     ?? null}, color),
+        updated_at  = NOW()
+      WHERE id = ${id} AND user_id = ${userId}
+    `);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[Diary] update error:", err);
+    res.status(500).json({ error: "Failed to update event" });
+  }
+});
+
+router.delete("/sky-vision/diary/:id", async (req, res): Promise<void> => {
+  const userId = (req as any).userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const id = Number(req.params.id);
+  try {
+    await db.execute(sql`DELETE FROM sky_diary_events WHERE id = ${id} AND user_id = ${userId}`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[Diary] delete error:", err);
+    res.status(500).json({ error: "Failed to delete event" });
+  }
 });
 
 // ─── Vector Memory Chunks API ─────────────────────────────────────────────────
