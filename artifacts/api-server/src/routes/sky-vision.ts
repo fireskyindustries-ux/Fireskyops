@@ -590,70 +590,158 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
         if (text) { fullResponse += text; sseWrite({ content: text }); }
       }
     } else {
-      // ── Text path: Responses API with web search + diary tools ────────────
+      // ── Text path: chat completions with streaming diary tool-call loop ───
       const now = new Date();
       const todayStr = now.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-      const diarySystemAddition = `\n\nToday is ${todayStr}. You have access to the user's personal diary via tools. When asked to schedule, list, update, or delete events, use the diary tools directly. Interpret relative dates ("tomorrow", "next Friday", "in two weeks") using today's date. Always confirm what was done after acting.`;
+      const diarySystemAddition = `\n\nToday is ${todayStr}. You have access to the user's personal diary via function tools. ALWAYS use the diary tools to create, list, update or delete events — never just describe what you would do. After acting, confirm exactly what you saved.`;
 
-      let responsesInput: any[] = [
+      const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
+        { role: "system", content: buildSystemPrompt(memory, vectorMemoriesText) + diarySystemAddition },
         ...historyMessages,
-        { role: "user", content: userTextContent },
+        typeof userTextContent === "string"
+          ? { role: "user", content: userTextContent }
+          : { role: "user", content: userTextContent as OpenAI.ChatCompletionContentPart[] },
       ];
 
-      const MAX_TOOL_ROUNDS = 3;
+      const diaryFunctions: OpenAI.ChatCompletionTool[] = [
+        {
+          type: "function",
+          function: {
+            name: "create_diary_event",
+            description: "Create a new event in the user's personal diary calendar.",
+            parameters: {
+              type: "object",
+              properties: {
+                title:       { type: "string", description: "Title of the event" },
+                start_at:    { type: "string", description: "ISO 8601 datetime with timezone, e.g. 2026-04-25T14:00:00+02:00" },
+                end_at:      { type: "string", description: "ISO 8601 end datetime (optional)" },
+                all_day:     { type: "boolean", description: "True for all-day events" },
+                type:        { type: "string", enum: ["event", "meeting", "task", "reminder"] },
+                description: { type: "string", description: "Optional notes" },
+                location:    { type: "string", description: "Optional location" },
+                color:       { type: "string", enum: ["orange", "blue", "green", "red", "purple"] },
+              },
+              required: ["title", "start_at"],
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "list_diary_events",
+            description: "List the user's diary events between two dates.",
+            parameters: {
+              type: "object",
+              properties: {
+                from: { type: "string", description: "Start of range ISO 8601, e.g. 2026-04-01T00:00:00Z" },
+                to:   { type: "string", description: "End of range ISO 8601, e.g. 2026-04-30T23:59:59Z" },
+              },
+              required: ["from", "to"],
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "update_diary_event",
+            description: "Update an existing diary event. Only supply fields that need to change.",
+            parameters: {
+              type: "object",
+              properties: {
+                id:          { type: "number", description: "ID of the event to update" },
+                title:       { type: "string" },
+                start_at:    { type: "string" },
+                end_at:      { type: "string" },
+                all_day:     { type: "boolean" },
+                type:        { type: "string", enum: ["event", "meeting", "task", "reminder"] },
+                description: { type: "string" },
+                location:    { type: "string" },
+                color:       { type: "string", enum: ["orange", "blue", "green", "red", "purple"] },
+                status:      { type: "string", enum: ["scheduled", "completed", "cancelled"] },
+              },
+              required: ["id"],
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "delete_diary_event",
+            description: "Permanently delete a diary event.",
+            parameters: {
+              type: "object",
+              properties: {
+                id: { type: "number", description: "ID of the event to delete" },
+              },
+              required: ["id"],
+            },
+          },
+        },
+      ];
+
+      const MAX_TOOL_ROUNDS = 4;
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-        const responseStream = await withRetry(() => (openai as any).responses.create({
+        const stream = await withRetry(() => openai.chat.completions.create({
           model: chosenModel,
-          instructions: buildSystemPrompt(memory, vectorMemoriesText) + diarySystemAddition,
-          input: responsesInput,
-          tools: [{ type: "web_search_preview" }, ...DIARY_TOOLS_RESPONSES],
+          messages: chatMessages,
+          tools: diaryFunctions,
+          tool_choice: "auto",
           stream: true,
         }));
 
-        let pendingFunctionCall: { id: string; callId: string; name: string; args: string } | null = null;
-        let hasFunctionCall = false;
+        let pendingToolCall: { id: string; name: string; args: string } | null = null;
+        let finishReason: string | null = null;
 
-        for await (const event of responseStream as AsyncIterable<any>) {
-          if (event.type === "response.output_text.delta") {
-            const text = event.delta ?? "";
-            if (text) { fullResponse += text; sseWrite({ content: text }); }
-          } else if (event.type === "response.web_search_call.in_progress") {
-            sseWrite({ searching: true });
-          } else if (event.type === "response.web_search_call.completed") {
-            sseWrite({ searching: false });
-          } else if (event.type === "response.output_item.added") {
-            const item = (event as any).item;
-            if (item?.type === "function_call") {
-              pendingFunctionCall = { id: item.id ?? "", callId: item.call_id ?? "", name: item.name ?? "", args: "" };
-              hasFunctionCall = true;
+        for await (const chunk of stream) {
+          const delta = chunk.choices[0]?.delta;
+          finishReason = chunk.choices[0]?.finish_reason ?? finishReason;
+
+          // Stream text content
+          if (delta?.content) {
+            fullResponse += delta.content;
+            sseWrite({ content: delta.content });
+          }
+
+          // Accumulate tool call
+          if (delta?.tool_calls?.[0]) {
+            const tc = delta.tool_calls[0];
+            if (tc.id) {
+              // New tool call starting
+              pendingToolCall = { id: tc.id, name: tc.function?.name ?? "", args: "" };
             }
-          } else if (event.type === "response.function_call_arguments.delta") {
-            if (pendingFunctionCall) pendingFunctionCall.args += ((event as any).delta ?? "");
+            if (pendingToolCall && tc.function?.arguments) {
+              pendingToolCall.args += tc.function.arguments;
+            }
+            if (pendingToolCall && tc.function?.name && !pendingToolCall.name) {
+              pendingToolCall.name = tc.function.name;
+            }
           }
         }
 
-        if (!hasFunctionCall || !pendingFunctionCall) break;
+        // If no tool call was made, we're done
+        if (finishReason !== "tool_calls" || !pendingToolCall) break;
 
-        sseWrite({ thinking: `Managing your diary...` });
+        sseWrite({ thinking: "Managing your diary..." });
+
         let parsedArgs: Record<string, any> = {};
-        try { parsedArgs = JSON.parse(pendingFunctionCall.args || "{}"); } catch { /* ignore */ }
-        const toolResult = await executeDiaryTool(pendingFunctionCall.name, parsedArgs, userId);
+        try { parsedArgs = JSON.parse(pendingToolCall.args || "{}"); } catch { /* ignore */ }
 
-        responsesInput = [
-          ...responsesInput,
-          {
-            type: "function_call",
-            id: pendingFunctionCall.id,
-            call_id: pendingFunctionCall.callId,
-            name: pendingFunctionCall.name,
-            arguments: pendingFunctionCall.args,
-          },
-          {
-            type: "function_call_output",
-            call_id: pendingFunctionCall.callId,
-            output: JSON.stringify(toolResult),
-          },
-        ];
+        const toolResult = await executeDiaryTool(pendingToolCall.name, parsedArgs, userId);
+
+        // Add assistant tool-call message and tool result to the message chain
+        chatMessages.push({
+          role: "assistant",
+          tool_calls: [{
+            id: pendingToolCall.id,
+            type: "function",
+            function: { name: pendingToolCall.name, arguments: pendingToolCall.args },
+          }],
+        });
+        chatMessages.push({
+          role: "tool",
+          tool_call_id: pendingToolCall.id,
+          content: JSON.stringify(toolResult),
+        });
       }
     }
 
