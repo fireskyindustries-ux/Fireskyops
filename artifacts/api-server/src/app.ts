@@ -5,6 +5,7 @@ import { clerkMiddleware } from "@clerk/express";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import mcpSseRouter from "./routes/mcp_sse";
+import liveDataRouter from "./routes/live-data";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
@@ -46,6 +47,9 @@ app.use("/api", (_req, res, next) => {
 
 // MCP SSE routes — public, mounted before Clerk middleware
 app.use("/api", mcpSseRouter);
+
+// Live data endpoint — API key protected, no Clerk auth needed
+app.use("/api", liveDataRouter);
 
 app.use(clerkMiddleware());
 

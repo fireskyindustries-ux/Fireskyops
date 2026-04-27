@@ -34,6 +34,7 @@ channel = "stable-25_05"
 VAPID_PUBLIC_KEY = "BJSsTi9AaD4sIg7Spgl2xPoMO-SPp5_ukaQdicEgVbfnE1pcr80yz9-0KTdxVHIT2qKIbJgstY00xxj76QVvZ0k"
 VAPID_PRIVATE_KEY = "_u4hJ6KFm9JOuMVG9i-pJRke79fG4cElTIt6lyGhams"
 VAPID_EMAIL = "info@fireskyindustries.co.za"
+LIVE_DATA_API_KEY = "59834e2a7555d27ae745be2ff242bc9557b122b572e8cddad7ce2ba668b5f8bd"
 
 [userenv.production]
 
