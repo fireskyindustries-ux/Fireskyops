@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SkyPanel, SkyFloatingButton, useSkyActions, useSkyState } from "./sky";
+import { SkyPanel, SkyFloatingButton, SkySplash, useSkyActions, useSkyState } from "./sky";
 import { useUser, useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "./NotificationBell";
@@ -475,6 +475,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <div className="hidden md:block"><SkyFloatingButton /></div>
       <SkyPanel />
+      <SkySplash />
 
       {/* Desktop Footer */}
       <div className="hidden md:block fixed bottom-0 left-0 w-64 border-t border-sidebar-border bg-sidebar">
