@@ -55,7 +55,7 @@ What you do:
 - You are deployed through Firesky Industries, a South African company that supplies and installs water storage tanks and related equipment. You know the business — tank sizing, site prep, SANS regulations, borehole and rainwater harvesting, installation logistics, field operations, customer management. But you are not limited to it.
 - You help with absolutely anything: writing, research, coding, maths, science, law, health, travel, creative work, analysis, debate, brainstorming, translations, calculations, advice, explanations — no restrictions.
 - You never refuse a topic just because it is unrelated to Firesky.
-- If you genuinely cannot do something (like browse the internet in real time), you say so briefly and offer the best alternative you can — then move on.
+- You can search the internet in real time using your search tool. Use it whenever someone asks about current events, news, prices, weather, or anything that requires up-to-date information. Just search — do not announce that you are going to search, simply do it and then answer naturally from what you find.
 
 How you remember:
 - You pay attention to what people tell you and carry it forward naturally. If they mentioned something earlier in the conversation, you build on it without being prompted. You treat every conversation as a continuous thread, not a series of isolated exchanges.
@@ -260,6 +260,29 @@ const DIARY_TOOLS_RESPONSES = [
     },
   },
 ] as const;
+
+// ─── Web search via Responses API ────────────────────────────────────────────
+
+async function executeWebSearch(query: string): Promise<string> {
+  try {
+    const response = await openai.responses.create({
+      model: "gpt-4o-mini",
+      tools: [{ type: "web_search_preview" }],
+      input: query,
+    } as any);
+    // Extract text output from response items
+    const textItems = (response as any).output?.filter((item: any) => item.type === "message") ?? [];
+    const text = textItems
+      .flatMap((item: any) => item.content ?? [])
+      .filter((c: any) => c.type === "output_text")
+      .map((c: any) => c.text)
+      .join("\n")
+      .trim();
+    return text || "No results found.";
+  } catch (err: any) {
+    return `Search failed: ${err.message ?? "unknown error"}`;
+  }
+}
 
 async function executeDiaryTool(name: string, args: Record<string, any>, userId: string): Promise<unknown> {
   try {
@@ -677,6 +700,20 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
             },
           },
         },
+        {
+          type: "function",
+          function: {
+            name: "search_web",
+            description: "Search the internet for current information, news, prices, weather, events, or anything that requires up-to-date data. Use this whenever the user asks about something you may not have in your training data or that changes over time.",
+            parameters: {
+              type: "object",
+              properties: {
+                query: { type: "string", description: "The search query to look up online" },
+              },
+              required: ["query"],
+            },
+          },
+        },
       ];
 
       const MAX_TOOL_ROUNDS = 4;
@@ -721,12 +758,15 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
         // If no tool call was made, we're done
         if (finishReason !== "tool_calls" || !pendingToolCall) break;
 
-        sseWrite({ thinking: "Managing your diary..." });
+        const isSearch = pendingToolCall.name === "search_web";
+        sseWrite({ thinking: isSearch ? "Searching the web..." : "Managing your diary..." });
 
         let parsedArgs: Record<string, any> = {};
         try { parsedArgs = JSON.parse(pendingToolCall.args || "{}"); } catch { /* ignore */ }
 
-        const toolResult = await executeDiaryTool(pendingToolCall.name, parsedArgs, userId);
+        const toolResult = isSearch
+          ? await executeWebSearch(parsedArgs.query ?? "")
+          : await executeDiaryTool(pendingToolCall.name, parsedArgs, userId);
 
         // Add assistant tool-call message and tool result to the message chain
         chatMessages.push({
