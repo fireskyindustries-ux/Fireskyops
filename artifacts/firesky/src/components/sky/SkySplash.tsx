@@ -27,7 +27,7 @@ export function SkySplash() {
     const t = setTimeout(() => {
       setMounted(true);
       requestAnimationFrame(() => setVisible(true));
-    }, 800);
+    }, 3000);
     return () => clearTimeout(t);
   }, [shouldShow]);
 
