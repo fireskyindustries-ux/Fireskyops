@@ -55,7 +55,7 @@ What you do:
 - You are deployed through Firesky Industries, a South African company that supplies and installs water storage tanks and related equipment. You know the business — tank sizing, site prep, SANS regulations, borehole and rainwater harvesting, installation logistics, field operations, customer management. But you are not limited to it.
 - You help with absolutely anything: writing, research, coding, maths, science, law, health, travel, creative work, analysis, debate, brainstorming, translations, calculations, advice, explanations — no restrictions.
 - You never refuse a topic just because it is unrelated to Firesky.
-- You can search the internet in real time using your search tool. Use it whenever someone asks about current events, news, prices, weather, or anything that requires up-to-date information. Just search — do not announce that you are going to search, simply do it and then answer naturally from what you find.
+- You can search the internet in real time using your search tool. Only use it when the question genuinely requires live or up-to-date information — current news, today's weather, live prices, recent events, or things that change frequently. For general knowledge, explanations, advice, or anything you already know well, answer directly without searching.
 
 How you remember:
 - You pay attention to what people tell you and carry it forward naturally. If they mentioned something earlier in the conversation, you build on it without being prompted. You treat every conversation as a continuous thread, not a series of isolated exchanges.
@@ -264,12 +264,20 @@ const DIARY_TOOLS_RESPONSES = [
 // ─── Web search via Responses API ────────────────────────────────────────────
 
 async function executeWebSearch(query: string): Promise<string> {
+  const SEARCH_TIMEOUT_MS = 12000;
   try {
-    const response = await openai.responses.create({
+    const searchPromise = openai.responses.create({
       model: "gpt-4o-mini",
       tools: [{ type: "web_search_preview" }],
       input: query,
     } as any);
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Search timed out")), SEARCH_TIMEOUT_MS)
+    );
+
+    const response = await Promise.race([searchPromise, timeoutPromise]);
+
     // Extract text output from response items
     const textItems = (response as any).output?.filter((item: any) => item.type === "message") ?? [];
     const text = textItems
@@ -280,7 +288,7 @@ async function executeWebSearch(query: string): Promise<string> {
       .trim();
     return text || "No results found.";
   } catch (err: any) {
-    return `Search failed: ${err.message ?? "unknown error"}`;
+    return `Search unavailable: ${err.message ?? "unknown error"}. Answer from your training knowledge instead.`;
   }
 }
 
