@@ -622,10 +622,46 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
         if (text) { fullResponse += text; sseWrite({ content: text }); }
       }
     } else {
-      // ── Text path: chat completions with streaming diary tool-call loop ───
+      // ── Text path ─────────────────────────────────────────────────────────
       const now = new Date();
       const todayStr = now.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-      const diarySystemAddition = `\n\nToday is ${todayStr}. You have access to function tools for the diary and for web search. CRITICAL RULES: (1) When you need to search the web, call the search_web tool — do NOT write phrases like "I'll search now", "searching...", "let me look that up", or "I can't access real-time data". Just call the tool and then answer from the results. (2) For diary operations, always use the diary tools — never just describe what you would do.`;
+
+      // Detect search intent server-side
+      const SEARCH_INTENT = /\b(research|competitor|competitors|supplier|suppliers|price|pricing|cost|market|news|weather|latest|current|today|find|look up|search|compare|compet)\b/i;
+      const DIARY_INTENT  = /\b(schedule|diary|calendar|remind|appointment|meeting|event|add to|save to|create event|book)\b/i;
+      const isSearchQuery = SEARCH_INTENT.test(message.trim()) && !DIARY_INTENT.test(message.trim());
+
+      if (isSearchQuery) {
+        // ── Search path: Responses API streaming with web_search_preview ──
+        // Single round-trip — no tool sub-calls, no chain timeout risk.
+        sseWrite({ thinking: "Searching the web..." });
+
+        const responsesInput: any[] = [
+          { role: "system", content: buildSystemPrompt(memory, vectorMemoriesText) + `\n\nToday is ${todayStr}. You have access to live web search. Always search before answering questions about prices, competitors, suppliers, news, or current information. Never say you cannot access live data.` },
+          ...historyMessages.map((m) => ({ role: m.role, content: m.content })),
+          { role: "user", content: userTextContent },
+        ];
+
+        const responseStream = await withRetry(() => (openai.responses as any).create({
+          model: GPT_MODEL,
+          tools: [{ type: "web_search_preview" }],
+          input: responsesInput,
+          stream: true,
+        }));
+
+        for await (const event of responseStream) {
+          const delta = event?.delta ?? event?.output_text ?? "";
+          if (typeof delta === "string" && delta) {
+            fullResponse += delta;
+            sseWrite({ content: delta });
+          } else if (event?.type === "response.output_text.delta" && event.delta) {
+            fullResponse += event.delta;
+            sseWrite({ content: event.delta });
+          }
+        }
+      } else {
+      // ── Diary / general path: chat completions with tool-call loop ────────
+      const diarySystemAddition = `\n\nToday is ${todayStr}. You have access to function tools for the diary. ALWAYS use the diary tools to create, list, update or delete events — never just describe what you would do. After acting, confirm exactly what you saved.`;
 
       const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
         { role: "system", content: buildSystemPrompt(memory, vectorMemoriesText) + diarySystemAddition },
@@ -808,7 +844,8 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
           content: JSON.stringify(toolResult),
         });
       }
-    }
+      } // end diary/general else
+    } // end text path else
 
     // Save assistant response
     if (fullResponse) {
