@@ -725,17 +725,28 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
         },
       ];
 
+      // Detect if the query clearly needs a live web search — if so, force it
+      // on round 0 instead of hoping the model decides to call the tool.
+      const SEARCH_INTENT = /\b(research|competitor|competitors|supplier|suppliers|price|pricing|cost|market|news|weather|latest|current|today|find|look up|search|compare|compet)\b/i;
+      const DIARY_INTENT = /\b(schedule|diary|calendar|remind|appointment|meeting|event|add to|save to|create event|book)\b/i;
+      const forceSearchOnFirstRound = SEARCH_INTENT.test(message.trim()) && !DIARY_INTENT.test(message.trim());
+
       const MAX_TOOL_ROUNDS = 4;
       let toolsWereUsed = false;
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
         // Use gpt-4o for tool-detection rounds (reliable tool calling) —
         // upgrade to the chosen smart model only for the final response.
         const roundModel = toolsWereUsed ? chosenModel : TOOL_MODEL;
+        // Force the search tool on round 0 if intent is clearly a web search
+        const toolChoice: OpenAI.ChatCompletionToolChoiceOption =
+          (round === 0 && forceSearchOnFirstRound)
+            ? { type: "function", function: { name: "search_web" } }
+            : "auto";
         const stream = await withRetry(() => openai.chat.completions.create({
           model: roundModel,
           messages: chatMessages,
           tools: diaryFunctions,
-          tool_choice: "auto",
+          tool_choice: toolChoice,
           stream: true,
         }));
 
