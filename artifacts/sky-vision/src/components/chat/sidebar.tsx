@@ -151,7 +151,7 @@ export function Sidebar({ activeId, onSelect, isMobile = false }: SidebarProps) 
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="w-6 h-6 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                      className="w-6 h-6 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 touch:opacity-100 [@media(hover:none)]:opacity-100"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <MoreVertical className="w-4 h-4" />
