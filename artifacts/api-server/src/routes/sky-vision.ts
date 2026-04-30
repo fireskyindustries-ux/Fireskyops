@@ -13,6 +13,7 @@ const mammoth: { extractRawText: (opts: { buffer: Buffer }) => Promise<{ value: 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const GPT_MODEL = "gpt-5";
 const FAST_MODEL = "gpt-4o-mini";
+const TOOL_MODEL = "gpt-4o";
 
 const COMPLEX_KEYWORDS = /\b(analys|explain in detail|compare|code|write|translate|research|summarise|summarize|debate|calculate|legal|medical|strategy|critique|review|essay|report|thesis)\b/i;
 
@@ -624,7 +625,7 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
       // ── Text path: chat completions with streaming diary tool-call loop ───
       const now = new Date();
       const todayStr = now.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-      const diarySystemAddition = `\n\nToday is ${todayStr}. You have access to the user's personal diary via function tools. ALWAYS use the diary tools to create, list, update or delete events — never just describe what you would do. After acting, confirm exactly what you saved.`;
+      const diarySystemAddition = `\n\nToday is ${todayStr}. You have access to function tools for the diary and for web search. CRITICAL RULES: (1) When you need to search the web, call the search_web tool — do NOT write phrases like "I'll search now", "searching...", "let me look that up", or "I can't access real-time data". Just call the tool and then answer from the results. (2) For diary operations, always use the diary tools — never just describe what you would do.`;
 
       const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
         { role: "system", content: buildSystemPrompt(memory, vectorMemoriesText) + diarySystemAddition },
@@ -727,9 +728,9 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
       const MAX_TOOL_ROUNDS = 4;
       let toolsWereUsed = false;
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-        // Use the fast model for tool-detection rounds — only upgrade to the chosen
-        // model on the final response round (after all tools have been executed).
-        const roundModel = toolsWereUsed ? chosenModel : FAST_MODEL;
+        // Use gpt-4o for tool-detection rounds (reliable tool calling) —
+        // upgrade to the chosen smart model only for the final response.
+        const roundModel = toolsWereUsed ? chosenModel : TOOL_MODEL;
         const stream = await withRetry(() => openai.chat.completions.create({
           model: roundModel,
           messages: chatMessages,
