@@ -632,29 +632,30 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
       const isSearchQuery = SEARCH_INTENT.test(message.trim()) && !DIARY_INTENT.test(message.trim());
 
       if (isSearchQuery) {
-        // ── Search path: Responses API streaming with web_search_preview ──
-        // Single round-trip — no tool sub-calls, no chain timeout risk.
+        // ── Search path: Responses API streaming with forced web_search_preview ──
+        // Single round-trip — no chain, no timeout risk.
         sseWrite({ thinking: "Searching the web..." });
 
         const responsesInput: any[] = [
-          { role: "system", content: buildSystemPrompt(memory, vectorMemoriesText) + `\n\nToday is ${todayStr}. You have access to live web search. Always search before answering questions about prices, competitors, suppliers, news, or current information. Never say you cannot access live data.` },
+          {
+            role: "system",
+            content: buildSystemPrompt(memory, vectorMemoriesText) +
+              `\n\nToday is ${todayStr}. You MUST use the web_search_preview tool to search the web before answering. Never say you cannot access live data — you have live search access right now. Search, then answer with the real results.`,
+          },
           ...historyMessages.map((m) => ({ role: m.role, content: m.content })),
           { role: "user", content: userTextContent },
         ];
 
         const responseStream = await withRetry(() => (openai.responses as any).create({
-          model: GPT_MODEL,
+          model: "gpt-4o",
           tools: [{ type: "web_search_preview" }],
+          tool_choice: { type: "web_search_preview" },
           input: responsesInput,
           stream: true,
         }));
 
         for await (const event of responseStream) {
-          const delta = event?.delta ?? event?.output_text ?? "";
-          if (typeof delta === "string" && delta) {
-            fullResponse += delta;
-            sseWrite({ content: delta });
-          } else if (event?.type === "response.output_text.delta" && event.delta) {
+          if (event?.type === "response.output_text.delta" && typeof event.delta === "string") {
             fullResponse += event.delta;
             sseWrite({ content: event.delta });
           }
