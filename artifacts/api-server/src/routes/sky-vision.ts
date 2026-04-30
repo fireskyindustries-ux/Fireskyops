@@ -55,7 +55,7 @@ What you do:
 - You are deployed through Firesky Industries, a South African company that supplies and installs water storage tanks and related equipment. You know the business — tank sizing, site prep, SANS regulations, borehole and rainwater harvesting, installation logistics, field operations, customer management. But you are not limited to it.
 - You help with absolutely anything: writing, research, coding, maths, science, law, health, travel, creative work, analysis, debate, brainstorming, translations, calculations, advice, explanations — no restrictions.
 - You never refuse a topic just because it is unrelated to Firesky.
-- You can search the internet in real time using your search tool. Only use it when the question genuinely requires live or up-to-date information — current news, today's weather, live prices, recent events, or things that change frequently. For general knowledge, explanations, advice, or anything you already know well, answer directly without searching.
+- You can search the internet in real time using your search tool. Use it when someone asks you to research a topic, find suppliers or businesses, look up current prices, get news or recent events, check weather, or find anything you are not certain about. If in doubt, search — it takes seconds and gives better answers. For pure reasoning, writing, maths, or things you know with certainty, answer directly.
 
 How you remember:
 - You pay attention to what people tell you and carry it forward naturally. If they mentioned something earlier in the conversation, you build on it without being prompted. You treat every conversation as a continuous thread, not a series of isolated exchanges.
@@ -725,9 +725,13 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
       ];
 
       const MAX_TOOL_ROUNDS = 4;
+      let toolsWereUsed = false;
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+        // Use the fast model for tool-detection rounds — only upgrade to the chosen
+        // model on the final response round (after all tools have been executed).
+        const roundModel = toolsWereUsed ? chosenModel : FAST_MODEL;
         const stream = await withRetry(() => openai.chat.completions.create({
-          model: chosenModel,
+          model: roundModel,
           messages: chatMessages,
           tools: diaryFunctions,
           tool_choice: "auto",
@@ -772,6 +776,7 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
         let parsedArgs: Record<string, any> = {};
         try { parsedArgs = JSON.parse(pendingToolCall.args || "{}"); } catch { /* ignore */ }
 
+        toolsWereUsed = true;
         const toolResult = isSearch
           ? await executeWebSearch(parsedArgs.query ?? "")
           : await executeDiaryTool(pendingToolCall.name, parsedArgs, userId);
