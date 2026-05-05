@@ -41,3 +41,9 @@ id = "tCKpwaKWkHyhTkuWF_jfO"
 uri = "file://deploy/DEPLOY_GUIDE.md"
 type = "text"
 title = "Afrihost Deployment Guide"
+
+[[outputs]]
+id = "QnHnFqQkfIHA79UAz83tf"
+uri = "file://deploy/DEPLOY_GUIDE.txt"
+type = "text"
+title = "Afrihost Deployment Guide (plain text)"
