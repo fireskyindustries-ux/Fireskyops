@@ -35,3 +35,9 @@ id = "YVwLHZynEqXfhTU_b7lt5"
 uri = "file://Firesky_and_SkyVision_Capabilities.md"
 type = "text"
 title = "Firesky & Sky Vision — Full Capabilities"
+
+[[outputs]]
+id = "tCKpwaKWkHyhTkuWF_jfO"
+uri = "file://deploy/DEPLOY_GUIDE.md"
+type = "text"
+title = "Afrihost Deployment Guide"
