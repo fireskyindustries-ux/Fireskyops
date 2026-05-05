@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { brand } from "@/brand.config";
-import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2, Sparkles, BarChart2, MapPin, Info, Pencil } from "lucide-react";
+import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2, Sparkles, BarChart2, MapPin, Info, Pencil, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -202,6 +202,12 @@ function UserFooter({ onNavigate }: { onNavigate?: () => void }) {
               Email Log
             </div>
           </Link>
+          <a href="/api/dl-backup-fs2026" download="firesky-backup.sql">
+            <div className="flex items-center gap-3 h-10 px-3 rounded-xl text-sm font-medium text-primary hover:bg-primary/5 transition-colors cursor-pointer">
+              <Download className="h-4 w-4" />
+              Download DB Backup
+            </div>
+          </a>
           <a href="https://accounting.sageone.co.za/Landing/Default.aspx" target="_blank" rel="noopener noreferrer">
             <div className="flex items-center gap-3 h-10 px-3 rounded-xl text-sm font-medium text-green-700 hover:bg-green-50 transition-colors cursor-pointer">
               <ExternalLink className="h-4 w-4" />
