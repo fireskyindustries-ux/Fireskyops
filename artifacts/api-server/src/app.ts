@@ -59,7 +59,7 @@ app.get("/api/dl-backup-fs2026", (_req, res) => {
 // ── Temporary: one-time app bundle download ───────────────────────────────────
 app.get("/api/dl-app-fs2026", (_req, res) => {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  const file = path.resolve(__dirname, "../../../firesky-production.tar.gz");
+  const file = path.resolve(__dirname, "../firesky-production.tar.gz");
   res.setHeader("Content-Disposition", "attachment; filename=firesky-production.tar.gz");
   res.setHeader("Content-Type", "application/octet-stream");
   res.sendFile(file);
