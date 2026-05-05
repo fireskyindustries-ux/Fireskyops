@@ -47,3 +47,15 @@ id = "QnHnFqQkfIHA79UAz83tf"
 uri = "file://deploy/DEPLOY_GUIDE.txt"
 type = "text"
 title = "Afrihost Deployment Guide (plain text)"
+
+[[outputs]]
+id = "sDn_9k4o3ZPMhiDzLCwF-"
+uri = "file://firesky-production.tar.gz"
+type = "unspecified"
+title = "Firesky Production App — upload to Afrihost"
+
+[[outputs]]
+id = "1m2lLds9JzZi89znZo9kT"
+uri = "file://firesky-backup.txt"
+type = "text"
+title = "Database Backup — import to Afrihost PostgreSQL"
