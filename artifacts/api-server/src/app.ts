@@ -65,6 +65,15 @@ app.get("/api/dl-app-fs2026", (_req, res) => {
   res.sendFile(file);
 });
 
+// ── Temporary: serve just the fixed index.mjs bundle ─────────────────────────
+app.get("/api/dl-bundle-fs2026", (_req, res) => {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const file = path.resolve(__dirname, "./index.mjs");
+  res.setHeader("Content-Disposition", "attachment; filename=index.mjs");
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.sendFile(file);
+});
+
 // MCP SSE routes — public, mounted before Clerk middleware
 app.use("/api", mcpSseRouter);
 
