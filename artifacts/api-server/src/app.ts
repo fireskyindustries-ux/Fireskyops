@@ -76,13 +76,13 @@ if (process.env.NODE_ENV === "production") {
     "/sky-vision",
     express.static(path.join(publicDir, "sky-vision"), { index: "index.html" }),
   );
-  app.get("/sky-vision/*", (_req, res) => {
+  app.get("/sky-vision/*path", (_req, res) => {
     res.sendFile(path.join(publicDir, "sky-vision", "index.html"));
   });
 
   // Firesky — root catch-all
   app.use(express.static(publicDir, { index: "index.html" }));
-  app.get("*", (_req, res) => {
+  app.get("/*path", (_req, res) => {
     res.sendFile(path.join(publicDir, "index.html"));
   });
 }
