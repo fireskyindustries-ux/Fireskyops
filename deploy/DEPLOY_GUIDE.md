@@ -2,9 +2,9 @@
 
 ## Overview
 
-This guide moves your app from Replit to Afrihost so it runs on your own
-server at fireskyops.tech. A lapsed Replit subscription will never affect
-your customers again.
+This guide moves your app from Replit to Afrihost so it runs permanently at
+fireskyops.tech. Your Afrihost plan has PostgreSQL built in, so everything
+(app + database) lives on the same server — no third-party services needed.
 
 **Time required:** about 30–45 minutes on first deploy. Future updates take
 about 5 minutes.
@@ -13,192 +13,237 @@ about 5 minutes.
 
 ## Before You Start — Things You Need
 
-1. **Afrihost cPanel login** (your hosting control panel)
-2. **Neon account** (free PostgreSQL database) — sign up at https://neon.tech
-3. **Clerk Production keys** — from your Clerk dashboard (production instance)
-4. All your other API keys (OpenAI, Resend, VAPID — already in your Replit secrets)
+1. **Afrihost cPanel login**
+2. **Clerk Production keys** — from your Clerk dashboard (production instance)
+3. Your API keys (OpenAI, Resend, VAPID) — already saved in your Replit secrets
 
 ---
 
-## Step 1 — Create Your Production Database (Neon)
+## Step 1 — Create the PostgreSQL Database on Afrihost
 
-Your current database lives inside Replit. You need to move it to Neon
-(free, reliable PostgreSQL in the cloud).
+1. Log in to **Afrihost cPanel**
+2. Under **Databases**, click **PostgreSQL Database Wizard**
+3. **Step 1 — Create Database:** enter a name, e.g. `firesky` → click Next
+4. **Step 2 — Create User:** enter a username, e.g. `fireskyuser`, and a strong
+   password → click Next
+5. **Step 3 — Assign User:** tick **ALL PRIVILEGES** → click Next
+6. Done. Note down:
+   - Database name (cPanel prefixes it with your account name, e.g. `cpaneluser_firesky`)
+   - Username (e.g. `cpaneluser_fireskyuser`)
+   - Password you chose
 
-1. Go to https://neon.tech and sign up / log in
-2. Click **New Project** → name it `firesky-production`
-3. Choose region: **Europe (Frankfurt)** or **US East** — either works
-4. Once created, copy the **Connection string** — it looks like:
-   `postgresql://user:password@ep-something.neon.tech/neondb?sslmode=require`
-5. Save this — you will need it in Step 4
-
-### Migrate your existing data to Neon
-
-In Replit, open the Shell tab and run:
-
-```bash
-# Export current data from Replit's PostgreSQL
-pg_dump "$DATABASE_URL" --no-owner --no-acl -Fp > firesky-backup.sql
-
-# Import into Neon (paste your Neon connection string)
-psql "postgresql://user:password@ep-something.neon.tech/neondb?sslmode=require" \
-  < firesky-backup.sql
+Your DATABASE_URL will be:
 ```
+postgresql://cpaneluser_fireskyuser:yourpassword@localhost/cpaneluser_firesky
+```
+(Replace the username, password and db name with yours — all on localhost, no SSL needed.)
 
 ---
 
-## Step 2 — Build the Production Package
+## Step 2 — Migrate Your Data from Replit to Afrihost
+
+You need to copy the existing database from Replit to Afrihost.
+
+### 2a — Export from Replit
 
 In Replit's Shell tab, run:
 
 ```bash
-# Set your production Clerk publishable key first
+pg_dump "$DATABASE_URL" --no-owner --no-acl -Fp > firesky-backup.sql
+echo "Export done — $(wc -l < firesky-backup.sql) lines"
+```
+
+This creates `firesky-backup.sql` in your project root.
+
+### 2b — Get the SQL file to Afrihost
+
+The easiest method is to upload `firesky-backup.sql` via cPanel File Manager:
+
+1. In **cPanel → File Manager**, navigate to your home directory
+2. Click **Upload** and upload `firesky-backup.sql`
+
+### 2c — Import into Afrihost PostgreSQL
+
+In **cPanel → Terminal** (or SSH into your server), run:
+
+```bash
+psql -U cpaneluser_fireskyuser -d cpaneluser_firesky -h localhost < ~/firesky-backup.sql
+```
+
+Enter your database password when prompted.
+
+To verify it worked:
+```bash
+psql -U cpaneluser_fireskyuser -d cpaneluser_firesky -h localhost -c "\dt"
+```
+You should see all your tables listed (branches, customers, jobs, stock_items, etc.)
+
+---
+
+## Step 3 — Build the Production Package
+
+In Replit's **Shell** tab, run:
+
+```bash
+# Paste your PRODUCTION Clerk publishable key (pk_live_... from Clerk dashboard)
 export VITE_CLERK_PUBLISHABLE_KEY="pk_live_YOUR_KEY_HERE"
 
-# Run the build
 bash deploy/build-prod.sh
 ```
 
-This creates `firesky-production.zip` — a self-contained package with:
+This creates `firesky-production.zip` containing:
 - The compiled API server
 - Both React apps (Firesky + Sky Vision) as static files
-- A Passenger-compatible startup file
+- The Passenger-compatible `app.js` startup file
 
 ---
 
-## Step 3 — Set Up Clerk for Production
+## Step 4 — Set Up Clerk for Production
 
 In your Clerk dashboard:
 
-1. Go to your **Production** instance (not Development)
+1. Switch to your **Production** instance (not Development)
 2. Under **Domains** → add `fireskyops.tech`
-3. Under **API Keys** → copy `Publishable key` (pk_live_...) and `Secret key` (sk_live_...)
-4. Under **JWT Templates** (or Sessions) → make sure public metadata is included
-   in session tokens (this is usually on by default)
+3. Under **API Keys** → copy the `Publishable key` (pk_live_...) and `Secret key` (sk_live_...)
+4. Keep the Secret key safe — you'll paste it in Step 6
 
 ---
 
-## Step 4 — Upload to Afrihost
+## Step 5 — Upload the App to Afrihost
 
-1. Log in to your **Afrihost cPanel**
-2. Open **File Manager**
-3. Navigate to your home directory (usually `/home/yourusername/`)
-4. Create a new folder called `firesky` (or use your existing node app folder)
-5. Upload `firesky-production.zip` into that folder
-6. Right-click the zip → **Extract** → extract into the `firesky` folder
-7. The structure should look like:
+1. In **cPanel → File Manager**, navigate to your home directory
+2. Create a folder called `firesky` (e.g. `/home/yourusername/firesky/`)
+3. Upload `firesky-production.zip` into that folder
+4. Right-click the zip → **Extract** → extract here
+5. The result should look like:
    ```
    firesky/
-   ├── app.js
+   ├── app.js          ← Passenger startup file
    ├── package.json
-   ├── dist/
-   ├── public/
-   └── public/sky-vision/
+   ├── dist/           ← compiled API server
+   ├── public/         ← Firesky static app
+   └── public/
+       └── sky-vision/ ← Sky Vision static app
    ```
 
 ---
 
-## Step 5 — Set Up Node.js App in cPanel
+## Step 6 — Set Up the Node.js App in cPanel
 
-1. In cPanel, find **Setup Node.js App** (in the Software section)
+1. In cPanel, find **Setup Node.js App** (Software section)
 2. Click **Create Application**
 3. Fill in:
-   - **Node.js version:** 18 or 20 (choose the highest available)
+   - **Node.js version:** 18 or 20 (pick the highest available)
    - **Application mode:** Production
-   - **Application root:** `firesky` (the folder you created)
-   - **Application URL:** `fireskyops.tech` (or `/` if it's the main domain)
+   - **Application root:** `firesky`
+   - **Application URL:** `/` (root — this is your main domain)
    - **Application startup file:** `app.js`
 4. Click **Create**
-5. cPanel will show a command like `source /home/.../bin/activate`. Run that
-   in the cPanel Terminal to enter the app environment, then run:
+5. cPanel shows a command like:
+   ```
+   source /home/yourusername/nodevenv/firesky/20/bin/activate && cd /home/yourusername/firesky
+   ```
+   Copy and paste that into **cPanel → Terminal**, then run:
    ```bash
    npm install
    ```
 
 ---
 
-## Step 6 — Set Environment Variables
+## Step 7 — Set Environment Variables
 
-In cPanel → **Setup Node.js App** → click your app → scroll to
-**Environment Variables** section. Add each variable from `deploy/.env.example`:
+In cPanel → **Setup Node.js App** → click your `firesky` app → scroll to
+**Environment Variables**. Add each one:
 
 | Variable | Value |
 |----------|-------|
 | `NODE_ENV` | `production` |
-| `DATABASE_URL` | Your Neon connection string from Step 1 |
-| `CLERK_PUBLISHABLE_KEY` | `pk_live_...` from Clerk |
-| `CLERK_SECRET_KEY` | `sk_live_...` from Clerk |
+| `DATABASE_URL` | `postgresql://cpaneluser_fireskyuser:password@localhost/cpaneluser_firesky` |
+| `CLERK_PUBLISHABLE_KEY` | `pk_live_...` from Step 4 |
+| `CLERK_SECRET_KEY` | `sk_live_...` from Step 4 |
 | `OPENAI_API_KEY` | Your OpenAI key |
 | `RESEND_API_KEY` | Your Resend key |
 | `VAPID_PUBLIC_KEY` | Your VAPID public key |
 | `VAPID_PRIVATE_KEY` | Your VAPID private key |
 | `VAPID_EMAIL` | `support@fireskyops.tech` |
-| `SESSION_SECRET` | Any long random string |
+| `SESSION_SECRET` | Any long random string (run `openssl rand -hex 32` in cPanel Terminal) |
 | `LIVE_DATA_API_KEY` | `59834e2a7555d27ae745be2ff242bc9557b122b572e8cddad7ce2ba668b5f8bd` |
 
-**Do NOT set PORT** — Passenger sets this automatically.
+**Do NOT add PORT** — Passenger sets this automatically.
+
+Click **Save** after adding all variables.
 
 ---
 
-## Step 7 — Start the App
+## Step 8 — Start the App
 
-In cPanel → **Setup Node.js App** → click **Restart** (or **Start**).
+In cPanel → **Setup Node.js App** → click **Restart** on your firesky app.
 
-Visit https://fireskyops.tech — your app should be live!
+Visit **https://fireskyops.tech** — your app should be live!
 
 ---
 
-## Step 8 — Point Your Domain (if not already done)
+## Step 9 — Point Your Domain (if not already done)
 
-If fireskyops.tech isn't already pointing to Afrihost:
+If fireskyops.tech is not already hosted on Afrihost:
 
-1. Log in to your domain registrar (where you bought fireskyops.tech)
+1. Log in to wherever you bought the domain
 2. Update the **nameservers** to Afrihost's nameservers (shown in your
-   Afrihost account under Domain Management)
-3. DNS changes take up to 24 hours to propagate — usually much faster
+   Afrihost control panel under Domain Management)
+3. DNS changes can take up to 24 hours — usually within an hour
+
+If the domain is already on Afrihost, it will just work after Step 8.
 
 ---
 
 ## Updating the App in Future
 
-When you make changes in Replit and want to deploy:
+Whenever you make changes in Replit:
 
 ```bash
-# In Replit shell:
+# 1. In Replit shell — rebuild:
+export VITE_CLERK_PUBLISHABLE_KEY="pk_live_YOUR_KEY_HERE"
 bash deploy/build-prod.sh
 
-# Then in Afrihost:
-# 1. Upload new firesky-production.zip
-# 2. Extract it (overwrite existing files)
-# 3. cPanel → Setup Node.js App → Restart
+# 2. Upload the new firesky-production.zip to Afrihost
+# 3. Extract it (overwrite existing files) in File Manager
+# 4. cPanel → Setup Node.js App → Restart
 ```
 
-That's it. The whole update takes about 5 minutes.
+Total time: about 5 minutes.
 
 ---
 
 ## Troubleshooting
 
-**App won't start / 500 error:**
-- Check the error log in cPanel → Logs → Error Log
-- Make sure all environment variables are set correctly
-- Confirm `npm install` ran successfully in the app directory
+**App won't start / blank page:**
+- cPanel → Logs → Error Log — this shows the exact error
+- Make sure all environment variables are saved
+- Confirm `npm install` ran successfully
 
 **Database connection error:**
-- Verify your Neon DATABASE_URL is correct and includes `?sslmode=require`
-- Test it: `psql "your-connection-string" -c "SELECT 1"`
+- Double-check the DATABASE_URL — username and database name are prefixed
+  with your cPanel account name (e.g. `cpaneluser_firesky`, not just `firesky`)
+- Test in cPanel Terminal:
+  ```bash
+  psql -U cpaneluser_fireskyuser -d cpaneluser_firesky -h localhost -c "SELECT 1"
+  ```
 
 **Clerk auth not working:**
-- Make sure you're using `pk_live_` / `sk_live_` keys, not `pk_test_` / `sk_test_`
-- Confirm `fireskyops.tech` is added as a domain in your Clerk production instance
+- Make sure you're using the `pk_live_` / `sk_live_` keys, not `pk_test_` / `sk_test_`
+- Confirm `fireskyops.tech` is added in your Clerk Production instance domains
 
-**Sky Vision not loading:**
-- Visit `https://fireskyops.tech/sky-vision/` — note the trailing slash
-- Check that `public/sky-vision/index.html` exists in your app folder
+**Sky Vision loads the wrong page:**
+- Visit `https://fireskyops.tech/sky-vision/` — the trailing slash matters
+- Check that `public/sky-vision/index.html` exists inside your `firesky` folder
+
+**Push notifications not working:**
+- Confirm `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_EMAIL` are all set
+- Re-subscribe on the device after first production login (subscriptions are
+  tied to the server's VAPID keys)
 
 ---
 
 ## Need Help?
 
-If you get stuck on any step, share the error message and which step you're
-on — it can be fixed quickly.
+Share the exact error message and which step you're on — it can be fixed quickly.
