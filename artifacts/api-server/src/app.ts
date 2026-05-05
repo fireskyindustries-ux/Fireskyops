@@ -50,7 +50,7 @@ app.use("/api", (_req, res, next) => {
 // ── Temporary: one-time DB backup download ────────────────────────────────────
 app.get("/api/dl-backup-fs2026", (_req, res) => {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  const file = path.resolve(__dirname, "../../firesky-backup.sql");
+  const file = path.resolve(__dirname, "../firesky-backup.sql");
   res.setHeader("Content-Disposition", "attachment; filename=firesky-backup.sql");
   res.setHeader("Content-Type", "application/octet-stream");
   res.sendFile(file);
