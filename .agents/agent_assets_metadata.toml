@@ -59,3 +59,9 @@ id = "1m2lLds9JzZi89znZo9kT"
 uri = "file://firesky-backup.txt"
 type = "text"
 title = "Database Backup — upload this to Afrihost"
+
+[[outputs]]
+id = "4V1XoKv3n0vvlPYyj4kjn"
+uri = "file://firesky-backup.txt.gz"
+type = "unspecified"
+title = "Database Backup — download and upload to Afrihost"
