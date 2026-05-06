@@ -22,6 +22,7 @@ export interface SchedulerCounts {
 export interface SchedulerState {
   lastSuccessfulCheck: string;
   lastNotifiedCounts?: SchedulerCounts;
+  lastLeadScrapeDate?: string;
 }
 
 export const INTERVAL_MS = 30 * 60 * 1000;

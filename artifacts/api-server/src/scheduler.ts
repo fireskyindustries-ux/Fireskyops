@@ -3,6 +3,7 @@ import { db, customersTable, enquiriesTable, jobsTable, inspectionsTable } from 
 import { logger } from "./lib/logger";
 import { loadSchedulerState, saveSchedulerState, INTERVAL_MS, STALE_MS, type SchedulerCounts } from "./lib/scheduler-state";
 import { notifyAdmins } from "./lib/notify";
+import { runLeadScraper } from "./lib/lead-scraper-runner";
 
 async function runCheck(): Promise<void> {
   const runAt = new Date();
@@ -174,7 +175,30 @@ async function runCheck(): Promise<void> {
     logger.info("[scheduler] No new records since last check — no notification sent");
   }
 
-  saveSchedulerState({ lastSuccessfulCheck: runAt.toISOString(), lastNotifiedCounts: currentCounts });
+  // ── Daily lead scraper ─────────────────────────────────────
+  const todayDate = today;
+  if (state.lastLeadScrapeDate !== todayDate) {
+    logger.info("[scheduler] Running daily lead scraper...");
+    try {
+      const scrapeResult = await runLeadScraper();
+      logger.info(`[scheduler] Lead scraper: created=${scrapeResult.created} skipped=${scrapeResult.skipped} errors=${scrapeResult.errors}`);
+      if (scrapeResult.created > 0) {
+        await notifyAdmins(
+          "New scraped leads",
+          `${scrapeResult.created} new lead${scrapeResult.created !== 1 ? "s" : ""} found and added to enquiries`,
+          "/enquiries",
+        );
+      }
+      saveSchedulerState({ lastSuccessfulCheck: runAt.toISOString(), lastNotifiedCounts: currentCounts, lastLeadScrapeDate: todayDate });
+    } catch (err) {
+      logger.error({ err }, "[scheduler] Lead scraper failed");
+      saveSchedulerState({ lastSuccessfulCheck: runAt.toISOString(), lastNotifiedCounts: currentCounts });
+    }
+  } else {
+    logger.info(`[scheduler] Lead scraper already ran today (${todayDate}) — skipping`);
+    saveSchedulerState({ lastSuccessfulCheck: runAt.toISOString(), lastNotifiedCounts: currentCounts, lastLeadScrapeDate: state.lastLeadScrapeDate });
+  }
+
   logger.info(`[scheduler] Timestamp saved: ${runAt.toISOString()}`);
   logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 }
