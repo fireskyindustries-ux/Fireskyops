@@ -5,6 +5,7 @@ import trackRouter from "./track";
 import storageRouter from "./storage";
 import quotePublicRouter from "./quote_public";
 import fireVisionRouter from "./firevision";
+import processLeadRouter from "./process-lead";
 import customersRouter from "./customers";
 import enquiriesRouter from "./enquiries";
 import inspectionsRouter from "./inspections";
@@ -34,6 +35,7 @@ router.use(trackRouter);
 router.use(storageRouter);
 router.use(quotePublicRouter);
 router.use(fireVisionRouter);
+router.use(processLeadRouter);
 
 // All routes below require authentication
 router.use(requireAuth);
