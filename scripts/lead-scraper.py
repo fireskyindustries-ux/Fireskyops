@@ -26,15 +26,48 @@ import requests
 from bs4 import BeautifulSoup
 
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "")
-PROCESS_LEAD_URL = os.environ.get("PROCESS_LEAD_URL", "https://fireskyops.tech/api/process-lead")
+PROCESS_LEAD_URL = os.environ.get("PROCESS_LEAD_URL", "https://8ecb1f4e-ef9e-4071-ac41-fe2eaf8e0001-00-qwr3ijk7dpmj.kirk.replit.dev/api/process-lead")
 LIVE_DATA_API_KEY = os.environ.get("LIVE_DATA_API_KEY", "")
 
 DEFAULT_QUERIES = [
-    "water tank price Bloemfontein",
-    "quote for 10000L water tank South Africa",
-    "buy JoJo tank Johannesburg",
-    "water storage tank installation Free State",
-    "5000 litre tank quote South Africa",
+    # 10000L
+    "10000L water tank price South Africa",
+    "10000 litre JoJo tank quote",
+    "buy 10000L water storage tank",
+    # 5000L
+    "5000L water tank price South Africa",
+    "5000 litre tank quote Johannesburg",
+    "buy 5000L JoJo tank",
+    # 2500L
+    "2500L water tank South Africa price",
+    "2500 litre tank quote",
+    # 1000L
+    "1000L water tank price South Africa",
+    "1000 litre tank buy",
+    # General tank queries
+    "water tank installation quote South Africa",
+    "JoJo tank price list South Africa",
+    "water storage tank supplier South Africa",
+    "rainwater harvesting tank South Africa",
+    "plastic water tank buy South Africa",
+    "water tank for farm South Africa",
+    "borehole water storage tank",
+    "off-grid water tank installation",
+    # Pumps
+    "water pump price South Africa",
+    "borehole pump quote South Africa",
+    "submersible pump supplier South Africa",
+    "pressure pump installation quote",
+    "irrigation pump South Africa price",
+    "solar water pump South Africa",
+    "water pump for farm South Africa",
+    # Regional
+    "water tank Bloemfontein price",
+    "water tank Cape Town quote",
+    "water tank Pretoria installation",
+    "water tank Durban supplier",
+    "water tank Free State farm",
+    "water tank Northern Cape",
 ]
 
 HEADERS = {
