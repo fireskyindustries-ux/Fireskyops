@@ -30,44 +30,34 @@ PROCESS_LEAD_URL = os.environ.get("PROCESS_LEAD_URL", "https://8ecb1f4e-ef9e-407
 LIVE_DATA_API_KEY = os.environ.get("LIVE_DATA_API_KEY", "")
 
 DEFAULT_QUERIES = [
-    # 10000L
-    "10000L water tank price South Africa",
-    "10000 litre JoJo tank quote",
-    "buy 10000L water storage tank",
-    # 5000L
-    "5000L water tank price South Africa",
-    "5000 litre tank quote Johannesburg",
-    "buy 5000L JoJo tank",
-    # 2500L
-    "2500L water tank South Africa price",
-    "2500 litre tank quote",
-    # 1000L
-    "1000L water tank price South Africa",
-    "1000 litre tank buy",
-    # General tank queries
-    "water tank installation quote South Africa",
-    "JoJo tank price list South Africa",
-    "water storage tank supplier South Africa",
-    "rainwater harvesting tank South Africa",
-    "plastic water tank buy South Africa",
-    "water tank for farm South Africa",
-    "borehole water storage tank",
-    "off-grid water tank installation",
-    # Pumps
-    "water pump price South Africa",
-    "borehole pump quote South Africa",
-    "submersible pump supplier South Africa",
-    "pressure pump installation quote",
-    "irrigation pump South Africa price",
-    "solar water pump South Africa",
-    "water pump for farm South Africa",
-    # Regional
-    "water tank Bloemfontein price",
-    "water tank Cape Town quote",
-    "water tank Pretoria installation",
-    "water tank Durban supplier",
-    "water tank Free State farm",
-    "water tank Northern Cape",
+    # Gumtree wanted ads
+    'site:gumtree.co.za "water tank" "wanted"',
+    'site:gumtree.co.za "JoJo tank" "looking for"',
+    'site:gumtree.co.za "water tank" "need" OR "looking"',
+    'site:gumtree.co.za "borehole pump" "wanted"',
+    'site:gumtree.co.za "water storage" "wanted"',
+    # Forum and community posts
+    'site:mybroadband.co.za "water tank" "quote" OR "install"',
+    'site:buildit.co.za "water tank" "quote"',
+    '"looking for" "water tank" "quote" South Africa',
+    '"need a quote" "water tank" South Africa',
+    '"please quote" "water tank" South Africa',
+    '"looking for supplier" "water tank" South Africa',
+    # Facebook-indexed posts
+    'site:facebook.com "water tank" "wanted" South Africa',
+    'site:facebook.com "JoJo tank" "looking for" South Africa',
+    # Property and farm forums
+    '"need water tank" farm South Africa',
+    '"need JoJo tank" South Africa',
+    '"require water tank" South Africa quote',
+    '"borehole pump" "quote" site:za',
+    '"water pump" "need quote" South Africa',
+    # Classifieds and Q&A
+    'site:olx.co.za "water tank" OR "JoJo tank"',
+    '"anyone know" "water tank" "South Africa"',
+    '"recommend" "water tank supplier" South Africa',
+    '"water tank installer" "quote" Johannesburg OR Pretoria OR Cape Town OR Bloemfontein',
+    '"JoJo tank" "install" "quote" Free State OR Northern Cape OR North West',
 ]
 
 HEADERS = {
