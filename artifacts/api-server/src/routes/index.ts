@@ -6,6 +6,7 @@ import storageRouter from "./storage";
 import quotePublicRouter from "./quote_public";
 import fireVisionRouter from "./firevision";
 import processLeadRouter from "./process-lead";
+import publicEnquiryRouter from "./public-enquiry";
 import customersRouter from "./customers";
 import enquiriesRouter from "./enquiries";
 import inspectionsRouter from "./inspections";
@@ -36,6 +37,7 @@ router.use(storageRouter);
 router.use(quotePublicRouter);
 router.use(fireVisionRouter);
 router.use(processLeadRouter);
+router.use(publicEnquiryRouter);
 
 // All routes below require authentication
 router.use(requireAuth);

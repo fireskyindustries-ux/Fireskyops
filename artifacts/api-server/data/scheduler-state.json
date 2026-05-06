@@ -1,14 +1,14 @@
 {
-  "lastSuccessfulCheck": "2026-05-06T10:05:01.147Z",
+  "lastSuccessfulCheck": "2026-05-06T10:20:46.393Z",
   "lastNotifiedCounts": {
-    "newRecords": 0,
+    "newRecords": 82,
     "staleEnquiries": 8,
     "staleJobs": 6,
     "urgentEnquiries": 3,
     "urgentJobs": 2,
     "overdueFollowUpEnquiries": 2,
     "overdueFollowUpJobs": 2,
-    "noNextActionEnquiries": 155,
+    "noNextActionEnquiries": 196,
     "noNextActionJobs": 2,
     "quotedNoFollowUp": 1,
     "lostNoReason": 1,

@@ -10,6 +10,7 @@ import { Router } from "./AppRouter";
 import { ErrorBoundary } from "./components/error-boundary";
 import TrackPage from "./pages/track";
 import QuoteAcceptPage from "./pages/quotes/accept";
+import GetQuotePage from "./pages/get-quote";
 import { initDarkMode } from "./hooks/use-dark-mode";
 import { brand } from "./brand.config";
 
@@ -179,6 +180,7 @@ function AppRoutes() {
                 <Route path="/sign-up/*?" component={SignUpPage} />
                 <Route path="/track/:token" component={TrackPage} />
                 <Route path="/quote/:token" component={QuoteAcceptPage} />
+                <Route path="/get-quote" component={GetQuotePage} />
                 <Route>
                   <AuthGate />
                 </Route>
