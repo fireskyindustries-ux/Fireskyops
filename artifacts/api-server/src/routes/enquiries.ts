@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { db, enquiriesTable, customersTable, inspectionsTable, jobsTable, quotesTable } from "@workspace/db";
 import { isAdmin, getBranchId } from "../middlewares/requireAuth";
 import {
@@ -226,6 +226,33 @@ router.put("/enquiries/:id", async (req, res): Promise<void> => {
       assignedStaff: enquiry.assignedStaff ?? undefined,
     }),
   );
+});
+
+router.delete("/enquiries/:id", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  const [deleted] = await db
+    .delete(enquiriesTable)
+    .where(eq(enquiriesTable.id, id))
+    .returning();
+  if (!deleted) {
+    res.status(404).json({ error: "Enquiry not found" });
+    return;
+  }
+  res.sendStatus(204);
+});
+
+router.post("/enquiries/bulk-delete", async (req, res): Promise<void> => {
+  const { ids } = req.body as { ids?: number[] };
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "ids must be a non-empty array" });
+    return;
+  }
+  await db.delete(enquiriesTable).where(inArray(enquiriesTable.id, ids));
+  res.json({ success: true, deleted: ids.length });
 });
 
 export default router;

@@ -7,7 +7,6 @@ import quotePublicRouter from "./quote_public";
 import fireVisionRouter from "./firevision";
 import processLeadRouter from "./process-lead";
 import publicEnquiryRouter from "./public-enquiry";
-import cleanupRouter from "./cleanup";
 import customersRouter from "./customers";
 import enquiriesRouter from "./enquiries";
 import inspectionsRouter from "./inspections";
@@ -39,7 +38,6 @@ router.use(quotePublicRouter);
 router.use(fireVisionRouter);
 router.use(processLeadRouter);
 router.use(publicEnquiryRouter);
-router.use(cleanupRouter);
 
 // All routes below require authentication
 router.use(requireAuth);

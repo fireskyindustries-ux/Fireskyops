@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { useListCustomers } from "@workspace/api-client-react";
+import { useListCustomers, getListCustomersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getListCustomersQueryKey } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { Plus, Search, MapPin, Phone, ChevronRight, LayoutList, Map, RefreshCw } from "lucide-react";
+import { Plus, Search, MapPin, Phone, ChevronRight, LayoutList, Map, RefreshCw, CheckSquare, Square, Trash2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +10,16 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@clerk/react";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
@@ -18,7 +27,6 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 
-// Fix Leaflet default marker icons in Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -81,11 +89,7 @@ function CustomerMap({ customers, isAdmin }: { customers: any[]; isAdmin: boolea
   return (
     <div className="space-y-3">
       <div className="rounded-xl overflow-hidden border shadow-sm" style={{ height: "60vh", minHeight: 300 }}>
-        <MapContainer
-          center={center}
-          zoom={mapped.length > 0 ? (mapped.length === 1 ? 12 : 6) : 5}
-          style={{ height: "100%", width: "100%" }}
-        >
+        <MapContainer center={center} zoom={mapped.length > 0 ? (mapped.length === 1 ? 12 : 6) : 5} style={{ height: "100%", width: "100%" }}>
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -101,10 +105,7 @@ function CustomerMap({ customers, isAdmin }: { customers: any[]; isAdmin: boolea
                   {!customer.whatsappLocation && customer.nearestTown && (
                     <p className="text-[10px] text-orange-500">Approximate — town centre</p>
                   )}
-                  <a
-                    href={`/customers/${customer.id}`}
-                    className="inline-block mt-1 text-xs font-semibold text-blue-600 hover:underline"
-                  >
+                  <a href={`/customers/${customer.id}`} className="inline-block mt-1 text-xs font-semibold text-blue-600 hover:underline">
                     Open record →
                   </a>
                 </div>
@@ -113,20 +114,11 @@ function CustomerMap({ customers, isAdmin }: { customers: any[]; isAdmin: boolea
           ))}
         </MapContainer>
       </div>
-
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">{mapped.length} of {customers.length} customers plotted</span>
-        {noCoords.length > 0 && (
-          <span>{noCoords.length} without location</span>
-        )}
+        {noCoords.length > 0 && <span>{noCoords.length} without location</span>}
         {isAdmin && noCoords.length > 0 && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs gap-1.5"
-            onClick={handleGeocodeAll}
-            disabled={geocoding}
-          >
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={handleGeocodeAll} disabled={geocoding}>
             <RefreshCw className={`h-3 w-3 ${geocoding ? "animate-spin" : ""}`} />
             {geocoding ? "Plotting…" : "Plot all from town names"}
           </Button>
@@ -141,14 +133,68 @@ type ViewMode = "list" | "map";
 export default function CustomersList() {
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const debouncedSearch = useDebounce(search, 500);
   const { user } = useUser();
   const isAdmin = user?.publicMetadata?.role === "admin";
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: customers, isLoading, error } = useListCustomers({ search: debouncedSearch || undefined });
 
+  function toggleSelect(id: number, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (!customers) return;
+    if (selectedIds.size === customers.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(customers.map(c => c.id)));
+    }
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
+
+  async function deleteSelected() {
+    setDeleting(true);
+    try {
+      const resp = await fetch(`${BASE}/api/customers/bulk-delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      });
+      if (!resp.ok) throw new Error("Delete failed");
+      queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey() });
+      toast({ title: `Deleted ${selectedIds.size} customer${selectedIds.size === 1 ? "" : "s"}` });
+      exitSelectMode();
+    } catch {
+      toast({ title: "Delete failed. Please try again.", variant: "destructive" });
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  }
+
+  const allSelected = customers ? selectedIds.size === customers.length && customers.length > 0 : false;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-28">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
@@ -156,35 +202,48 @@ export default function CustomersList() {
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
           {/* List / Map toggle */}
-          <div className="flex items-center rounded-full border bg-muted/40 p-0.5 gap-0.5">
-            <button
-              onClick={() => setViewMode("list")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
-                viewMode === "list"
-                  ? "bg-card shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <LayoutList className="h-3.5 w-3.5" /> List
-            </button>
-            <button
-              onClick={() => setViewMode("map")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
-                viewMode === "map"
-                  ? "bg-card shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Map className="h-3.5 w-3.5" /> Map
-            </button>
-          </div>
-          <Link href="/customers/new">
-            <Button size="lg" className="w-full sm:w-auto h-10 px-6 font-semibold">
-              <Plus className="mr-2 h-4 w-4" /> Add Customer
+          {!selectMode && (
+            <div className="flex items-center rounded-full border bg-muted/40 p-0.5 gap-0.5">
+              <button
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
+                  viewMode === "list" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <LayoutList className="h-3.5 w-3.5" /> List
+              </button>
+              <button
+                onClick={() => setViewMode("map")}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
+                  viewMode === "map" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Map className="h-3.5 w-3.5" /> Map
+              </button>
+            </div>
+          )}
+
+          {/* Select mode toggle */}
+          {viewMode === "list" && !selectMode && (
+            <Button size="sm" variant="outline" className="h-9 text-xs gap-1.5" onClick={() => setSelectMode(true)}>
+              <CheckSquare className="h-3.5 w-3.5" /> Select
             </Button>
-          </Link>
+          )}
+          {selectMode && (
+            <Button size="sm" variant="ghost" className="h-9 text-xs gap-1.5" onClick={exitSelectMode}>
+              <X className="h-3.5 w-3.5" /> Cancel
+            </Button>
+          )}
+
+          {!selectMode && (
+            <Link href="/customers/new">
+              <Button size="lg" className="w-full sm:w-auto h-10 px-6 font-semibold">
+                <Plus className="mr-2 h-4 w-4" /> Add Customer
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -197,6 +256,17 @@ export default function CustomersList() {
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
+
+      {/* Select all row */}
+      {selectMode && !isLoading && (customers?.length ?? 0) > 0 && (
+        <button
+          onClick={toggleSelectAll}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {allSelected ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
+          {allSelected ? "Deselect all" : "Select all"}
+        </button>
+      )}
 
       {isLoading ? (
         <div className="space-y-2">
@@ -213,9 +283,28 @@ export default function CustomersList() {
         <CustomerMap customers={customers || []} isAdmin={!!isAdmin} />
       ) : (
         <div className="space-y-2">
-          {customers?.map((customer) => (
-            <Link key={customer.id} href={`/customers/${customer.id}`}>
-              <div className="flex items-center gap-4 p-4 rounded-xl border bg-card hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group">
+          {customers?.map((customer) => {
+            const checked = selectedIds.has(customer.id);
+            const row = (
+              <div
+                className={cn(
+                  "flex items-center gap-4 p-4 rounded-xl border bg-card transition-all group",
+                  selectMode ? "cursor-pointer" : "hover:shadow-md hover:border-primary/30 cursor-pointer",
+                  checked && "border-primary/50 shadow-sm bg-primary/5",
+                )}
+                onClick={selectMode ? (e) => toggleSelect(customer.id, e) : undefined}
+              >
+                {selectMode && (
+                  <button
+                    onClick={(e) => toggleSelect(customer.id, e)}
+                    className="flex-shrink-0 flex items-center justify-center"
+                    aria-label={checked ? "Deselect" : "Select"}
+                  >
+                    {checked
+                      ? <CheckSquare className="h-5 w-5 text-primary" />
+                      : <Square className="h-5 w-5 text-muted-foreground/40" />}
+                  </button>
+                )}
                 <div className={cn(
                   "h-11 w-11 rounded-full flex items-center justify-center font-bold text-base flex-shrink-0",
                   avatarColor(customer.name)
@@ -224,9 +313,9 @@ export default function CustomersList() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-base leading-tight line-clamp-1">{customer.name}</h3>
-                  {customer.farmName ? (
+                  {customer.farmName && (
                     <p className="text-sm text-muted-foreground line-clamp-1">{customer.farmName}</p>
-                  ) : null}
+                  )}
                   <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1">
                     {(customer.nearestTown || customer.province) && (
                       <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -242,12 +331,63 @@ export default function CustomersList() {
                     )}
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors flex-shrink-0" />
+                {!selectMode && <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors flex-shrink-0" />}
               </div>
-            </Link>
-          ))}
+            );
+
+            return selectMode ? (
+              <div key={customer.id}>{row}</div>
+            ) : (
+              <Link key={customer.id} href={`/customers/${customer.id}`}>{row}</Link>
+            );
+          })}
         </div>
       )}
+
+      {/* Floating delete bar */}
+      {selectMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-lg">
+          <div className="bg-card border shadow-2xl rounded-2xl px-4 py-3 flex items-center gap-3">
+            <span className="text-sm font-semibold text-primary flex-1">
+              {selectedIds.size} customer{selectedIds.size === 1 ? "" : "s"} selected
+            </span>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-9 px-4 gap-2 shrink-0"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
+            <Button size="sm" variant="ghost" className="h-9 px-3 shrink-0" onClick={exitSelectMode}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} customer{selectedIds.size === 1 ? "" : "s"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the selected customer{selectedIds.size === 1 ? "" : "s"} and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteSelected}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Yes, delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

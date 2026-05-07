@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, ilike, or, and } from "drizzle-orm";
+import { eq, ilike, or, and, inArray } from "drizzle-orm";
 import { db, customersTable, type Customer } from "@workspace/db";
 import { isAdmin, getBranchId } from "../middlewares/requireAuth";
 
@@ -248,6 +248,16 @@ router.delete("/customers/:id", async (req, res): Promise<void> => {
   }
 
   res.sendStatus(204);
+});
+
+router.post("/customers/bulk-delete", async (req, res): Promise<void> => {
+  const { ids } = req.body as { ids?: number[] };
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "ids must be a non-empty array" });
+    return;
+  }
+  await db.delete(customersTable).where(inArray(customersTable.id, ids));
+  res.json({ success: true, deleted: ids.length });
 });
 
 export default router;

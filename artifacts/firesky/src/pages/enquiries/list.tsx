@@ -1,6 +1,6 @@
 import { useListEnquiries, useUpdateEnquiry, getListEnquiriesQueryKey } from "@workspace/api-client-react";
 import { Link, useSearch, useLocation } from "wouter";
-import { Plus, Filter, ChevronRight, X, CheckSquare, Square } from "lucide-react";
+import { Plus, Filter, ChevronRight, X, CheckSquare, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,6 +10,18 @@ import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const STATUS_STYLES: Record<string, { dot: string; badge: string; label: string }> = {
   new:             { dot: "bg-blue-500",   badge: "bg-blue-50 text-blue-700 border-blue-200",      label: "New" },
@@ -47,54 +59,50 @@ function PipelineTracker({ status }: { status: string }) {
   const isDone = status === "won";
 
   if (isLost) return null;
+  if (isDone) return (
+    <div className="flex items-center gap-1 mt-1.5">
+      {PIPELINE_LABELS.map((_, i) => (
+        <div key={i} className="h-1 flex-1 rounded-full bg-green-500" />
+      ))}
+    </div>
+  );
 
   return (
-    <div className="flex items-center gap-0.5 mt-1.5">
-      {PIPELINE_LABELS.map((label, i) => {
-        const active = i === currentStep;
-        const done = i < currentStep || isDone;
-        return (
-          <div key={label} className="flex items-center gap-0.5">
-            <div className={cn(
-              "text-[9px] font-semibold px-1.5 py-0.5 rounded-full border leading-none",
-              done ? "bg-green-500 text-white border-green-500" :
-              active ? "bg-primary text-primary-foreground border-primary" :
-              "bg-muted/60 text-muted-foreground border-muted-foreground/20"
-            )}>
-              {label}
-            </div>
-            {i < PIPELINE_LABELS.length - 1 && (
-              <div className={cn("w-2 h-px shrink-0", done ? "bg-green-400" : "bg-muted-foreground/20")} />
-            )}
-          </div>
-        );
-      })}
+    <div className="flex items-center gap-1 mt-1.5">
+      {PIPELINE_LABELS.map((_, i) => (
+        <div
+          key={i}
+          className={cn(
+            "h-1 flex-1 rounded-full",
+            i <= currentStep ? "bg-primary" : "bg-muted",
+          )}
+        />
+      ))}
     </div>
   );
 }
 
 const ACTIVE_STATUSES = ["new", "in_progress", "inspection_done", "quoted"];
-
 const QUICK_FILTER_LABELS: Record<string, string> = {
-  stale:            "Stale (no update in 48h)",
-  urgent:           "Urgent — High Priority",
-  overdue_followup: "Overdue Follow-up",
-  no_next_action:   "No Next Action",
+  stale: "Stale (no activity 48h+)",
+  urgent: "High Priority",
+  overdue_follow_up: "Overdue Follow-up",
+  no_next_action: "No Next Action",
 };
 
 function applyQuickFilter(enquiries: any[], filter: string): any[] {
-  const staleThreshold = subHours(new Date(), 48);
+  const now = new Date();
+  const fortyEightHoursAgo = subHours(now, 48);
   const today = new Date().toISOString().slice(0, 10);
-
   switch (filter) {
     case "stale":
       return enquiries.filter(e =>
-        ["new", "in_progress"].includes(e.status) &&
-        new Date(e.updatedAt) < staleThreshold,
+        ACTIVE_STATUSES.includes(e.status) &&
+        new Date(e.updatedAt) < fortyEightHoursAgo,
       );
     case "urgent":
       return enquiries.filter(e => e.priority === "high");
-    case "overdue_followup":
+    case "overdue_follow_up":
       return enquiries.filter(e =>
         ACTIVE_STATUSES.includes(e.status) &&
         e.followUpDueDate &&
@@ -121,6 +129,8 @@ export default function EnquiriesList() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<string>("");
   const [bulkPending, setBulkPending] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const updateEnquiry = useUpdateEnquiry();
 
@@ -164,7 +174,6 @@ export default function EnquiriesList() {
     setBulkPending(true);
     try {
       const ids = Array.from(selectedIds);
-      // Process in batches of 5 to avoid overwhelming the server
       for (let i = 0; i < ids.length; i += 5) {
         await Promise.all(
           ids.slice(i, i + 5).map(id =>
@@ -179,6 +188,27 @@ export default function EnquiriesList() {
       toast({ title: "Some updates failed. Please try again.", variant: "destructive" });
     } finally {
       setBulkPending(false);
+    }
+  }
+
+  async function deleteSelected() {
+    setDeleting(true);
+    try {
+      const resp = await fetch(`${BASE}/api/enquiries/bulk-delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      });
+      if (!resp.ok) throw new Error("Delete failed");
+      queryClient.invalidateQueries({ queryKey: getListEnquiriesQueryKey() });
+      toast({ title: `Deleted ${selectedIds.size} enquir${selectedIds.size === 1 ? "y" : "ies"}` });
+      clearSelection();
+    } catch {
+      toast({ title: "Delete failed. Please try again.", variant: "destructive" });
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   }
 
@@ -198,7 +228,6 @@ export default function EnquiriesList() {
         </Link>
       </div>
 
-      {/* Active quick filter pill */}
       {filterLabel && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-medium text-muted-foreground">Filtered:</span>
@@ -209,18 +238,13 @@ export default function EnquiriesList() {
                 {enquiries.length}
               </span>
             )}
-            <button
-              onClick={() => navigate("/enquiries")}
-              className="ml-0.5 hover:opacity-70 transition-opacity"
-              aria-label="Clear filter"
-            >
+            <button onClick={() => navigate("/enquiries")} className="ml-0.5 hover:opacity-70 transition-opacity" aria-label="Clear filter">
               <X className="h-3 w-3" />
             </button>
           </span>
         </div>
       )}
 
-      {/* Status filter + select-all row */}
       <div className="flex items-center gap-3 flex-wrap">
         {!quickFilter && (
           <>
@@ -246,9 +270,7 @@ export default function EnquiriesList() {
             onClick={toggleSelectAll}
             className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            {allSelected
-              ? <CheckSquare className="h-4 w-4 text-primary" />
-              : <Square className="h-4 w-4" />}
+            {allSelected ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
             {allSelected ? "Deselect all" : "Select all"}
           </button>
         )}
@@ -266,9 +288,7 @@ export default function EnquiriesList() {
           {quickFilter && (
             <p className="text-sm mt-1">
               No records match this filter.{" "}
-              <button onClick={() => navigate("/enquiries")} className="text-primary underline underline-offset-2">
-                Clear filter
-              </button>
+              <button onClick={() => navigate("/enquiries")} className="text-primary underline underline-offset-2">Clear filter</button>
             </p>
           )}
           {!quickFilter && statusFilter !== "all" && (
@@ -290,7 +310,6 @@ export default function EnquiriesList() {
                     <CardContent className="p-0">
                       <div className="flex items-center gap-0">
                         <div className={cn("w-1 self-stretch rounded-l-xl flex-shrink-0", s.dot)} />
-                        {/* Checkbox */}
                         <button
                           onClick={(e) => toggleSelect(enquiry.id, e)}
                           className="flex-shrink-0 flex items-center justify-center w-10 self-stretch hover:bg-muted/50 transition-colors rounded-none"
@@ -345,8 +364,8 @@ export default function EnquiriesList() {
               {selectedIds.size} selected
             </span>
             <Select value={bulkStatus} onValueChange={setBulkStatus}>
-              <SelectTrigger className="flex-1 h-9 text-sm min-w-[160px]">
-                <SelectValue placeholder="Choose action..." />
+              <SelectTrigger className="flex-1 h-9 text-sm min-w-[150px]">
+                <SelectValue placeholder="Change status..." />
               </SelectTrigger>
               <SelectContent>
                 {BULK_STATUS_OPTIONS.map(opt => (
@@ -362,12 +381,42 @@ export default function EnquiriesList() {
             >
               {bulkPending ? "Updating..." : "Apply"}
             </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-9 px-3 shrink-0"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
             <Button size="sm" variant="ghost" className="h-9 px-3 shrink-0" onClick={clearSelection}>
               <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
       )}
+
+      {/* Delete confirmation */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} enquir{selectedIds.size === 1 ? "y" : "ies"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the selected {selectedIds.size === 1 ? "enquiry" : "enquiries"}. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteSelected}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Yes, delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
