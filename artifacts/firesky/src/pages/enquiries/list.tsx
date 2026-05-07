@@ -163,16 +163,20 @@ export default function EnquiriesList() {
     if (!bulkStatus || selectedIds.size === 0) return;
     setBulkPending(true);
     try {
-      await Promise.all(
-        Array.from(selectedIds).map(id =>
-          updateEnquiry.mutateAsync({ id, data: { status: bulkStatus as any } })
-        )
-      );
+      const ids = Array.from(selectedIds);
+      // Process in batches of 5 to avoid overwhelming the server
+      for (let i = 0; i < ids.length; i += 5) {
+        await Promise.all(
+          ids.slice(i, i + 5).map(id =>
+            updateEnquiry.mutateAsync({ id, data: { status: bulkStatus as any } })
+          )
+        );
+      }
       queryClient.invalidateQueries({ queryKey: getListEnquiriesQueryKey() });
       toast({ title: `Updated ${selectedIds.size} enquir${selectedIds.size === 1 ? "y" : "ies"}` });
       clearSelection();
     } catch {
-      toast({ title: "Some updates failed", variant: "destructive" });
+      toast({ title: "Some updates failed. Please try again.", variant: "destructive" });
     } finally {
       setBulkPending(false);
     }
