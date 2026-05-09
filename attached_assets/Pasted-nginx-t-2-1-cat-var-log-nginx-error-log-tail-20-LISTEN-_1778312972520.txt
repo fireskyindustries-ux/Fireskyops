@@ -1,0 +1,26 @@
+nginx -t 2>&1
+cat /var/log/nginx/error.log | tail -20
+LISTEN 0      5        172.16.2.31:80         0.0.0.0:*    users:(("python3",pid=63596,fd=3))
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+2026/05/09 07:24:19 [emerg] 81532#81532: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:24:19 [emerg] 81532#81532: still could not bind()
+2026/05/09 07:30:20 [emerg] 83024#83024: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:30:20 [emerg] 83024#83024: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:30:20 [emerg] 83024#83024: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:30:20 [emerg] 83024#83024: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:30:20 [emerg] 83024#83024: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:30:20 [emerg] 83024#83024: still could not bind()
+2026/05/09 07:38:32 [emerg] 85000#85000: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:38:32 [emerg] 85000#85000: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:38:32 [emerg] 85000#85000: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:38:32 [emerg] 85000#85000: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:38:32 [emerg] 85000#85000: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:38:32 [emerg] 85000#85000: still could not bind()
+2026/05/09 07:45:14 [emerg] 86618#86618: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:45:14 [emerg] 86618#86618: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:45:14 [emerg] 86618#86618: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:45:14 [emerg] 86618#86618: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:45:14 [emerg] 86618#86618: bind() to 0.0.0.0:80 failed (98: Address already in use)
+2026/05/09 07:45:14 [emerg] 86618#86618: still could not bind()
+root@forge:/var/www/firesky/artifacts/api-server#
