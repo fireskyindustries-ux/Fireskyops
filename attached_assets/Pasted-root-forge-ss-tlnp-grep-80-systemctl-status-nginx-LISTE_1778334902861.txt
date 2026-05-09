@@ -1,0 +1,47 @@
+root@forge:~# ss -tlnp | grep :80
+systemctl status nginx
+LISTEN 0      511          0.0.0.0:80         0.0.0.0:*    users:(("nginx",pid=111843,fd=5),("nginx",pid=111842,fd=5),("nginx",pid=87786,fd=5))
+● nginx.service - A high performance web server and a reverse proxy server
+     Loaded: loaded (/lib/systemd/system/nginx.service; enabled; preset: enabled)
+     Active: active (running) since Sat 2026-05-09 07:50:01 UTC; 5h 58min ago
+       Docs: man:nginx(8)
+    Process: 111841 ExecReload=/usr/sbin/nginx -g daemon on; master_process on; -s reload (code=exited, status=0/SUCCESS)
+   Main PID: 87786 (nginx)
+      Tasks: 3 (limit: 4643)
+     Memory: 2.5M                                             CPU: 20ms
+     CGroup: /system.slice/nginx.service                           ├─ 87786 "nginx: master process /usr/sbin/nginx -g daemon on; master_process on;"                           ├─111842 "nginx: worker process"
+             └─111843 "nginx: worker process"
+                                                      May 09 07:50:01 forge systemd[1]: Starting nginx.service - A high performance web server and a reverse proxy server...
+May 09 07:50:01 forge systemd[1]: Started nginx.service - A high performance web server and a reverse proxy server.
+May 09 09:28:00 forge systemd[1]: Reloading nginx.service - A high performance web server and a reverse proxy server...
+May 09 09:28:00 forge nginx[111841]: 2026/05/09 09:28:00 [notice] 111841#111841: signal process started
+May 09 09:28:00 forge systemd[1]: Reloaded nginx.service - A high performance web server and a reverse proxy server.
+root@forge:~# pkill -f "python3 -m http.server" && systemctl start nginx
+root@forge:~# systemctl list-units | grep python
+root@forge:~# certbot --nginx -d fireskyops.tech -d www.fireskyops.tech
+Saving debug log to /var/log/letsencrypt/letsencrypt.log
+Enter email address (used for urgent renewal and security notices)
+ (Enter 'c' to cancel): leemanski2@mail.com                                                                 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Please read the Terms of Service at                   https://letsencrypt.org/documents/LE-SA-v1.6-August-18-2025.pdf. You must agree                             in order to register with the ACME server. Do you agree?
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -                             (Y)es/(N)o: y
+                                                      - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Would you be willing, once your first certificate is successfully issued, to
+share your email address with the Electronic Frontier Foundation, a founding
+partner of the Let's Encrypt project and the non-profit organization that
+develops Certbot? We'd like to send you email about our work encrypting the web,
+EFF news, campaigns, and ways to support digital freedom.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+(Y)es/(N)o: y                                         Account registered.                                   Requesting a certificate for fireskyops.tech and www.fireskyops.tech
+y
+                                                      Certbot failed to authenticate some domains (authenticator: nginx). The Certificate Authority reported these problems:
+  Domain: www.fireskyops.tech
+  Type:   dns
+  Detail: DNS problem: NXDOMAIN looking up A for www.fireskyops.tech - check that a DNS record exists for this domain; DNS problem: NXDOMAIN looking up AAAA for www.fireskyops.tech - check that a DNS record exists for this domain
+
+Hint: The Certificate Authority failed to verify the temporary nginx configuration changes made by Certbot. Ensure the listed domains point to this nginx server and that it is accessible from the internet.
+
+Some challenges have failed.
+Ask for help or search for solutions at https://community.letsencrypt.org. See the logfile /var/log/letsencrypt/letsencrypt.log or re-run Certbot with -v for more details.
+root@forge:~# y
+-bash: y: command not found
+root@forge:~#
