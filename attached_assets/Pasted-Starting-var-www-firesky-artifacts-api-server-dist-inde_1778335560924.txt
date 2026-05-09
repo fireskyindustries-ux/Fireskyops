@@ -1,0 +1,28 @@
+Starting /var/www/firesky/artifacts/api-server/dist/index.mjs in fork_mode (1 instance)
+[PM2] Done.
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐                             │ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤                             │ 0  │ firesky-api        │ fork     │ 0    │ online    │ 0%       │ 13.7mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+root@forge:/var/www/firesky/artifacts/api-server# pm2 logs firesky-api --lines 10 --nostream                [TAILING] Tailing last 10 lines for [firesky-api] process (change the value with --lines option)
+/root/.pm2/logs/firesky-api-error.log last 10 lines:
+0|firesky- | (Use `node --trace-deprecation ...` to show where the warning was created)
+0|firesky- | Error: DATABASE_URL must be set. Did you forget to provision a database?                       0|firesky- |     at ../../lib/db/src/index.ts (/var/www/firesky/lib/db/src/index.ts:8:9)
+0|firesky- |     at __init (file:///var/www/firesky/artifacts/api-server/dist/index.mjs:22:56)
+0|firesky- |     at <anonymous> (/var/www/firesky/artifacts/api-server/src/routes/track.ts:3:1)
+0|firesky- |     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+0|firesky- |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)             0|firesky- |     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+0|firesky- | (node:178963) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+0|firesky- | (Use `node --trace-deprecation ...` to show where the warning was created)
+
+/root/.pm2/logs/firesky-api-out.log last 10 lines:
+0|firesky- | {"level":30,"time":1778335461507,"pid":178963,"hostname":"forge","msg":"[scheduler]   No next action enq:    0"}
+0|firesky- | {"level":30,"time":1778335461507,"pid":178963,"hostname":"forge","msg":"[scheduler]   No next action jobs:   0"}                                     0|firesky- | {"level":30,"time":1778335461507,"pid":178963,"hostname":"forge","msg":"[scheduler]   Quoted, no follow-up:  0"}
+0|firesky- | {"level":30,"time":1778335461507,"pid":178963,"hostname":"forge","msg":"[scheduler]   Lost, no reason:       0"}
+0|firesky- | {"level":30,"time":1778335461507,"pid":178963,"hostname":"forge","msg":"[scheduler]   High access risk:      0"}
+0|firesky- | {"level":30,"time":1778335461507,"pid":178963,"hostname":"forge","msg":"─────────────────────────────────────────────────"}
+0|firesky- | {"level":30,"time":1778335461507,"pid":178963,"hostname":"forge","msg":"[scheduler] No new records since last check — no notification sent"}
+0|firesky- | {"level":30,"time":1778335461507,"pid":178963,"hostname":"forge","msg":"[scheduler] Lead scraper is disabled — skipping"}
+0|firesky- | {"level":30,"time":1778335461507,"pid":178963,"hostname":"forge","msg":"[scheduler] Timestamp saved: 2026-05-09T14:04:21.495Z"}                      0|firesky- | {"level":30,"time":1778335461507,"pid":178963,"hostname":"forge","msg":"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"}
+                                                      root@forge:/var/www/firesky/artifacts/api-server#
