@@ -1,0 +1,27 @@
+root@forge:/var/www/firesky/artifacts/api-server# pm2 logs firesky-api --lines 15 --nostream
+[TAILING] Tailing last 15 lines for [firesky-api] process (change the value with --lines option)
+/root/.pm2/logs/firesky-api-error.log last 15 lines:
+0|firesky- |     at new AuthenticateContext (/var/www/firesky/node_modules/.pnpm/@clerk+backend@3.2.4/node_modules/@clerk/backend/src/tokens/authenticateContext.ts:79:12)
+0|firesky- |     at createAuthenticateContext (/var/www/firesky/node_modules/.pnpm/@clerk+backend@3.2.4/node_modules/@clerk/backend/src/tokens/authenticateContext.ts:394:10)
+0|firesky- |     at authenticateRequest (/var/www/firesky/node_modules/.pnpm/@clerk+backend@3.2.4/node_modules/@clerk/backend/src/tokens/request.ts:151:37)       0|firesky- |     at Proxy.authenticateRequest22 (/var/www/firesky/node_modules/.pnpm/@clerk+backend@3.2.4/node_modules/@clerk/backend/src/tokens/factory.ts:55:12)0|firesky- |     at authenticateRequest (/var/www/firesky/node_modules/.pnpm/@clerk+express@2.0.8_express@5.2.1/node_modules/@clerk/express/src/authenticateRequest.ts:52:22)
+0|firesky- |     at middleware (/var/www/firesky/node_modules/.pnpm/@clerk+express@2.0.8_express@5.2.1/node_modules/@clerk/express/src/authenticateRequest.ts:182:34)
+0|firesky- |     at <anonymous> (/var/www/firesky/node_modules/.pnpm/@clerk+express@2.0.8_express@5.2.1/node_modules/@clerk/express/src/clerkMiddleware.ts:28:5)
+0|firesky- |     at Layer.handleRequest (/var/www/firesky/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:152:17)
+0|firesky- |     at trimPrefix (/var/www/firesky/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:342:13)
+0|firesky- |     at <anonymous> (/var/www/firesky/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:297:9)
+0|firesky- |     at processParams (/var/www/firesky/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:582:12)
+0|firesky- |     at next (/var/www/firesky/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:291:5)                                                    0|firesky- |     at <anonymous> (/var/www/firesky/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:688:15)                                            0|firesky- | (node:179047) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+0|firesky- | (Use `node --trace-deprecation ...` to show where the warning was created)                                                                           /root/.pm2/logs/firesky-api-out.log last 15 lines:    0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"[scheduler]   Urgent enquiries:     0"}                                      0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"[scheduler]   Urgent jobs:          0"}                                      0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"[scheduler] ── Data quality ────────────────────────"}                       0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"[scheduler]   Overdue follow-up enq: 0"}
+0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"[scheduler]   Overdue follow-up jobs: 0"}
+0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"[scheduler]   No next action enq:    0"}
+0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"[scheduler]   No next action jobs:   0"}
+0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"[scheduler]   Quoted, no follow-up:  0"}
+0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"[scheduler]   Lost, no reason:       0"}
+0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"[scheduler]   High access risk:      0"}
+0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"─────────────────────────────────────────────────"}
+0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"[scheduler] No new records since last check — no notification sent"}
+0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"[scheduler] Lead scraper is disabled — skipping"}
+0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"[scheduler] Timestamp saved: 2026-05-09T14:09:48.664Z"}
+0|firesky- | {"level":30,"time":1778335788677,"pid":179047,"hostname":"forge","msg":"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"}
+
+root@forge:/var/www/firesky/artifacts/api-server#
