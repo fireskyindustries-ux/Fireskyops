@@ -3,10 +3,11 @@ import { Link } from "wouter";
 import { Plus, RefreshCw, AlertTriangle, Wifi, WifiOff, Droplets, LogOut } from "lucide-react";
 import { apiFetch, Tank, levelColor, levelLabel, offlineStatus, formatLitres, timeAgo } from "@/lib/api";
 import { TankLevel } from "@/components/tank-level";
-import { useAuth } from "@/context/auth";
+import { useUser, useClerk } from "@clerk/react";
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useClerk();
   const [tanks, setTanks] = useState<Tank[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,8 +30,7 @@ export default function Dashboard() {
   const offline = tanks.filter(t => offlineStatus(t.lastSeenAt));
 
   async function handleLogout() {
-    await fetch("/api/portal/auth/logout", { method: "POST", credentials: "include" });
-    window.location.href = "/monitor/";
+    await signOut();
   }
 
   return (
@@ -43,7 +43,7 @@ export default function Dashboard() {
             <span className="font-semibold text-white text-sm">Tank Monitor</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-[hsl(24_8%_55%)] hidden sm:block">{user?.name}</span>
+            <span className="text-xs text-[hsl(24_8%_55%)] hidden sm:block">{user?.fullName ?? user?.primaryEmailAddress?.emailAddress}</span>
             <button
               onClick={handleLogout}
               className="p-1.5 rounded-full text-[hsl(24_8%_45%)] hover:text-white hover:bg-white/10 transition-colors"

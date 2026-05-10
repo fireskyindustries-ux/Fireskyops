@@ -88,11 +88,11 @@ app.use("/api", liveDataRouter);
 // Device ingest — IoT API key auth, no Clerk
 app.use("/api", deviceIngestRouter);
 
-// Portal routes — Google OAuth session cookie auth, no Clerk
+app.use(clerkMiddleware());
+
+// Portal routes — Clerk JWT auth (same session as field ops app)
 app.use("/api/portal", portalAuthRouter);
 app.use("/api/portal", portalTanksRouter);
-
-app.use(clerkMiddleware());
 
 app.use("/api", router);
 

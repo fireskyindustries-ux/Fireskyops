@@ -663,6 +663,9 @@ importers:
 
   artifacts/monitor:
     devDependencies:
+      '@clerk/react':
+        specifier: ^6.1.4
+        version: 6.4.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@hookform/resolvers':
         specifier: ^3.10.0
         version: 3.10.0(react-hook-form@7.71.2(react@19.1.0))
