@@ -20,10 +20,10 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     if (fromParam && toParam) return and(gte(col, fromParam), lte(col, toParam));
     if (fromParam) return gte(col, fromParam);
     if (toParam) return lte(col, toParam);
-    return undefined;
+    return sql`true`;
   };
 
-  const INACTIVE = ["won", "lost", "closed"] as const;
+  const INACTIVE: string[] = ["won", "lost", "closed"];
 
   const [customers, enquiries, jobs, recentEnquiriesRaw, recentJobsRaw,
          staleEnquiries, staleJobs, urgentEnquiries, urgentJobs,

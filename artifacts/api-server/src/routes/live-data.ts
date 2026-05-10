@@ -60,7 +60,7 @@ router.get("/live-data", requireApiKey, async (_req, res) => {
           return acc;
         }, {})
       ).map(([status, c]) => ({ status, count: c })),
-      branches: branches.map((b) => ({ id: b.id, name: b.name, code: b.code, active: b.isActive })),
+      branches: branches.map((b) => ({ id: b.id, name: b.name, region: b.region })),
       stock_levels: stock,
     });
   } catch (err: any) {

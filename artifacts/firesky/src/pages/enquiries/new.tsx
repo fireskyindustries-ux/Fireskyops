@@ -155,7 +155,7 @@ export default function NewEnquiry() {
         data: {
           customerId,
           title: data.title,
-          priority: data.priority || "medium",
+          priority: (data.priority || "medium") as any,
           tankSize: data.tankSize || undefined,
           tankQuantity: data.tankQuantity ? Number(data.tankQuantity) : undefined,
           description: data.description || undefined,

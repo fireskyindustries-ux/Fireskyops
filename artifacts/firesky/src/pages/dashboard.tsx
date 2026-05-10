@@ -411,7 +411,7 @@ export default function Dashboard() {
             {summary.recentEnquiries.length === 0 ? (
               <p className="text-sm text-muted-foreground py-6 text-center">No recent enquiries</p>
             ) : (
-              summary.recentEnquiries.map((enquiry) => {
+              summary.recentEnquiries.map((enquiry: any) => {
                 const s = ENQUIRY_STATUS_STYLES[enquiry.status] ?? ENQUIRY_STATUS_STYLES.new;
                 return (
                   <Link key={enquiry.id} href={`/enquiries/${enquiry.id}`}>
@@ -458,7 +458,7 @@ export default function Dashboard() {
             {summary.recentJobs.length === 0 ? (
               <p className="text-sm text-muted-foreground py-6 text-center">No recent jobs</p>
             ) : (
-              summary.recentJobs.map((job) => {
+              summary.recentJobs.map((job: any) => {
                 const s = JOB_STAGE_STYLES[job.stage] ?? JOB_STAGE_STYLES.enquiry;
                 return (
                   <Link key={job.id} href={`/jobs/${job.id}`}>

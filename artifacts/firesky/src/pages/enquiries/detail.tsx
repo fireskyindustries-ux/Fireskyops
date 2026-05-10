@@ -262,7 +262,7 @@ function SendQuoteSection({
       // Step 3: Open WhatsApp with the quote link
       if (token) {
         const quoteUrl = `${window.location.origin}${BASE}/quote/${token}`;
-        const waText = brand.whatsapp.quoteReady(customerName, quoteUrl);
+        const waText = brand.whatsapp.quoteReady(customerName ?? undefined, quoteUrl);
         window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, "_blank");
       }
 
@@ -337,7 +337,7 @@ function SendQuoteSection({
               {quoteToken && (
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(
-                    brand.whatsapp.quoteReady(customerName, `${window.location.origin}${BASE}/quote/${quoteToken}`)
+                    brand.whatsapp.quoteReady(customerName ?? undefined, `${window.location.origin}${BASE}/quote/${quoteToken}`)
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -439,9 +439,12 @@ export default function EnquiryDetail() {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
 
-  const { data: enquiry, isLoading, error } = useGetEnquiry(id, {
+  const { data: _enquiryRaw, isLoading, error } = useGetEnquiry(id, {
     query: { enabled: !!id, queryKey: getGetEnquiryQueryKey(id) }
   });
+  // Cast to any — API returns extra fields (nextAction, nextActionDate, followUpDueDate,
+  // quoteId, quoteToken, quoteStatus, quotePaymentProofUrl) not yet in generated spec type.
+  const enquiry = _enquiryRaw as any;
 
   const startEdit = () => {
     setEditForm({

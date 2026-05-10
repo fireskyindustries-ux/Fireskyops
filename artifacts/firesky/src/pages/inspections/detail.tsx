@@ -81,7 +81,7 @@ export default function InspectionDetail() {
   const handleSavePhotos = () => {
     const photoUrls = photos.filter((p): p is string => p !== null);
     updateInspection.mutate(
-      { id, data: { photoUrls: photoUrls.length > 0 ? photoUrls : [] as any } },
+      { id, data: { photoUrls: photoUrls.length > 0 ? photoUrls : [] } as any },
       {
         onSuccess: () => {
           toast({ title: "Photos saved" });
@@ -110,7 +110,7 @@ export default function InspectionDetail() {
           signatureUrl: signatureDataUrl,
           signedOffBy,
           signedOffAt: new Date() as any,
-        },
+        } as any,
       },
       {
         onSuccess: () => {

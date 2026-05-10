@@ -141,7 +141,7 @@ export default function JobsPipeline() {
     const newIdx = direction === "next" ? idx + 1 : idx - 1;
     if (newIdx >= 0 && newIdx < STAGES.length) {
       updateJob.mutate(
-        { id: jobId, data: { stage: STAGES[newIdx].id as any } },
+        { id: jobId, data: { stage: STAGES[newIdx].id } as any },
         { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() }) }
       );
     }
@@ -150,7 +150,7 @@ export default function JobsPipeline() {
   const handleCloseAs = (e: React.MouseEvent, jobId: number, outcome: "won" | "lost" | "closed") => {
     e.preventDefault();
     updateJob.mutate(
-      { id: jobId, data: { stage: outcome as any } },
+      { id: jobId, data: { stage: outcome } as any },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
@@ -189,7 +189,7 @@ export default function JobsPipeline() {
     try {
       await Promise.all(
         Array.from(selectedIds).map(id =>
-          updateJob.mutateAsync({ id, data: { stage: bulkStage as any } })
+          updateJob.mutateAsync({ id, data: { stage: bulkStage } as any })
         )
       );
       queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });

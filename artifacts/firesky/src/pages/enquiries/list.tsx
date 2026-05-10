@@ -177,7 +177,7 @@ export default function EnquiriesList() {
       for (let i = 0; i < ids.length; i += 5) {
         await Promise.all(
           ids.slice(i, i + 5).map(id =>
-            updateEnquiry.mutateAsync({ id, data: { status: bulkStatus as any } })
+            updateEnquiry.mutateAsync({ id, data: { status: bulkStatus } as any })
           )
         );
       }

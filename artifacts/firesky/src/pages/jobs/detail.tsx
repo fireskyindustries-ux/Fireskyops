@@ -387,7 +387,7 @@ export default function JobDetail() {
   });
 
   const handleStageChange = (newStage: string) => {
-    updateJob.mutate({ id, data: { stage: newStage as any } }, {
+    updateJob.mutate({ id, data: { stage: newStage } as any }, {
       onSuccess: () => {
         toast({ title: "Job stage updated" });
         queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) });

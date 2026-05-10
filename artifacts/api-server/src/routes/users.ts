@@ -6,7 +6,8 @@ const router = Router();
 
 const clerkSecretKey = process.env.CLERK_SECRET_KEY!;
 
-async function clerkFetch(path: string, options?: RequestInit) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function clerkFetch(path: string, options?: RequestInit): Promise<any> {
   const res = await fetch(`https://api.clerk.com/v1${path}`, {
     ...options,
     headers: {
@@ -23,11 +24,11 @@ async function clerkFetch(path: string, options?: RequestInit) {
 }
 
 // Get current user's own role/profile info
-router.get("/users/me", async (req: any, res) => {
+router.get("/users/me", async (req: any, res): Promise<void> => {
   try {
     const auth = getAuth(req);
     const userId = auth?.userId;
-    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
     const user = await clerkFetch(`/users/${userId}`);
     res.json({
       id: user.id,
@@ -43,13 +44,13 @@ router.get("/users/me", async (req: any, res) => {
 });
 
 // Update own display name (any authenticated user)
-router.patch("/users/me/name", async (req: any, res) => {
+router.patch("/users/me/name", async (req: any, res): Promise<void> => {
   try {
     const auth = getAuth(req);
     const userId = auth?.userId;
-    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
     const { firstName, lastName } = req.body;
-    if (!firstName?.trim()) return res.status(400).json({ error: "First name is required" });
+    if (!firstName?.trim()) { res.status(400).json({ error: "First name is required" }); return; }
     const user = await clerkFetch(`/users/${userId}`, {
       method: "PATCH",
       body: JSON.stringify({ first_name: firstName.trim(), last_name: (lastName || "").trim() || null }),
@@ -82,12 +83,12 @@ router.get("/users", requireAdmin, async (_req, res) => {
 });
 
 // Update a user's role (admin only)
-router.patch("/users/:userId/role", requireAdmin, async (req, res) => {
+router.patch("/users/:userId/role", requireAdmin, async (req, res): Promise<void> => {
   try {
     const { userId } = req.params;
     const { role } = req.body;
     if (!["admin", "branch_admin", "field_worker", "user", "guest", "customer"].includes(role)) {
-      return res.status(400).json({ error: "Invalid role" });
+      res.status(400).json({ error: "Invalid role" }); return;
     }
     // Normalise customer → guest so the frontend role check works consistently
     const normalisedRole = role === "customer" ? "guest" : role;
@@ -122,10 +123,10 @@ router.patch("/users/:userId/branch", requireAdmin, async (req, res) => {
 });
 
 // Send an invitation (admin only)
-router.post("/users/invite", requireAdmin, async (req, res) => {
+router.post("/users/invite", requireAdmin, async (req, res): Promise<void> => {
   try {
     const { email, role = "user" } = req.body;
-    if (!email) return res.status(400).json({ error: "Email is required" });
+    if (!email) { res.status(400).json({ error: "Email is required" }); return; }
 
     // Resolve the app URL for the invitation redirect — try several sources
     const appUrl =
@@ -153,15 +154,15 @@ router.post("/users/invite", requireAdmin, async (req, res) => {
 });
 
 // First-time setup: claim admin if no admins exist yet
-router.post("/users/claim-admin", async (req: any, res) => {
+router.post("/users/claim-admin", async (req: any, res): Promise<void> => {
   try {
     const auth = getAuth(req);
     const userId = auth?.userId;
-    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
     const allUsers: any[] = await clerkFetch("/users?limit=100");
     const hasAdmin = allUsers.some((u) => u.public_metadata?.role === "admin");
     if (hasAdmin) {
-      return res.status(403).json({ error: "An admin already exists. Ask your admin to grant you access." });
+      res.status(403).json({ error: "An admin already exists. Ask your admin to grant you access." }); return;
     }
     const user = await clerkFetch(`/users/${userId}`, {
       method: "PATCH",

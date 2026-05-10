@@ -654,7 +654,7 @@ router.post("/sky-vision/conversations/:id/chat", async (req, res): Promise<void
           stream: true,
         }));
 
-        for await (const event of responseStream) {
+        for await (const event of responseStream as AsyncIterable<any>) {
           if (event?.type === "response.output_text.delta" && typeof event.delta === "string") {
             fullResponse += event.delta;
             sseWrite({ content: event.delta });

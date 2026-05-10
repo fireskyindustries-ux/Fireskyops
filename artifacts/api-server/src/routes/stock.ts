@@ -25,9 +25,9 @@ router.get("/items", requireAuth, async (req, res) => {
 });
 
 // Create stock item — admin only
-router.post("/items", requireAdmin, async (req, res) => {
+router.post("/items", requireAdmin, async (req, res): Promise<void> => {
   const { name, description, unit, category } = req.body;
-  if (!name) return res.status(400).json({ error: "name is required" });
+  if (!name) { res.status(400).json({ error: "name is required" }); return; }
   try {
     const [item] = await db.insert(stockItemsTable).values({ name, description, unit: unit || "units", category }).returning();
     res.status(201).json(item);
@@ -38,7 +38,7 @@ router.post("/items", requireAdmin, async (req, res) => {
 });
 
 // Update stock item — admin only
-router.patch("/items/:id", requireAdmin, async (req, res) => {
+router.patch("/items/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const { name, description, unit, category } = req.body;
   try {
@@ -47,7 +47,7 @@ router.patch("/items/:id", requireAdmin, async (req, res) => {
       .set({ name, description, unit, category })
       .where(eq(stockItemsTable.id, id))
       .returning();
-    if (!item) return res.status(404).json({ error: "Not found" });
+    if (!item) { res.status(404).json({ error: "Not found" }); return; }
     res.json(item);
   } catch (err) {
     console.error("stock PATCH /items/:id", err);
@@ -70,13 +70,13 @@ router.delete("/items/:id", requireAdmin, async (req, res) => {
 // ─── Stock Levels per branch ──────────────────────────────────────────────────
 
 // Get stock levels for a specific branch
-router.get("/levels/:branchId", requireAuth, async (req, res) => {
+router.get("/levels/:branchId", requireAuth, async (req, res): Promise<void> => {
   const branchId = Number(req.params.branchId);
   const userBranchId = getBranchId(req);
 
   // Non-super-admin can only see their own branch
   if (!isAdmin(req) && userBranchId !== branchId) {
-    return res.status(403).json({ error: "Forbidden" });
+    res.status(403).json({ error: "Forbidden" }); return;
   }
 
   try {
@@ -133,19 +133,19 @@ router.get("/summary", requireAdmin, async (req, res) => {
 // ─── Stock Movements ──────────────────────────────────────────────────────────
 
 // Record a stock movement (in / out / adjustment)
-router.post("/movements", requireBranchAdmin, async (req, res) => {
+router.post("/movements", requireBranchAdmin, async (req, res): Promise<void> => {
   const { branchId, stockItemId, type, quantity, note } = req.body;
   const userId = (req as any).userId;
   const userBranchId = getBranchId(req);
 
   if (!branchId || !stockItemId || !type || quantity == null) {
-    return res.status(400).json({ error: "branchId, stockItemId, type and quantity are required" });
+    res.status(400).json({ error: "branchId, stockItemId, type and quantity are required" }); return;
   }
   if (!["in", "out", "adjustment"].includes(type)) {
-    return res.status(400).json({ error: "type must be in, out, or adjustment" });
+    res.status(400).json({ error: "type must be in, out, or adjustment" }); return;
   }
   if (!isAdmin(req) && userBranchId !== Number(branchId)) {
-    return res.status(403).json({ error: "Forbidden" });
+    res.status(403).json({ error: "Forbidden" }); return;
   }
 
   try {
@@ -188,12 +188,12 @@ router.post("/movements", requireBranchAdmin, async (req, res) => {
 });
 
 // Get movement history for a branch
-router.get("/movements/:branchId", requireAuth, async (req, res) => {
+router.get("/movements/:branchId", requireAuth, async (req, res): Promise<void> => {
   const branchId = Number(req.params.branchId);
   const userBranchId = getBranchId(req);
 
   if (!isAdmin(req) && userBranchId !== branchId) {
-    return res.status(403).json({ error: "Forbidden" });
+    res.status(403).json({ error: "Forbidden" }); return;
   }
 
   try {

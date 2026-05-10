@@ -14,7 +14,7 @@ async function geocodeAddress(query: string): Promise<{ lat: number; lng: number
       headers: { "User-Agent": "FireskyFieldOps/1.0 (field-ops-management)" },
     });
     if (!res.ok) return null;
-    const data: any[] = await res.json();
+    const data = (await res.json()) as any[];
     if (data[0]?.lat && data[0]?.lon) {
       return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
     }
@@ -49,7 +49,7 @@ router.get("/:id", requireBranchAdmin, async (req, res) => {
   const id = Number(req.params.id);
   try {
     const [branch] = await db.select().from(branchesTable).where(eq(branchesTable.id, id));
-    if (!branch) return res.status(404).json({ error: "Not found" });
+    if (!branch) { res.status(404).json({ error: "Not found" }); return; }
     res.json(branch);
   } catch (err) {
     console.error("branches GET /:id", err);
@@ -58,9 +58,9 @@ router.get("/:id", requireBranchAdmin, async (req, res) => {
 });
 
 // Create branch — super admin only
-router.post("/", requireAdmin, async (req, res) => {
+router.post("/", requireAdmin, async (req, res): Promise<void> => {
   const { name, region, address, phone, email } = req.body;
-  if (!name) return res.status(400).json({ error: "name is required" });
+  if (!name) { res.status(400).json({ error: "name is required" }); return; }
   try {
     const [branch] = await db.insert(branchesTable).values({ name, region, address, phone, email }).returning();
 
@@ -82,7 +82,7 @@ router.post("/", requireAdmin, async (req, res) => {
 });
 
 // Update branch — super admin only
-router.patch("/:id", requireAdmin, async (req, res) => {
+router.patch("/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const { name, region, address, phone, email } = req.body;
   try {
@@ -91,7 +91,7 @@ router.patch("/:id", requireAdmin, async (req, res) => {
       .set({ name, region, address, phone, email })
       .where(eq(branchesTable.id, id))
       .returning();
-    if (!branch) return res.status(404).json({ error: "Not found" });
+    if (!branch) { res.status(404).json({ error: "Not found" }); return; }
 
     // Re-geocode when address/region/name changes
     const geoQuery = buildGeoQuery(address, region, name);
