@@ -1,0 +1,46 @@
+What we're building: "Firesky Tank Monitor"
+A separate customer-facing app, same Firesky branding, at its own path (e.g. fireskyops.tech/monitor).
+
+Customer journey:
+
+Buys tank + sensor from Firesky
+Field worker installs, sticks QR code on the unit (QR encodes the device serial number)
+Customer scans QR → opens portal → signs in with Google → tank links to their account
+Selects subscription tier → pays via PayFast → monitoring goes live
+Hourly readings flow in, customer sees live levels
+New database tables:
+
+portal_users — Google ID, email, name, avatar
+portal_subscriptions — user, tier, max_tanks, price, PayFast subscription ID, status, next billing date
+tanks — serial number, portal_user_id, branch_id, capacity, dimensions, tank type, lat/lng, alert threshold
+tank_readings — tank_id, level_cm, level_percent, litres, battery, recorded_at
+tank_support_requests — tank_id, message, status (open/resolved)
+Customer portal pages:
+
+/monitor — dashboard, all tanks with colour-coded level bars
+/monitor/tanks/:id — tank detail: animated level diagram, map pin, history chart, support button
+/monitor/register — scan QR or type serial to add a tank
+/monitor/subscription — manage/upgrade plan via PayFast
+/monitor/sign-in — Google login
+Staff (Field Ops) additions:
+
+Tank widget on each customer's record
+/tanks overview page for admins
+Dashboard alert cards for: low tanks, sensors offline 2+ hours, open support requests
+Sky AI:
+
+Customer portal: Sky answers questions about their own tanks only
+Staff Sky: full tank visibility across all branches — "Which farms are below 20%?"
+PayFast:
+
+Recurring subscription billing in ZAR
+Webhook updates subscription status automatically
+Tanks locked if subscription lapses
+Build order when ready:
+
+DB schema (tanks + readings + portal users + subscriptions)
+API routes (device ingestion + portal auth + PayFast webhook)
+Customer portal app (new artifact)
+Staff-side tank pages
+Sky AI tank tools
+This is ready to build whenever Clerk is sorted and you want to kick it off. Anything you want to adjust in the plan before we start?
