@@ -11,6 +11,9 @@ import {
   stockItemsTable,
   stockLevelsTable,
   stockMovementsTable,
+  tanksTable,
+  tankReadingsTable,
+  portalUsersTable,
 } from "@workspace/db";
 import { requireAdmin, requireAuth } from "../middlewares/requireAuth";
 import { smartQuery } from "../lib/gemini-query";
@@ -627,6 +630,24 @@ const ADMIN_TOOLS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "query_tanks",
+      description: "Query the IoT tank monitor system. Lists all registered tanks across all portal customers with their latest readings, battery, online status, and alert thresholds. Use for questions like 'which farms are below 20%?', 'list offline sensors', 'any tanks critically low?', 'how many tanks are online?'.",
+      parameters: {
+        type: "object",
+        properties: {
+          filter: {
+            type: "string",
+            enum: ["all", "offline", "low", "critical", "online"],
+            description: "all = every tank, offline = no reading in 2h, low = below alert threshold, critical = below 20%, online = reporting in last 2h",
+          },
+        },
+        required: ["filter"],
+      },
+    },
+  },
 ] as const;
 
 // ADMIN_TOOLS is already in OpenAI function-calling format — used directly.
@@ -1141,6 +1162,83 @@ async function executeTool(name: string, args: Record<string, any>): Promise<Too
         };
       }
 
+      case "query_tanks": {
+        const { filter } = args as { filter: "all" | "offline" | "low" | "critical" | "online" };
+        const allTanks = await db
+          .select({
+            id: tanksTable.id,
+            serialNumber: tanksTable.serialNumber,
+            name: tanksTable.name,
+            locationDescription: tanksTable.locationDescription,
+            capacityLitres: tanksTable.capacityLitres,
+            alertThresholdPercent: tanksTable.alertThresholdPercent,
+            lastSeenAt: tanksTable.lastSeenAt,
+            portalUserId: tanksTable.portalUserId,
+          })
+          .from(tanksTable);
+
+        const now = Date.now();
+        const OFFLINE_MS = 2 * 60 * 60 * 1000;
+
+        const tanksWithReadings = await Promise.all(
+          allTanks.map(async (tank) => {
+            const [latestReading] = await db
+              .select()
+              .from(tankReadingsTable)
+              .where(eq(tankReadingsTable.tankId, tank.id))
+              .orderBy(desc(tankReadingsTable.recordedAt))
+              .limit(1);
+
+            const [portalUser] = tank.portalUserId
+              ? await db
+                  .select({ name: portalUsersTable.name, email: portalUsersTable.email })
+                  .from(portalUsersTable)
+                  .where(eq(portalUsersTable.id, tank.portalUserId))
+              : [null];
+
+            const isOffline = !tank.lastSeenAt || now - new Date(tank.lastSeenAt).getTime() > OFFLINE_MS;
+            const levelPct = latestReading ? Number(latestReading.levelPercent) : null;
+            const isBelowAlert = levelPct !== null && levelPct < tank.alertThresholdPercent;
+            const isCritical = levelPct !== null && levelPct < 20;
+
+            return { tank, latestReading: latestReading ?? null, portalUser: portalUser ?? null, isOffline, levelPct, isBelowAlert, isCritical };
+          }),
+        );
+
+        let filtered = tanksWithReadings;
+        if (filter === "offline") filtered = tanksWithReadings.filter((t) => t.isOffline);
+        else if (filter === "low") filtered = tanksWithReadings.filter((t) => t.isBelowAlert);
+        else if (filter === "critical") filtered = tanksWithReadings.filter((t) => t.isCritical);
+        else if (filter === "online") filtered = tanksWithReadings.filter((t) => !t.isOffline);
+
+        if (filtered.length === 0) {
+          const labels: Record<string, string> = {
+            offline: "offline tanks",
+            low: "tanks below alert threshold",
+            critical: "tanks below 20%",
+            online: "online tanks",
+            all: "registered tanks",
+          };
+          return { result: `No ${labels[filter] ?? "tanks"} found.` };
+        }
+
+        const lines = filtered.map(({ tank, latestReading, portalUser, isOffline, levelPct }) => {
+          const label = tank.name ?? tank.serialNumber;
+          const loc = tank.locationDescription ? ` — ${tank.locationDescription}` : "";
+          const owner = portalUser ? ` (owner: ${portalUser.name ?? portalUser.email})` : "";
+          const level = levelPct !== null
+            ? `${levelPct.toFixed(1)}% full (${Number(latestReading!.litres).toFixed(0)}L of ${tank.capacityLitres}L)`
+            : "no readings";
+          const battery = latestReading?.batteryPercent != null ? `, battery: ${latestReading.batteryPercent}%` : "";
+          const status = isOffline ? "OFFLINE" : "online";
+          const alert = levelPct !== null && levelPct < tank.alertThresholdPercent ? " ⚠ below alert" : "";
+          return `- ${label}${loc}${owner}: ${level}${battery}, status: ${status}${alert}`;
+        });
+
+        const summary = `Found ${filtered.length} tank${filtered.length !== 1 ? "s" : ""} (filter: ${filter}):\n${lines.join("\n")}`;
+        return { result: summary };
+      }
+
       default:
         return { result: `Unknown tool: ${name}` };
     }
@@ -1175,6 +1273,7 @@ function getThinkingMessage(name: string, args: Record<string, any>): string {
     case "record_stock_movement": return `Recording ${args.type} of ${args.quantity} × ${args.item_name} at Branch #${args.branch_id}...`;
     case "create_stock_item": return `Creating stock item "${args.name}"...`;
     case "update_stock_item": return `Updating stock item "${args.item_name}"...`;
+    case "query_tanks": return `Checking tank monitor data (${args.filter})...`;
     default: return `Working on it...`;
   }
 }

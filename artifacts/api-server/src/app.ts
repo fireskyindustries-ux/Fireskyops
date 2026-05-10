@@ -9,6 +9,7 @@ import mcpSseRouter from "./routes/mcp_sse";
 import liveDataRouter from "./routes/live-data";
 import portalAuthRouter from "./routes/portal-auth";
 import portalTanksRouter from "./routes/portal-tanks";
+import portalSkyRouter from "./routes/portal-sky";
 import deviceIngestRouter from "./routes/device-ingest";
 import { logger } from "./lib/logger";
 import path from "path";
@@ -93,6 +94,7 @@ app.use(clerkMiddleware());
 // Portal routes — Clerk JWT auth (same session as field ops app)
 app.use("/api/portal", portalAuthRouter);
 app.use("/api/portal", portalTanksRouter);
+app.use("/api/portal", portalSkyRouter);
 
 app.use("/api", router);
 

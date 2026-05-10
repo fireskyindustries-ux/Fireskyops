@@ -5,6 +5,7 @@ import Dashboard from "@/pages/dashboard";
 import TankDetail from "@/pages/tank-detail";
 import RegisterTank from "@/pages/register-tank";
 import Subscription from "@/pages/subscription";
+import { PortalSky } from "@/components/portal-sky";
 
 const queryClient = new QueryClient();
 
@@ -65,7 +66,12 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   const { isSignedIn, isLoaded } = useAuth();
   if (!isLoaded) return <Spinner />;
   if (!isSignedIn) return <Redirect to="/sign-in" />;
-  return <Component />;
+  return (
+    <>
+      <Component />
+      <PortalSky />
+    </>
+  );
 }
 
 function AppRouter() {

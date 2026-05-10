@@ -159,12 +159,25 @@ A separate standalone web app for all Firesky staff at `/sky-vision/` (port 8081
 - **lib/db/src/schema/** — Drizzle DB schema (customers, enquiries, inspections, jobs, branches, stock_items, stock_levels, stock_movements)
 - **sky_memory_chunks** — pgvector table (created at startup via seed.ts raw SQL, NOT via drizzle-kit push). Columns: id, user_id, content, embedding vector(1536), source, source_id, created_at
 - **sky_diary_events** — personal diary/calendar table (created via seed.ts raw SQL, NOT drizzle-kit). Columns: id, user_id, title, description, start_at, end_at, all_day, type (event/meeting/task/reminder), status (scheduled/completed/cancelled), location, color (orange/blue/green/red/purple), created_at, updated_at
-- **artifacts/api-server/src/routes/sky.ts** — `/api/sky/chat` SSE endpoint with GPT-5 tool-calling, true token streaming on all paths
+- **artifacts/api-server/src/routes/sky.ts** — `/api/sky/chat` SSE endpoint with GPT-5 tool-calling, true token streaming on all paths. Admin tool `query_tanks` queries all IoT tanks (filters: all/offline/low/critical/online).
+- **artifacts/api-server/src/routes/portal-sky.ts** — `/api/portal/sky/chat` for Tank Monitor portal. requirePortalAuth, injects live tank data per portal user, streaming SSE. Customer-facing language.
 - **artifacts/api-server/src/routes/sky-vision.ts** — Sky Vision routes: conversations, memory chunks, diary CRUD (`/api/sky-vision/diary`), chat SSE with Responses API + diary function tools + web search
 - **artifacts/sky-vision/src/pages/calendar.tsx** — Month calendar view for Sky Vision diary; route: `/calendar`
 - **artifacts/firesky/src/components/sky/** — Sky context provider, panel, floating button, inline button
 - **artifacts/api-server/src/routes/** — Express route handlers
 - **artifacts/firesky/src/** — React frontend app
+
+## Tank Monitor Portal (artifacts/monitor/)
+
+Customer-facing IoT water tank monitoring app at `/monitor/`. Same Clerk instance as field ops — no separate login.
+
+- **Auth**: Clerk (Google + email/password). `requirePortalAuth` middleware uses `getAuth()` + upserts `portal_users` row by `clerkUserId`.
+- **Pages**: dashboard (all tanks, animated SVG level indicators), tank-detail (recharts area chart, 7-day history), register-tank, subscription
+- **Colour coding**: red <20%, amber <50%, green ≥50%
+- **Device ingest**: `POST /api/tanks/ingest` authenticated by `FIREVISION_API_KEY` header — accepts `{ serialNumber, levelPercent, litres, batteryPercent }` payloads from IoT firmware
+- **Portal Sky**: floating "Ask Sky" button on all portal pages (`PortalSky` component in `artifacts/monitor/src/components/portal-sky.tsx`). Calls `POST /api/portal/sky/chat` — injects live tank readings for that customer into GPT-5 system prompt. Streaming SSE. 4 suggested quick-prompts.
+- **Staff-side**: `/tanks` page in Firesky field ops (admin + branch_admin only) — sortable by level/last seen/name, level progress bars, register device dialog
+- **Admin Sky tool**: `query_tanks` in `ADMIN_TOOLS` — lets Sky answer "which farms below 20%?", "list offline sensors" etc. across all portal customers
 
 ## Data Models
 
@@ -176,6 +189,11 @@ A separate standalone web app for all Firesky staff at `/sky-vision/` (port 8081
 - **StockItem** — global catalogue item (name, unit, category, description)
 - **StockLevel** — quantity per branch per item
 - **StockMovement** — in/out/adjustment record per branch
+- **PortalUser** — clerk_user_id, name, email, phone (tank monitor portal account, auto-created on first sign-in)
+- **PortalSubscription** — plan, status, dates per portal user
+- **Tank** — serialNumber, name, capacityLitres, alertThresholdPercent, locationDescription, lastSeenAt, portalUserId
+- **TankReading** — tankId, levelPercent, litres, batteryPercent, recordedAt (time-series IoT readings)
+- **TankSupportRequest** — subject, message, status per tank/portal user
 
 ## Important Notes
 - Do NOT re-add PWA — it breaks publishing
