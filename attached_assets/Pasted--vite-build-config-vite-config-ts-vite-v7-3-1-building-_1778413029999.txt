@@ -1,0 +1,35 @@
+$ vite build --config vite.config.ts
+vite v7.3.1 building client environment for production...
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/select.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/sheet.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 3179 modules transformed.
+dist/public/index.html                              1.33 kB │ gzip:   0.62 kB
+dist/public/assets/index-D_Lg8F-v.css             153.26 kB │ gzip:  28.45 kB
+dist/public/assets/purify.es-21m173o_.js           22.71 kB │ gzip:   8.72 kB
+dist/public/assets/index.es-CcjIV0gI.js           158.79 kB │ gzip:  53.02 kB
+dist/public/assets/html2canvas.esm-DXEQVQnt.js    201.04 kB │ gzip:  47.43 kB
+dist/public/assets/index-B2HemsCH.js            1,965.61 kB │ gzip: 563.69 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 5.89s
+$ vite build --config vite.config.ts
+vite v7.3.1 building client environment for production...
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/sheet.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/dropdown-menu.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 3266 modules transformed.
+dist/public/index.html                     0.76 kB │ gzip:   0.42 kB
+dist/public/assets/index-DrSJkReF.css    116.45 kB │ gzip:  18.56 kB
+dist/public/assets/index-nK7FTELw.js   1,366.55 kB │ gzip: 443.79 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.61s
+root@forge:/var/www/firesky#
