@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Runtime state files (updated by server, should not be tracked)
+artifacts/api-server/data/scheduler-state.json
