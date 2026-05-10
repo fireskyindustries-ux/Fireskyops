@@ -1,0 +1,53 @@
+Last login: Sun May 10 11:22:36 2026 from 105.247.186.151
+root@forge:~# # Pull latest
+git pull origin main
+
+# Rebuild the API server bundle
+pnpm --filter @workspace/api-server run build
+
+# Rebuild the monitor portal (new PortalSky component)
+pnpm --filter @workspace/monitor run build
+
+# Rebuild the main field ops app (new buttons + SEO)
+pnpm --filter @workspace/firesky run build
+
+# Restart the API server process
+pm2 restart all   # or however you restart it on your server
+fatal: not a git repository (or any of the parent directories): .git
+[ERR_PNPM_NO_PKG_MANIFEST] No package.json found in /root
+[ERROR] Command failed with exit code 1: pnpm install
+
+pnpm: Command failed with exit code 1: pnpm install
+    at getFinalError (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:28547:14)
+    at makeError (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:30854:21)
+    at getSyncResult (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:32698:10)
+    at spawnSubprocessSync (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:32658:14)
+    at execaCoreSync (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:32588:23)
+    at callBoundExeca (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:35116:23)
+    at boundExeca (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:35093:49)
+    at sync (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:35248:14)
+    at runPnpmCli (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:210245:5)
+    at runDepsStatusCheck (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:211947:7)
+No projects matched the filters in "/root"
+[ERR_PNPM_NO_PKG_MANIFEST] No package.json found in /root
+[ERROR] Command failed with exit code 1: pnpm install
+
+pnpm: Command failed with exit code 1: pnpm install
+    at getFinalError (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:28547:14)
+    at makeError (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:30854:21)
+    at getSyncResult (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:32698:10)
+    at spawnSubprocessSync (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:32658:14)
+    at execaCoreSync (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:32588:23)
+    at callBoundExeca (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:35116:23)
+    at boundExeca (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:35093:49)
+    at sync (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:35248:14)
+    at runPnpmCli (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:210245:5)
+    at runDepsStatusCheck (file:///usr/local/lib/node_modules/pnpm/dist/pnpm.mjs:211947:7)
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [all](ids: [ 0 ])
+[PM2] [firesky-api](0) ✓
+┌────┬────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name           │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ firesky-api    │ default     │ 0.0.0   │ fork    │ 201377   │ 0s     │ 4    │ online    │ 0%       │ 20.7mb   │ root     │ disabled │
+└────┴────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴───────
