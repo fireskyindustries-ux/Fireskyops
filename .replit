@@ -37,19 +37,3 @@ VAPID_EMAIL = "info@fireskyindustries.co.za"
 LIVE_DATA_API_KEY = "59834e2a7555d27ae745be2ff242bc9557b122b572e8cddad7ce2ba668b5f8bd"
 
 [userenv.production]
-
-[[ports]]
-localPort = 8080
-externalPort = 8080
-
-[[ports]]
-localPort = 8081
-externalPort = 8081
-
-[[ports]]
-localPort = 18117
-externalPort = 80
-
-[[ports]]
-localPort = 22857
-externalPort = 3000
