@@ -206,6 +206,28 @@ Customer-facing IoT water tank monitoring app at `/monitor/`. Same Clerk instanc
 
 See `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
 
+## IoT Firmware (TODO — hardware not yet sourced)
+
+When hardware is ready, build ESP32 firmware that POSTs to `POST /api/tanks/ingest`:
+
+**Planned hardware stack:**
+- Microcontroller: ESP32 (WiFi built-in) or ESP32 + SIM7600 GSM module for cellular (farms with no WiFi)
+- Sensor: JSN-SR04T ultrasonic (mounts on top, no water contact) or pressure transducer (submerged, more accurate)
+- Power: mains or solar + LiPo battery with deep sleep between readings
+
+**Ingest endpoint contract:**
+```
+POST /api/tanks/ingest
+Header: x-api-key: <FIREVISION_API_KEY>
+Body: { serialNumber, levelPercent, litres, batteryPercent }
+```
+
+**Firmware logic:** read sensor → calculate litres/% → POST → deep sleep 15 min
+
+**Serial number = device identity.** Customer registers serial number in the Tank Monitor portal (`/monitor/register`) to link device to their account.
+
+**Dev tools:** Arduino IDE or PlatformIO (VS Code). Flash via USB, runs standalone after.
+
 ## Product Direction Notes
 - Plan to rebrand and sell as a white-label field ops SaaS
 - Model: upfront project fee (setup + branding) + monthly management/hosting fee
