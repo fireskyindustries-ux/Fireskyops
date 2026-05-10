@@ -18,14 +18,9 @@ initDarkMode();
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
-// Use the env var if explicitly set, otherwise auto-detect in production:
-// In dev (localhost) Clerk works directly; in production (.replit.app etc)
-// we route through our own /api/__clerk proxy so the dev Clerk keys work.
-const isLocalhost = typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-const clerkProxyUrl: string | undefined =
-  import.meta.env.VITE_CLERK_PROXY_URL ||
-  (isLocalhost ? undefined : `${typeof window !== "undefined" ? window.location.origin : ""}/api/__clerk`);
+// Only use proxy URL if explicitly set via env var.
+// Clerk production instances use the clerk.fireskyops.tech CNAME directly.
+const clerkProxyUrl: string | undefined = import.meta.env.VITE_CLERK_PROXY_URL || undefined;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function stripBase(path: string): string {

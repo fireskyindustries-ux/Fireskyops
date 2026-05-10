@@ -8,9 +8,9 @@ import { ChatPage } from "./pages/chat";
 import { CalendarPage } from "./pages/calendar";
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL ||
-  (isLocalhost ? undefined : window.location.origin + "/api/__clerk");
+// Only use proxy URL if explicitly set via env var.
+// Clerk production instances use the clerk.fireskyops.tech CNAME directly.
+const clerkProxyUrl: string | undefined = import.meta.env.VITE_CLERK_PROXY_URL || undefined;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function stripBase(path: string): string {
