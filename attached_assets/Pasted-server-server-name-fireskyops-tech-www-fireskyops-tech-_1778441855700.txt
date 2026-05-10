@@ -1,0 +1,109 @@
+server {
+    server_name fireskyops.tech www.fireskyops.tech;
+
+    location /api/ {
+        proxy_pass http://localhost:8080/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_read_timeout 300s;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /sky-vision/ {
+        alias /var/www/firesky/artifacts/sky-vision/dist/public/;
+        try_files $uri $uri/ /sky-vision/index.html;
+    }
+
+    location / {
+        root /var/www/firesky/artifacts/firesky/dist/public;
+        try_files $uri $uri/ /index.html;
+    }
+
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/fireskyops.tech/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/fireskyops.tech/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+
+
+
+}
+server {
+    if ($host = fireskyops.tech) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    listen 80;
+    server_name fireskyops.tech www.fireskyops.tech;
+    return 404; # managed by Certbot
+
+
+root@forge:~# rm /etc/nginx/sites-enabled/firesky
+root@forge:~# cat > /etc/nginx/sites-available/firesky << 'EOF'
+server {
+    server_name fireskyops.tech www.fireskyops.tech;
+
+    location /api/ {
+        proxy_pass http://localhost:8080/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_read_timeout 300s;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /monitor/ {
+        alias /var/www/firesky/artifacts/monitor/dist/public/;
+        try_files $uri $uri/ /monitor/index.html;
+    }
+
+    location /sky-vision/ {
+        alias /var/www/firesky/artifacts/sky-vision/dist/public/;
+        try_files $uri $uri/ /sky-vision/index.html;
+EOF return 404; fireskyops.tech www.fireskyops.tech;yo
+root@forge:~# ln -s /etc/nginx/sites-available/firesky /etc/nginx/sites-enabled/firesky
+nginx -t && systemctl reload nginx
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+root@forge:~# curl -I https://fireskyops.tech
+tail -20 /var/log/nginx/error.log
+ss -tlnp | grep -E '80|443'
+HTTP/1.1 200 OK
+Server: nginx/1.22.1
+Date: Sun, 10 May 2026 19:34:57 GMT
+Content-Type: text/html
+Content-Length: 2226
+Last-Modified: Sun, 10 May 2026 14:34:19 GMT
+Connection: keep-alive
+ETag: "6a00976b-8b2"
+Accept-Ranges: bytes
+
+2026/05/09 13:59:45 [error] 177682#177682: *82 connect() failed (111: Connection refused) while connecting to upstream, client: 41.24.105.63, server: fireskyops.tech, request: "GET /api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js HTTP/1.1", upstream: "http://[::1]:8080/api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js", host: "fireskyops.tech", referrer: "https://fireskyops.tech/"
+2026/05/09 13:59:45 [error] 177682#177682: *82 connect() failed (111: Connection refused) while connecting to upstream, client: 41.24.105.63, server: fireskyops.tech, request: "GET /api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js HTTP/1.1", upstream: "http://127.0.0.1:8080/api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js", host: "fireskyops.tech", referrer: "https://fireskyops.tech/"
+2026/05/09 13:59:45 [error] 177682#177682: *82 no live upstreams while connecting to upstream, client: 41.24.105.63, server: fireskyops.tech, request: "GET /api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js HTTP/1.1", upstream: "http://localhost/api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js", host: "fireskyops.tech", referrer: "https://fireskyops.tech/"
+2026/05/09 13:59:46 [error] 177682#177682: *82 no live upstreams while connecting to upstream, client: 41.24.105.63, server: fireskyops.tech, request: "GET /api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js HTTP/1.1", upstream: "http://localhost/api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js", host: "fireskyops.tech", referrer: "https://fireskyops.tech/"
+2026/05/09 13:59:47 [error] 177682#177682: *82 no live upstreams while connecting to upstream, client: 41.24.105.63, server: fireskyops.tech, request: "GET /api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js HTTP/1.1", upstream: "http://localhost/api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js", host: "fireskyops.tech", referrer: "https://fireskyops.tech/"
+2026/05/09 13:59:48 [error] 177682#177682: *82 no live upstreams while connecting to upstream, client: 41.24.105.63, server: fireskyops.tech, request: "GET /api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js HTTP/1.1", upstream: "http://localhost/api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js", host: "fireskyops.tech", referrer: "https://fireskyops.tech/"
+2026/05/09 13:59:52 [error] 177682#177682: *82 no live upstreams while connecting to upstream, client: 41.24.105.63, server: fireskyops.tech, request: "GET /api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js HTTP/1.1", upstream: "http://localhost/api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js", host: "fireskyops.tech", referrer: "https://fireskyops.tech/"
+2026/05/09 14:01:07 [error] 177682#177682: *92 connect() failed (111: Connection refused) while connecting to upstream, client: 41.24.105.63, server: fireskyops.tech, request: "GET /api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js HTTP/1.1", upstream: "http://127.0.0.1:8080/api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js", host: "fireskyops.tech", referrer: "https://fireskyops.tech/"
+2026/05/09 14:01:07 [error] 177682#177682: *92 connect() failed (111: Connection refused) while connecting to upstream, client: 41.24.105.63, server: fireskyops.tech, request: "GET /api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js HTTP/1.1", upstream: "http://[::1]:8080/api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js", host: "fireskyops.tech", referrer: "https://fireskyops.tech/"
+2026/05/09 14:01:07 [error] 177682#177682: *92 no live upstreams while connecting to upstream, client: 41.24.105.63, server: fireskyops.tech, request: "GET /api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js HTTP/1.1", upstream: "http://localhost/api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js", host: "fireskyops.tech", referrer: "https://fireskyops.tech/"
+2026/05/09 14:01:07 [error] 177682#177682: *92 no live upstreams while connecting to upstream, client: 41.24.105.63, server: fireskyops.tech, request: "GET /api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js HTTP/1.1", upstream: "http://localhost/api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js", host: "fireskyops.tech", referrer: "https://fireskyops.tech/"
+2026/05/09 14:01:08 [error] 177682#177682: *92 no live upstreams while connecting to upstream, client: 41.24.105.63, server: fireskyops.tech, request: "GET /api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js HTTP/1.1", upstream: "http://localhost/api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js", host: "fireskyops.tech", referrer: "https://fireskyops.tech/"
+2026/05/09 14:01:10 [error] 177682#177682: *92 no live upstreams while connecting to upstream, client: 41.24.105.63, server: fireskyops.tech, request: "GET /api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js HTTP/1.1", upstream: "http://localhost/api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js", host: "fireskyops.tech", referrer: "https://fireskyops.tech/"
+2026/05/09 14:01:12 [error] 177682#177682: *92 no live upstreams while connecting to upstream, client: 41.24.105.63, server: fireskyops.tech, request: "GET /api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js HTTP/1.1", upstream: "http://localhost/api/__clerk/npm/@clerk/clerk-js@6/dist/clerk.browser.js", host: "fireskyops.tech", referrer: "https://fireskyops.tech/"
+2026/05/09 14:38:57 [crit] 179027#179027: *162 SSL_do_handshake() failed (SSL: error:0A00006C:SSL routines::bad key share) while SSL handshaking, client: 34.96.44.222, server: 0.0.0.0:443
+2026/05/09 14:47:00 [crit] 179026#179026: *174 SSL_do_handshake() failed (SSL: error:0A00006C:SSL routines::bad key share) while SSL handshaking, client: 34.96.47.207, server: 0.0.0.0:443
+2026/05/10 00:25:07 [crit] 179026#179026: *266 SSL_do_handshake() failed (SSL: error:0A00006C:SSL routines::bad key share) while SSL handshaking, client: 143.110.174.141, server: 0.0.0.0:443
+2026/05/10 04:33:46 [crit] 179027#179027: *320 SSL_do_handshake() failed (SSL: error:0A00006C:SSL routines::bad key share) while SSL handshaking, client: 87.236.176.201, server: 0.0.0.0:443
+2026/05/10 04:45:43 [crit] 179026#179026: *335 SSL_do_handshake() failed (SSL: error:0A00006C:SSL routines::bad key share) while SSL handshaking, client: 39.64.105.61, server: 0.0.0.0:443
+2026/05/10 12:39:26 [crit] 200559#200559: *21 SSL_do_handshake() failed (SSL: error:0A00006C:SSL routines::bad key share) while SSL handshaking, client: 142.93.55.244, server: 0.0.0.0:443
+LISTEN 0      511          0.0.0.0:80         0.0.0.0:*    users:(("nginx",pid=834,fd=6),("nginx",pid=833,fd=6),("nginx",pid=489,fd=6))
+LISTEN 0      511          0.0.0.0:443        0.0.0.0:*    users:(("nginx",pid=834,fd=5),("nginx",pid=833,fd=5),("nginx",pid=489,fd=5))
+LISTEN 0      511                *:8080             *:*    users:(("node /var/www/f",pid=619,fd=26))        
+root@forge:~# /0
