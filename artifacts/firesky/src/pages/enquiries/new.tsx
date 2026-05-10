@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Loader2, LocateFixed, Sparkles } from "lucide-react";
+import { CheckCircle2, Loader2, LocateFixed, Sparkles, Droplets, Eye } from "lucide-react";
 import { useSkyActions } from "@/components/sky";
 
 const PROVINCES = [
@@ -212,6 +212,34 @@ export default function NewEnquiry() {
         <Sparkles className="h-5 w-5 shrink-0" />
         <span className="font-semibold text-sm tracking-wide">Use Sky AI to Assist you with your system build.</span>
       </button>
+
+      {/* App links — Tank Monitor + Sky Vision */}
+      <div className="grid grid-cols-2 gap-3">
+        <a
+          href="/monitor/"
+          className="flex items-center gap-3 px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/60 active:scale-[0.99] transition-all shadow-sm"
+        >
+          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <Droplets className="h-4 w-4 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-tight">Tank Monitor</p>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-tight">Track your tank levels</p>
+          </div>
+        </a>
+        <a
+          href="/sky-vision/"
+          className="flex items-center gap-3 px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/60 active:scale-[0.99] transition-all shadow-sm"
+        >
+          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <Eye className="h-4 w-4 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-tight">Sky Vision</p>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-tight">AI assistant</p>
+          </div>
+        </a>
+      </div>
 
       <div>
         <h1 className="text-3xl font-bold tracking-tight">New Enquiry</h1>
