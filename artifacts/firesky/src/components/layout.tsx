@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { brand } from "@/brand.config";
-import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2, Sparkles, BarChart2, MapPin, Info, Pencil, Download } from "lucide-react";
+import { Home, Users, FileText, ClipboardCheck, Briefcase, CalendarDays, Plus, Menu, LogOut, Shield, ExternalLink, Mail, Sun, Moon, Package, Building2, Loader2, Sparkles, BarChart2, MapPin, Info, Pencil, Download, Droplets } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,6 +24,7 @@ const adminNavItems = [
   { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/stock", label: "Stock", icon: Package },
+  { href: "/tanks", label: "Tanks", icon: Droplets },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/reports", label: "Reports", icon: BarChart2 },
   { href: "/map", label: "Branch Map", icon: MapPin },
@@ -36,6 +37,7 @@ const branchAdminNavItems = [
   { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/stock", label: "Stock", icon: Package },
+  { href: "/tanks", label: "Tanks", icon: Droplets },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/reports", label: "Reports", icon: BarChart2 },
 ];

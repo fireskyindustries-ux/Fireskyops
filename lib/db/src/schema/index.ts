@@ -17,3 +17,8 @@ export * from "./stock_movements";
 export * from "./user_memories";
 export * from "./saved_prompts";
 export * from "./file_uploads";
+export * from "./portal_users";
+export * from "./portal_subscriptions";
+export * from "./tanks";
+export * from "./tank_readings";
+export * from "./tank_support_requests";

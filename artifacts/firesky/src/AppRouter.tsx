@@ -22,6 +22,7 @@ import AdminUsers from "./pages/admin/users";
 import AdminBranches from "./pages/admin/branches";
 import EmailLog from "./pages/admin/email-log";
 import StockPage from "./pages/stock/index";
+import TanksPage from "./pages/tanks/index";
 import ReportsPage from "./pages/reports";
 import MapPage from "./pages/map";
 import AboutPage from "./pages/about";
@@ -106,6 +107,11 @@ export function Router() {
         {/* Stock — all authenticated users */}
         <Route path="/stock">
           {isGuest ? <Redirect to="/enquiries/new" /> : <StockPage />}
+        </Route>
+
+        {/* Tank Monitor — admin + branch admin */}
+        <Route path="/tanks">
+          <AdminOrBranchAdminRoute component={TanksPage} />
         </Route>
 
         {/* Calendar — all authenticated users */}

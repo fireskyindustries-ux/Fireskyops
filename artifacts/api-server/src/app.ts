@@ -1,11 +1,15 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import cookieParser from "cookie-parser";
 import { clerkMiddleware } from "@clerk/express";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import mcpSseRouter from "./routes/mcp_sse";
 import liveDataRouter from "./routes/live-data";
+import portalAuthRouter from "./routes/portal-auth";
+import portalTanksRouter from "./routes/portal-tanks";
+import deviceIngestRouter from "./routes/device-ingest";
 import { logger } from "./lib/logger";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -38,6 +42,7 @@ app.use(
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 app.use(cors({ credentials: true, origin: true }));
+app.use(cookieParser());
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
@@ -79,6 +84,13 @@ app.use("/api", mcpSseRouter);
 
 // Live data endpoint — API key protected, no Clerk auth needed
 app.use("/api", liveDataRouter);
+
+// Device ingest — IoT API key auth, no Clerk
+app.use("/api", deviceIngestRouter);
+
+// Portal routes — Google OAuth session cookie auth, no Clerk
+app.use("/api/portal", portalAuthRouter);
+app.use("/api/portal", portalTanksRouter);
 
 app.use(clerkMiddleware());
 
