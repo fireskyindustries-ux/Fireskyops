@@ -1,0 +1,46 @@
+Done in 679ms using pnpm v11.0.9
+$ vite build --config vite.config.ts
+vite v7.3.1 building client environment for production...
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/select.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/sheet.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 3180 modules transformed.
+dist/public/index.html                              2.23 kB │ gzip:   0.79 kB
+dist/public/assets/index-BvXCXmAG.css             154.76 kB │ gzip:  28.66 kB
+dist/public/assets/purify.es-21m173o_.js           22.71 kB │ gzip:   8.72 kB
+dist/public/assets/index.es-BgdmSha7.js           158.79 kB │ gzip:  53.02 kB
+dist/public/assets/html2canvas.esm-DXEQVQnt.js    201.04 kB │ gzip:  47.43 kB
+dist/public/assets/index-BJS3jRWi.js            1,018.60 kB │ gzip: 316.27 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 5.09s
+$ vite build --config vite.config.ts
+vite v7.3.1 building client environment for production...
+✓ 2728 modules transformed.
+dist/public/index.html                   1.71 kB │ gzip:  0.62 kB
+dist/public/assets/index-BMTDOad9.css   98.75 kB │ gzip: 16.41 kB
+dist/public/assets/index-DIPqFDlx.js   288.69 kB │ gzip: 84.70 kB
+✓ built in 2.24s
+$ vite build --config vite.config.ts
+vite v7.3.1 building client environment for production...
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/sheet.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/dropdown-menu.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 3266 modules transformed.
+dist/public/index.html                   1.69 kB │ gzip:   0.61 kB
+dist/public/assets/index-DrSJkReF.css  116.45 kB │ gzip:  18.56 kB
+dist/public/assets/index-BH8wt6Xg.js   454.45 kB │ gzip: 137.72 kB
+✓ built in 2.96s
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [all](ids: [ 0 ])
+[PM2] [firesky-api](0) ✓
+┌────┬────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name           │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ firesky-api    │ default     │ 0.0.0   │ fork    │ 202564   │ 0s     │ 12   │ online    │ 0%       │ 18.1mb   │ root     │ disabled │
+└────┴────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+root@forge:/var/www/firesky#
