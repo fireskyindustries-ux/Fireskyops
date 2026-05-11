@@ -141,12 +141,27 @@ export default function TanksPage() {
   const [sortKey, setSortKey] = useState<SortKey>("level");
   const [sortAsc, setSortAsc] = useState(true);
   const [showRegister, setShowRegister] = useState(false);
+  const [seedingDemo, setSeedingDemo] = useState(false);
+  const { toast } = useToast();
 
   const { data: tanks = [], isLoading, refetch } = useQuery<AdminTank[]>({
     queryKey: ["admin-tanks"],
     queryFn: () => apiFetch("/admin/tanks"),
     refetchInterval: 60_000,
   });
+
+  async function seedDemo() {
+    setSeedingDemo(true);
+    try {
+      const result = await apiFetch("/admin/tanks/demo-seed", { method: "POST" });
+      await refetch();
+      toast({ title: "Demo data seeded", description: `Serials: ${result.serials?.join(", ")}. Register them in the Tank Monitor portal to see the demo.` });
+    } catch (e: any) {
+      toast({ title: "Seed failed", description: e.message, variant: "destructive" });
+    } finally {
+      setSeedingDemo(false);
+    }
+  }
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortAsc(a => !a);
@@ -205,10 +220,16 @@ export default function TanksPage() {
             Refresh
           </Button>
           {role === "admin" && (
-            <Button size="sm" className="rounded-full gap-1.5" onClick={() => setShowRegister(true)}>
-              <Plus className="h-3.5 w-3.5" />
-              Register device
-            </Button>
+            <>
+              <Button variant="outline" size="sm" className="rounded-full gap-1.5" onClick={seedDemo} disabled={seedingDemo}>
+                {seedingDemo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Droplets className="h-3.5 w-3.5" />}
+                Seed Demo
+              </Button>
+              <Button size="sm" className="rounded-full gap-1.5" onClick={() => setShowRegister(true)}>
+                <Plus className="h-3.5 w-3.5" />
+                Register device
+              </Button>
+            </>
           )}
         </div>
       </div>
