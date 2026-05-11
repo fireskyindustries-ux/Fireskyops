@@ -11,7 +11,6 @@ import portalAuthRouter from "./routes/portal-auth";
 import portalTanksRouter from "./routes/portal-tanks";
 import portalSkyRouter from "./routes/portal-sky";
 import deviceIngestRouter from "./routes/device-ingest";
-import adminTanksRouter from "./routes/admin-tanks";
 import { logger } from "./lib/logger";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -97,7 +96,6 @@ app.use("/api/portal", portalAuthRouter);
 app.use("/api/portal", portalTanksRouter);
 app.use("/api/portal", portalSkyRouter);
 
-app.use("/api", adminTanksRouter);
 app.use("/api", router);
 
 // ── Production: serve built React apps as static files ────────────────────────
