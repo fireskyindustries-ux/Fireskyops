@@ -163,6 +163,35 @@ router.get("/admin/support-requests", requireBranchAdmin, async (req, res) => {
   res.json(requests);
 });
 
+// POST /api/admin/tanks/:id/reading — inject a manual reading (mock sensor / testing)
+router.post("/admin/tanks/:id/reading", requireAdmin, async (req, res) => {
+  const tankId = Number(req.params.id);
+  const tank = await db.select().from(tanksTable).where(eq(tanksTable.id, tankId)).limit(1);
+  if (!tank[0]) { res.status(404).json({ error: "Tank not found" }); return; }
+
+  const { levelPercent, batteryPercent, temperatureCelsius, rainfallMm, windSpeedKmh, windDirectionDeg, pressureHpa } = req.body;
+  const pct = Math.max(0, Math.min(100, Number(levelPercent) || 0));
+  const levelCm = (pct / 100) * (tank[0].heightCm ?? 185);
+  const litres = (pct / 100) * tank[0].capacityLitres;
+
+  const [reading] = await db.insert(tankReadingsTable).values({
+    tankId,
+    levelPercent: pct,
+    levelCm,
+    litres,
+    batteryPercent: batteryPercent != null ? Number(batteryPercent) : null,
+    temperatureCelsius: temperatureCelsius != null ? Number(temperatureCelsius) : null,
+    rainfallMm: rainfallMm != null ? Number(rainfallMm) : null,
+    windSpeedKmh: windSpeedKmh != null ? Number(windSpeedKmh) : null,
+    windDirectionDeg: windDirectionDeg != null ? Number(windDirectionDeg) : null,
+    pressureHpa: pressureHpa != null ? Number(pressureHpa) : null,
+    recordedAt: new Date(),
+  }).returning();
+
+  await db.update(tanksTable).set({ lastSeenAt: new Date() }).where(eq(tanksTable.id, tankId));
+  res.json({ reading });
+});
+
 // POST /api/admin/tanks/demo-seed — create 3 demo tanks with 7 days of realistic sensor readings
 router.post("/admin/tanks/demo-seed", requireAdmin, async (req, res) => {
   const DEMO_TANKS = [

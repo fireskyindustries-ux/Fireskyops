@@ -4,7 +4,7 @@ import { useUser } from "@clerk/react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Wifi, WifiOff, AlertTriangle, Droplets, Search, RefreshCw, ChevronUp, ChevronDown, Plus } from "lucide-react";
+import { Loader2, Wifi, WifiOff, AlertTriangle, Droplets, Search, RefreshCw, ChevronUp, ChevronDown, Plus, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -132,6 +132,146 @@ function RegisterTankDialog({ onDone }: { onDone: () => void }) {
   );
 }
 
+function MockSensorDialog({ tank, onDone }: { tank: AdminTank; onDone: () => void }) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [live, setLive] = useState(false);
+  const [intervalId, setIntervalId] = useState<ReturnType<typeof setInterval> | null>(null);
+  const [form, setForm] = useState({
+    levelPercent: String(tank.latestReading?.levelPercent ?? 50),
+    batteryPercent: "85",
+    temperatureCelsius: "22",
+    rainfallMm: "0",
+    windSpeedKmh: "12",
+    windDirectionDeg: "210",
+    pressureHpa: "1013",
+  });
+
+  function set(k: keyof typeof form) {
+    return (e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, [k]: e.target.value }));
+  }
+
+  async function send() {
+    setLoading(true);
+    try {
+      await apiFetch(`/admin/tanks/${tank.id}/reading`, {
+        method: "POST",
+        body: JSON.stringify({
+          levelPercent: Number(form.levelPercent),
+          batteryPercent: Number(form.batteryPercent),
+          temperatureCelsius: Number(form.temperatureCelsius),
+          rainfallMm: Number(form.rainfallMm),
+          windSpeedKmh: Number(form.windSpeedKmh),
+          windDirectionDeg: Number(form.windDirectionDeg),
+          pressureHpa: Number(form.pressureHpa),
+        }),
+      });
+      toast({ title: "Reading sent", description: `${tank.serialNumber} → ${form.levelPercent}%` });
+      onDone();
+    } catch (e: any) {
+      toast({ title: "Failed", description: e.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function toggleLive() {
+    if (live) {
+      if (intervalId) clearInterval(intervalId);
+      setIntervalId(null);
+      setLive(false);
+    } else {
+      setLive(true);
+      const id = setInterval(async () => {
+        // slowly drift level down, add natural noise
+        setForm(f => {
+          const newPct = Math.max(0, Math.min(100, Number(f.levelPercent) - 0.3 + (Math.random() - 0.5) * 0.2));
+          return { ...f, levelPercent: newPct.toFixed(1) };
+        });
+        await apiFetch(`/admin/tanks/${tank.id}/reading`, {
+          method: "POST",
+          body: JSON.stringify({
+            levelPercent: Number(form.levelPercent),
+            batteryPercent: Number(form.batteryPercent),
+            temperatureCelsius: Number(form.temperatureCelsius) + (Math.random() - 0.5),
+            rainfallMm: Number(form.rainfallMm),
+            windSpeedKmh: Number(form.windSpeedKmh) + (Math.random() - 0.5) * 3,
+            windDirectionDeg: Number(form.windDirectionDeg),
+            pressureHpa: Number(form.pressureHpa),
+          }),
+        }).catch(() => {});
+        onDone();
+      }, 10000);
+      setIntervalId(id);
+    }
+  }
+
+  return (
+    <div className="space-y-4 pt-2">
+      <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground font-mono">
+        {tank.serialNumber} — {tank.name ?? "Unnamed"}
+      </div>
+
+      <div>
+        <Label>Level % — <span className="text-primary font-bold">{form.levelPercent}%</span></Label>
+        <input
+          type="range" min="0" max="100" step="0.5"
+          value={form.levelPercent}
+          onChange={set("levelPercent")}
+          className="w-full mt-2 accent-primary"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">Battery %</Label>
+          <Input type="number" value={form.batteryPercent} onChange={set("batteryPercent")} className="mt-1" min="0" max="100" />
+        </div>
+        <div>
+          <Label className="text-xs">Temp (°C)</Label>
+          <Input type="number" value={form.temperatureCelsius} onChange={set("temperatureCelsius")} className="mt-1" />
+        </div>
+        <div>
+          <Label className="text-xs">Rainfall (mm)</Label>
+          <Input type="number" value={form.rainfallMm} onChange={set("rainfallMm")} className="mt-1" min="0" />
+        </div>
+        <div>
+          <Label className="text-xs">Wind (km/h)</Label>
+          <Input type="number" value={form.windSpeedKmh} onChange={set("windSpeedKmh")} className="mt-1" min="0" />
+        </div>
+        <div>
+          <Label className="text-xs">Wind dir (°)</Label>
+          <Input type="number" value={form.windDirectionDeg} onChange={set("windDirectionDeg")} className="mt-1" min="0" max="360" />
+        </div>
+        <div>
+          <Label className="text-xs">Pressure (hPa)</Label>
+          <Input type="number" value={form.pressureHpa} onChange={set("pressureHpa")} className="mt-1" />
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Button onClick={send} disabled={loading} className="flex-1 rounded-full">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+          Send reading
+        </Button>
+        <Button
+          variant={live ? "destructive" : "outline"}
+          onClick={toggleLive}
+          className="rounded-full gap-1.5"
+        >
+          <Radio className="h-3.5 w-3.5" />
+          {live ? "Stop live" : "Go live"}
+        </Button>
+      </div>
+      {live && (
+        <p className="text-xs text-center text-muted-foreground animate-pulse">
+          Sending a reading every 10 seconds with natural drift...
+        </p>
+      )}
+    </div>
+  );
+}
+
 type SortKey = "level" | "lastSeen" | "name";
 
 export default function TanksPage() {
@@ -141,6 +281,7 @@ export default function TanksPage() {
   const [sortKey, setSortKey] = useState<SortKey>("level");
   const [sortAsc, setSortAsc] = useState(true);
   const [showRegister, setShowRegister] = useState(false);
+  const [mockSensorTank, setMockSensorTank] = useState<AdminTank | null>(null);
   const [seedingDemo, setSeedingDemo] = useState(false);
   const { toast } = useToast();
 
@@ -368,6 +509,19 @@ export default function TanksPage() {
                       />
                     </div>
                   )}
+                  {role === "admin" && (
+                    <div className="mt-3 flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="rounded-full gap-1.5 text-xs text-muted-foreground h-7 px-3 hover:text-primary"
+                        onClick={() => setMockSensorTank(tank)}
+                      >
+                        <Radio className="h-3 w-3" />
+                        Send reading
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -382,6 +536,24 @@ export default function TanksPage() {
             <DialogTitle>Register IoT device</DialogTitle>
           </DialogHeader>
           <RegisterTankDialog onDone={() => { setShowRegister(false); refetch(); }} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Mock sensor dialog */}
+      <Dialog open={!!mockSensorTank} onOpenChange={o => { if (!o) setMockSensorTank(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Radio className="h-4 w-4 text-primary" />
+              Mock sensor
+            </DialogTitle>
+          </DialogHeader>
+          {mockSensorTank && (
+            <MockSensorDialog
+              tank={mockSensorTank}
+              onDone={() => refetch()}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
