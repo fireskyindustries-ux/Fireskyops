@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { requireAuth } from "../middlewares/requireAuth";
+import { getAuth } from "@clerk/express";
 import healthRouter from "./health";
 import trackRouter from "./track";
 import storageRouter from "./storage";
@@ -31,6 +32,17 @@ import adminTanksRouter from "./admin-tanks";
 const router: IRouter = Router();
 
 router.use(healthRouter);
+
+// Temporary auth debug — remove once production auth issue is resolved
+router.get("/api/auth/debug", requireAuth, (req, res) => {
+  const auth = getAuth(req);
+  res.json({
+    userId: (req as any).userId,
+    userRole: (req as any).userRole,
+    userBranchId: (req as any).userBranchId,
+    sessionClaims: auth?.sessionClaims ?? null,
+  });
+});
 
 // Public routes (no auth)
 router.use(trackRouter);

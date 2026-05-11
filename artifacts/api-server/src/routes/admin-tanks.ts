@@ -86,7 +86,7 @@ router.get("/admin/tanks/alerts", requireBranchAdmin, async (req, res) => {
 
 // GET /api/admin/tanks/:id/readings — full reading history for staff
 router.get("/admin/tanks/:id/readings", requireBranchAdmin, async (req, res) => {
-  const tankId = parseInt(req.params["id"] ?? "");
+  const tankId = parseInt(String(req.params["id"] ?? ""));
   if (isNaN(tankId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const readings = await db

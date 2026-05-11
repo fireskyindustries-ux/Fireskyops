@@ -67,6 +67,9 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const claimRole = roleFromClaims(req);
   const claimBranchId = branchIdFromClaims(req);
 
+  const rawClaims = (getAuth(req)?.sessionClaims as any) ?? {};
+  logger.info({ path: req.path, userId, claimRole, claimKeys: Object.keys(rawClaims) }, "[requireAuth] claims check");
+
   if (claimRole) {
     (req as any).userRole = claimRole;
     (req as any).userBranchId = claimBranchId;
@@ -76,11 +79,13 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 
   metadataFromClerkApi(userId)
     .then(({ role, branchId }) => {
+      logger.info({ path: req.path, userId, apiRole: role }, "[requireAuth] Clerk API role");
       (req as any).userRole = role;
       (req as any).userBranchId = branchId;
       next();
     })
-    .catch(() => {
+    .catch((err) => {
+      logger.warn({ path: req.path, userId, err }, "[requireAuth] Clerk API error, defaulting to guest");
       (req as any).userRole = "guest";
       (req as any).userBranchId = null;
       next();
@@ -91,11 +96,14 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   const auth = getAuth(req);
   const userId = auth?.userId;
   if (!userId) {
+    logger.warn({ path: req.path }, "[requireAdmin] 401 - no userId");
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
 
   const claimRole = roleFromClaims(req);
+  logger.info({ path: req.path, userId, claimRole }, "[requireAdmin] role check");
+
   if (claimRole === "admin") {
     (req as any).userId = userId;
     (req as any).userRole = "admin";
@@ -106,6 +114,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
 
   metadataFromClerkApi(userId)
     .then(({ role, branchId }) => {
+      logger.info({ path: req.path, userId, apiRole: role }, "[requireAdmin] Clerk API role");
       if (role !== "admin") {
         res.status(403).json({ error: "Forbidden: admin only" });
         return;
@@ -115,7 +124,8 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
       (req as any).userBranchId = branchId;
       next();
     })
-    .catch(() => {
+    .catch((err) => {
+      logger.warn({ path: req.path, userId, err }, "[requireAdmin] Clerk API error");
       res.status(403).json({ error: "Forbidden" });
     });
 }
