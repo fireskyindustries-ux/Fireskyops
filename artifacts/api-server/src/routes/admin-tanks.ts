@@ -1,17 +1,12 @@
 import { Router } from "express";
-import { eq, desc, sql, isNull, lt } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { db, tanksTable, tankReadingsTable, portalUsersTable, tankSupportRequestsTable } from "@workspace/db";
-import { isAdmin, isBranchAdmin, getBranchId } from "../middlewares/requireAuth";
+import { requireAdmin, requireBranchAdmin } from "../middlewares/requireAuth";
 
 const router = Router();
 
 // GET /api/admin/tanks — all tanks with latest reading (admin: all branches; branch_admin: their branch)
-router.get("/admin/tanks", async (req, res) => {
-  if (!isBranchAdmin(req)) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
-
+router.get("/admin/tanks", requireBranchAdmin, async (req, res) => {
   const tanks = await db
     .select({
       id: tanksTable.id,
@@ -58,12 +53,7 @@ router.get("/admin/tanks", async (req, res) => {
 });
 
 // GET /api/admin/tanks/alerts — summary counts for dashboard
-router.get("/admin/tanks/alerts", async (req, res) => {
-  if (!isBranchAdmin(req)) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
-
+router.get("/admin/tanks/alerts", requireBranchAdmin, async (req, res) => {
   const tanks = await db.select().from(tanksTable);
   const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
 
@@ -95,11 +85,7 @@ router.get("/admin/tanks/alerts", async (req, res) => {
 });
 
 // GET /api/admin/tanks/:id/readings — full reading history for staff
-router.get("/admin/tanks/:id/readings", async (req, res) => {
-  if (!isBranchAdmin(req)) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
+router.get("/admin/tanks/:id/readings", requireBranchAdmin, async (req, res) => {
   const tankId = parseInt(req.params["id"] ?? "");
   if (isNaN(tankId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -114,11 +100,7 @@ router.get("/admin/tanks/:id/readings", async (req, res) => {
 });
 
 // POST /api/admin/tanks — register a new IoT device serial (admin provisions, customer claims via portal)
-router.post("/admin/tanks", async (req, res) => {
-  if (!isAdmin(req)) {
-    res.status(403).json({ error: "Admin only" });
-    return;
-  }
+router.post("/admin/tanks", requireAdmin, async (req, res) => {
   const { serialNumber, capacityLitres, heightCm, diameterCm, tankType, branchId, lat, lng, locationDescription } = req.body as {
     serialNumber?: string;
     capacityLitres?: number;
@@ -157,11 +139,7 @@ router.post("/admin/tanks", async (req, res) => {
 });
 
 // GET /api/admin/support-requests — open support requests
-router.get("/admin/support-requests", async (req, res) => {
-  if (!isBranchAdmin(req)) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
+router.get("/admin/support-requests", requireBranchAdmin, async (req, res) => {
   const requests = await db
     .select({
       id: tankSupportRequestsTable.id,

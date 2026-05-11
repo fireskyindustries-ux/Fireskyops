@@ -1,0 +1,66 @@
+[TAILING] Tailing last 30 lines for [firesky-api] process (change the value with --lines option)
+/root/.pm2/logs/firesky-api-error.log last 30 lines:
+0|firesky- |     at NodePgPreparedQuery.queryWithCache (/var/www/firesky/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+0|firesky- |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+0|firesky- |     at async <anonymous> (/var/www/firesky/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+0|firesky- |     at async <anonymous> (/var/www/firesky/artifacts/api-server/src/routes/admin-tanks.ts:15:17)
+0|firesky- | Error: Failed query: select "tanks"."id", "tanks"."serial_number", "tanks"."name", "tanks"."capacity_litres", "tanks"."tank_type", "tanks"."lat", "tanks"."lng", "tanks"."location_description", "tanks"."alert_threshold_percent", "tanks"."is_locked", "tanks"."last_seen_at", "tanks"."branch_id", "tanks"."portal_user_id", "portal_users"."name", "portal_users"."email" from "tanks" left join "portal_users" on "tanks"."portal_user_id" = "portal_users"."id"
+0|firesky- | params:
+0|firesky- |     at NodePgPreparedQuery.queryWithCache (/var/www/firesky/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+0|firesky- |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+0|firesky- |     at async <anonymous> (/var/www/firesky/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+0|firesky- |     at async <anonymous> (/var/www/firesky/artifacts/api-server/src/routes/admin-tanks.ts:15:17)
+0|firesky- | Error: Failed query: select "tanks"."id", "tanks"."serial_number", "tanks"."name", "tanks"."capacity_litres", "tanks"."tank_type", "tanks"."lat", "tanks"."lng", "tanks"."location_description", "tanks"."alert_threshold_percent", "tanks"."is_locked", "tanks"."last_seen_at", "tanks"."branch_id", "tanks"."portal_user_id", "portal_users"."name", "portal_users"."email" from "tanks" left join "portal_users" on "tanks"."portal_user_id" = "portal_users"."id"
+0|firesky- | params:
+0|firesky- |     at NodePgPreparedQuery.queryWithCache (/var/www/firesky/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+0|firesky- |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+0|firesky- |     at async <anonymous> (/var/www/firesky/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+0|firesky- |     at async <anonymous> (/var/www/firesky/artifacts/api-server/src/routes/admin-tanks.ts:15:17)
+0|firesky- | Error: Failed query: select "tanks"."id", "tanks"."serial_number", "tanks"."name", "tanks"."capacity_litres", "tanks"."tank_type", "tanks"."lat", "tanks"."lng", "tanks"."location_description", "tanks"."alert_threshold_percent", "tanks"."is_locked", "tanks"."last_seen_at", "tanks"."branch_id", "tanks"."portal_user_id", "portal_users"."name", "portal_users"."email" from "tanks" left join "portal_users" on "tanks"."portal_user_id" = "portal_users"."id"
+0|firesky- | params:
+0|firesky- |     at NodePgPreparedQuery.queryWithCache (/var/www/firesky/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+0|firesky- |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+0|firesky- |     at async <anonymous> (/var/www/firesky/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+0|firesky- |     at async <anonymous> (/var/www/firesky/artifacts/api-server/src/routes/admin-tanks.ts:15:17)
+0|firesky- | Error: Failed query: insert into "tanks" ("id", "serial_number", "portal_user_id", "branch_id", "name", "capacity_litres", "height_cm", "diameter_cm", "tank_type", "lat", "lng", "location_description", "alert_threshold_percent", "is_locked", "last_seen_at", "created_at", "updated_at") values (default, $1, default, $2, default, $3, $4, $5, $6, $7, $8, $9, default, default, default, default, default) returning "id", "serial_number", "portal_user_id", "branch_id", "name", "capacity_litres", "height_cm", "diameter_cm", "tank_type", "lat", "lng", "location_description", "alert_threshold_percent", "is_locked", "last_seen_at", "created_at", "updated_at"
+0|firesky- | params: FS-0001,,5000,185,,vertical_round,,,
+0|firesky- |     at NodePgPreparedQuery.queryWithCache (/var/www/firesky/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+0|firesky- |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+0|firesky- |     at async <anonymous> (/var/www/firesky/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+0|firesky- |     at async <anonymous> (/var/www/firesky/artifacts/api-server/src/routes/admin-tanks.ts:141:20)
+0|firesky- | (node:5308) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+0|firesky- | (Use `node --trace-deprecation ...` to show where the warning was created)
+
+/root/.pm2/logs/firesky-api-out.log last 30 lines:
+0|firesky- | {"level":30,"time":1778488676059,"pid":5308,"hostname":"forge","req":{"id":98,"method":"POST","url":"/api/admin/tanks"},"res":{"statusCode":403},"responseTime":1,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488677930,"pid":5308,"hostname":"forge","req":{"id":99,"method":"POST","url":"/api/admin/tanks"},"res":{"statusCode":403},"responseTime":1,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488678915,"pid":5308,"hostname":"forge","req":{"id":100,"method":"POST","url":"/api/admin/tanks"},"res":{"statusCode":403},"responseTime":2,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488679987,"pid":5308,"hostname":"forge","req":{"id":101,"method":"POST","url":"/api/admin/tanks"},"res":{"statusCode":403},"responseTime":2,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488680910,"pid":5308,"hostname":"forge","req":{"id":102,"method":"POST","url":"/api/admin/tanks"},"res":{"statusCode":403},"responseTime":2,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488681828,"pid":5308,"hostname":"forge","req":{"id":103,"method":"POST","url":"/api/admin/tanks"},"res":{"statusCode":403},"responseTime":4,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488682671,"pid":5308,"hostname":"forge","req":{"id":104,"method":"POST","url":"/api/admin/tanks"},"res":{"statusCode":403},"responseTime":1,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488689165,"pid":5308,"hostname":"forge","req":{"id":105,"method":"GET","url":"/api/notifications"},"res":{"statusCode":200},"responseTime":5,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488692223,"pid":5308,"hostname":"forge","req":{"id":107,"method":"GET","url":"/api/branches"},"res":{"statusCode":200},"responseTime":4,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488692895,"pid":5308,"hostname":"forge","req":{"id":106,"method":"GET","url":"/api/users"},"res":{"statusCode":200},"responseTime":678,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488700597,"pid":5308,"hostname":"forge","req":{"id":108,"method":"GET","url":"/api/notifications"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488700712,"pid":5308,"hostname":"forge","req":{"id":109,"method":"GET","url":"/api/notifications"},"res":{"statusCode":200},"responseTime":3,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488719978,"pid":5308,"hostname":"forge","req":{"id":110,"method":"PATCH","url":"/api/users/user_3DXGaOKNbA779xy2rhqwNAK0GXg/role"},"res":{"statusCode":200},"responseTime":1038,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488720388,"pid":5308,"hostname":"forge","req":{"id":111,"method":"GET","url":"/api/users"},"res":{"statusCode":200},"responseTime":302,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488722415,"pid":5308,"hostname":"forge","req":{"id":112,"method":"PATCH","url":"/api/users/user_3DXGaOKNbA779xy2rhqwNAK0GXg/branch"},"res":{"statusCode":200},"responseTime":620,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488722864,"pid":5308,"hostname":"forge","req":{"id":113,"method":"GET","url":"/api/users"},"res":{"statusCode":200},"responseTime":293,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488730589,"pid":5308,"hostname":"forge","req":{"id":114,"method":"GET","url":"/api/notifications"},"res":{"statusCode":200},"responseTime":4,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488730699,"pid":5308,"hostname":"forge","req":{"id":115,"method":"GET","url":"/api/notifications"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488735605,"pid":5308,"hostname":"forge","req":{"id":116,"method":"PATCH","url":"/api/users/user_3DXGWeArKH25Eba0uT9TlWhBHb0/branch"},"res":{"statusCode":200},"responseTime":684,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488736045,"pid":5308,"hostname":"forge","req":{"id":117,"method":"GET","url":"/api/users"},"res":{"statusCode":200},"responseTime":288,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488749463,"pid":5308,"hostname":"forge","req":{"id":118,"method":"GET","url":"/api/dashboard/summary"},"res":{"statusCode":200},"responseTime":18,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488751607,"pid":5308,"hostname":"forge","req":{"id":119,"method":"GET","url":"/api/notifications"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488753908,"pid":5308,"hostname":"forge","req":{"id":120,"method":"GET","url":"/api/admin/tanks"},"res":{"statusCode":403},"responseTime":2,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488755033,"pid":5308,"hostname":"forge","req":{"id":121,"method":"GET","url":"/api/admin/tanks"},"res":{"statusCode":403},"responseTime":2,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488757247,"pid":5308,"hostname":"forge","req":{"id":122,"method":"GET","url":"/api/admin/tanks"},"res":{"statusCode":403},"responseTime":1,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488760577,"pid":5308,"hostname":"forge","req":{"id":123,"method":"GET","url":"/api/notifications"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488760700,"pid":5308,"hostname":"forge","req":{"id":124,"method":"GET","url":"/api/notifications"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488761487,"pid":5308,"hostname":"forge","req":{"id":125,"method":"GET","url":"/api/admin/tanks"},"res":{"statusCode":403},"responseTime":1,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488765447,"pid":5308,"hostname":"forge","req":{"id":126,"method":"POST","url":"/api/admin/tanks"},"res":{"statusCode":403},"responseTime":2,"msg":"request completed"}
+0|firesky- | {"level":30,"time":1778488767948,"pid":5308,"hostname":"forge","req":{"id":127,"method":"GET","url":"/api/dashboard/summary"},"res":{"statusCode":200},"responseTime":18,"msg":"request completed"}
+
+root@forge:/var/www/firesky#
