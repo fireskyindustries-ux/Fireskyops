@@ -274,4 +274,74 @@ router.post("/admin/tanks/demo-seed", requireAdmin, async (req, res) => {
   });
 });
 
+// POST /api/tanks/demo-seed — same logic, authenticated by FIREVISION_API_KEY (curl-friendly)
+router.post("/tanks/demo-seed", async (req, res) => {
+  const apiKey = process.env.FIREVISION_API_KEY;
+  const provided = req.headers["x-api-key"];
+  if (!apiKey) { res.status(503).json({ error: "FIREVISION_API_KEY not set" }); return; }
+  if (provided !== apiKey) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const DEMO_TANKS = [
+    { serial: "FS-DEMO-001", name: "Main House Tank",   capacityLitres: 5000,  heightCm: 185, startPct: 82, drift: -0.04 },
+    { serial: "FS-DEMO-002", name: "Barn Tank",         capacityLitres: 2500,  heightCm: 150, startPct: 45, drift: -0.06 },
+    { serial: "FS-DEMO-003", name: "Farm Reserve Tank", capacityLitres: 10000, heightCm: 250, startPct: 18, drift: -0.02 },
+  ];
+
+  const results: string[] = [];
+  const now = Date.now();
+  const INTERVAL_MS = 30 * 60 * 1000;
+  const DAYS = 7;
+  const READINGS_PER_TANK = (DAYS * 24 * 60) / 30;
+  const rainEventStart = now - 3 * 24 * 60 * 60 * 1000;
+
+  for (const demo of DEMO_TANKS) {
+    const existing = await db.select().from(tanksTable).where(eq(tanksTable.serialNumber, demo.serial)).limit(1);
+    let tank = existing[0];
+    if (!tank) {
+      const inserted = await db.insert(tanksTable).values({
+        serialNumber: demo.serial, name: demo.name, capacityLitres: demo.capacityLitres,
+        heightCm: demo.heightCm, tankType: "vertical_round", alertThresholdPercent: 20,
+      }).returning();
+      tank = inserted[0];
+      results.push(`Created tank ${demo.serial}`);
+    } else {
+      await db.update(tanksTable).set({ name: demo.name, capacityLitres: demo.capacityLitres, heightCm: demo.heightCm }).where(eq(tanksTable.id, tank.id));
+      results.push(`Updated tank ${demo.serial}`);
+    }
+
+    await db.delete(tankReadingsTable).where(eq(tankReadingsTable.tankId, tank.id));
+
+    let pct = demo.startPct;
+    const readingValues = [];
+    for (let i = 0; i < READINGS_PER_TANK; i++) {
+      const ts = new Date(now - (READINGS_PER_TANK - i) * INTERVAL_MS);
+      const tsMs = ts.getTime();
+      const hourOfDay = ts.getHours() + ts.getMinutes() / 60;
+      pct += demo.drift + (Math.random() - 0.5) * 0.1;
+      const isRainEvent = tsMs >= rainEventStart && tsMs < rainEventStart + 2 * 60 * 60 * 1000;
+      if (isRainEvent) pct = Math.min(pct + 3.5, 100);
+      pct = Math.max(0, Math.min(100, pct));
+      const levelCm = (pct / 100) * demo.heightCm;
+      const litres = (pct / 100) * demo.capacityLitres;
+      const tempBase = 14 + 16 * Math.sin(((hourOfDay - 6) / 24) * Math.PI * 2);
+      const temperatureCelsius = Math.round((tempBase + (Math.random() - 0.5) * 2) * 10) / 10;
+      const rainfallMm = isRainEvent ? Math.round((1.5 + Math.random() * 2) * 10) / 10 : 0;
+      const windBase = isRainEvent ? 28 + Math.random() * 15 : 10 + Math.random() * 15;
+      const windSpeedKmh = Math.round(windBase * 10) / 10;
+      const windDirectionDeg = Math.round(210 + (Math.random() - 0.5) * 40);
+      const pressureBase = isRainEvent ? 1006 : tsMs < rainEventStart ? 1013 - (rainEventStart - tsMs) / (6 * 3600000) * 5 : 1012 + Math.random() * 4;
+      const pressureHpa = Math.round(pressureBase * 10) / 10;
+      const batteryPercent = Math.round(95 - (i / READINGS_PER_TANK) * 15);
+      readingValues.push({ tankId: tank.id, levelCm, levelPercent: pct, litres, batteryPercent, temperatureCelsius, rainfallMm, windSpeedKmh, windDirectionDeg, pressureHpa, recordedAt: ts });
+    }
+    for (let b = 0; b < readingValues.length; b += 100) {
+      await db.insert(tankReadingsTable).values(readingValues.slice(b, b + 100));
+    }
+    await db.update(tanksTable).set({ lastSeenAt: new Date() }).where(eq(tanksTable.id, tank.id));
+    results.push(`Generated ${readingValues.length} readings for ${demo.serial}`);
+  }
+
+  res.json({ message: "Demo data seeded", details: results, serials: DEMO_TANKS.map(t => t.serial) });
+});
+
 export default router;
