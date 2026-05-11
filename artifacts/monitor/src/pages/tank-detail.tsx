@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, MapPin, Battery, Wifi, WifiOff, Settings2, MessageSquare, AlertTriangle } from "lucide-react";
+import { ChevronLeft, MapPin, Battery, Wifi, WifiOff, Settings2, MessageSquare, AlertTriangle, Thermometer, CloudRain, Wind, Gauge } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { apiFetch, Tank, TankReading, levelColor, levelLabel, offlineStatus, formatLitres, timeAgo } from "@/lib/api";
+import { apiFetch, Tank, TankReading, levelColor, levelLabel, offlineStatus, formatLitres, timeAgo, windDirection } from "@/lib/api";
 import { TankLevel } from "@/components/tank-level";
 import { format, parseISO } from "date-fns";
 
@@ -18,6 +18,7 @@ export default function TankDetail() {
   const [editName, setEditName] = useState("");
   const [editThreshold, setEditThreshold] = useState(20);
   const [saving, setSaving] = useState(false);
+  const [activeChart, setActiveChart] = useState<"level" | "temperature" | "rainfall" | "wind">("level");
 
   async function load() {
     setLoading(true);
@@ -83,11 +84,34 @@ export default function TankDetail() {
   const color = levelColor(pct);
   const isOffline = offlineStatus(tank.lastSeenAt);
 
-  const chartData = readings.slice(-72).map((r) => ({
+  const hasEnvData = latest && (
+    latest.temperatureCelsius != null ||
+    latest.rainfallMm != null ||
+    latest.windSpeedKmh != null ||
+    latest.pressureHpa != null
+  );
+
+  const chartReadings = readings.slice(-96);
+
+  const chartData = chartReadings.map((r) => ({
     time: format(parseISO(r.recordedAt), "dd/MM HH:mm"),
     level: Math.round(r.levelPercent),
     litres: Math.round(r.litres),
+    temperature: r.temperatureCelsius != null ? Math.round(r.temperatureCelsius * 10) / 10 : null,
+    rainfall: r.rainfallMm != null ? Math.round(r.rainfallMm * 10) / 10 : null,
+    wind: r.windSpeedKmh != null ? Math.round(r.windSpeedKmh) : null,
   }));
+
+  const hasTemperatureChart = chartData.some(d => d.temperature != null);
+  const hasRainfallChart = chartData.some(d => d.rainfall != null);
+  const hasWindChart = chartData.some(d => d.wind != null);
+
+  const chartTabs = [
+    { key: "level" as const, label: "Level", always: true },
+    { key: "temperature" as const, label: "Temp", show: hasTemperatureChart },
+    { key: "rainfall" as const, label: "Rain", show: hasRainfallChart },
+    { key: "wind" as const, label: "Wind", show: hasWindChart },
+  ].filter(t => t.always || t.show);
 
   return (
     <div className="min-h-screen bg-[hsl(20_14%_7%)]">
@@ -195,7 +219,7 @@ export default function TankDetail() {
               </div>
             )}
             {tank.locationDescription && (
-              <div className="text-center">
+              <div className="text-center col-span-1">
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <MapPin className="w-4 h-4 text-[hsl(24_8%_55%)]" />
                 </div>
@@ -205,30 +229,170 @@ export default function TankDetail() {
           </div>
         </div>
 
-        {/* Level history chart */}
+        {/* Environment sensors */}
+        {hasEnvData && (
+          <div className="bg-[hsl(20_12%_10%)] border border-[hsl(24_10%_16%)] rounded-2xl p-5">
+            <h2 className="text-sm font-medium text-white mb-4">Environment</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {latest.temperatureCelsius != null && (
+                <div className="bg-[hsl(20_14%_8%)] rounded-xl p-3 text-center">
+                  <Thermometer className="w-5 h-5 text-red-400 mx-auto mb-1.5" />
+                  <p className="text-lg font-semibold text-white">{latest.temperatureCelsius.toFixed(1)}°C</p>
+                  <p className="text-xs text-[hsl(24_8%_45%)] mt-0.5">Temperature</p>
+                </div>
+              )}
+              {latest.rainfallMm != null && (
+                <div className="bg-[hsl(20_14%_8%)] rounded-xl p-3 text-center">
+                  <CloudRain className="w-5 h-5 text-blue-400 mx-auto mb-1.5" />
+                  <p className="text-lg font-semibold text-white">{latest.rainfallMm.toFixed(1)} mm</p>
+                  <p className="text-xs text-[hsl(24_8%_45%)] mt-0.5">Rainfall</p>
+                </div>
+              )}
+              {latest.windSpeedKmh != null && (
+                <div className="bg-[hsl(20_14%_8%)] rounded-xl p-3 text-center">
+                  <Wind className="w-5 h-5 text-cyan-400 mx-auto mb-1.5" />
+                  <p className="text-lg font-semibold text-white">{Math.round(latest.windSpeedKmh)} km/h</p>
+                  <p className="text-xs text-[hsl(24_8%_45%)] mt-0.5">
+                    Wind {latest.windDirectionDeg != null ? windDirection(latest.windDirectionDeg) : ""}
+                  </p>
+                </div>
+              )}
+              {latest.pressureHpa != null && (
+                <div className="bg-[hsl(20_14%_8%)] rounded-xl p-3 text-center">
+                  <Gauge className="w-5 h-5 text-purple-400 mx-auto mb-1.5" />
+                  <p className="text-lg font-semibold text-white">{Math.round(latest.pressureHpa)}</p>
+                  <p className="text-xs text-[hsl(24_8%_45%)] mt-0.5">hPa</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Chart */}
         {chartData.length > 0 && (
           <div className="bg-[hsl(20_12%_10%)] border border-[hsl(24_10%_16%)] rounded-2xl p-5">
-            <h2 className="text-sm font-medium text-white mb-4">Level History</h2>
-            <ResponsiveContainer width="100%" height={180}>
-              <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                <defs>
-                  <linearGradient id="levelGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#e85d04" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#e85d04" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(24 10% 14%)" />
-                <XAxis dataKey="time" tick={{ fontSize: 10, fill: "hsl(24 8% 40%)" }} interval="preserveStartEnd" />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(24 8% 40%)" }} unit="%" />
-                <Tooltip
-                  contentStyle={{ background: "hsl(20 12% 12%)", border: "1px solid hsl(24 10% 20%)", borderRadius: "10px", fontSize: 12 }}
-                  labelStyle={{ color: "hsl(24 8% 65%)" }}
-                  itemStyle={{ color: "#e85d04" }}
-                  formatter={(v: number, name: string) => name === "level" ? [`${v}%`, "Level"] : [`${v}L`, "Volume"]}
-                />
-                <Area type="monotone" dataKey="level" stroke="#e85d04" strokeWidth={2} fill="url(#levelGrad)" dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
+            {/* Chart tabs */}
+            {chartTabs.length > 1 && (
+              <div className="flex gap-1 mb-4">
+                {chartTabs.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveChart(tab.key)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      activeChart === tab.key
+                        ? "bg-orange-500 text-white"
+                        : "text-[hsl(24_8%_50%)] hover:text-white border border-[hsl(24_10%_20%)]"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {activeChart === "level" && (
+              <>
+                <h2 className="text-sm font-medium text-white mb-4">Level History</h2>
+                <ResponsiveContainer width="100%" height={180}>
+                  <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                    <defs>
+                      <linearGradient id="levelGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#e85d04" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#e85d04" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(24 10% 14%)" />
+                    <XAxis dataKey="time" tick={{ fontSize: 10, fill: "hsl(24 8% 40%)" }} interval="preserveStartEnd" />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(24 8% 40%)" }} unit="%" />
+                    <Tooltip
+                      contentStyle={{ background: "hsl(20 12% 12%)", border: "1px solid hsl(24 10% 20%)", borderRadius: "10px", fontSize: 12 }}
+                      labelStyle={{ color: "hsl(24 8% 65%)" }}
+                      itemStyle={{ color: "#e85d04" }}
+                      formatter={(v: number, name: string) => name === "level" ? [`${v}%`, "Level"] : [`${v}L`, "Volume"]}
+                    />
+                    <Area type="monotone" dataKey="level" stroke="#e85d04" strokeWidth={2} fill="url(#levelGrad)" dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </>
+            )}
+
+            {activeChart === "temperature" && (
+              <>
+                <h2 className="text-sm font-medium text-white mb-4">Temperature History</h2>
+                <ResponsiveContainer width="100%" height={180}>
+                  <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                    <defs>
+                      <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f87171" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#f87171" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(24 10% 14%)" />
+                    <XAxis dataKey="time" tick={{ fontSize: 10, fill: "hsl(24 8% 40%)" }} interval="preserveStartEnd" />
+                    <YAxis tick={{ fontSize: 10, fill: "hsl(24 8% 40%)" }} unit="°" />
+                    <Tooltip
+                      contentStyle={{ background: "hsl(20 12% 12%)", border: "1px solid hsl(24 10% 20%)", borderRadius: "10px", fontSize: 12 }}
+                      labelStyle={{ color: "hsl(24 8% 65%)" }}
+                      itemStyle={{ color: "#f87171" }}
+                      formatter={(v: number) => [`${v}°C`, "Temperature"]}
+                    />
+                    <Area type="monotone" dataKey="temperature" stroke="#f87171" strokeWidth={2} fill="url(#tempGrad)" dot={false} connectNulls />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </>
+            )}
+
+            {activeChart === "rainfall" && (
+              <>
+                <h2 className="text-sm font-medium text-white mb-4">Rainfall History</h2>
+                <ResponsiveContainer width="100%" height={180}>
+                  <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                    <defs>
+                      <linearGradient id="rainGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#60a5fa" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(24 10% 14%)" />
+                    <XAxis dataKey="time" tick={{ fontSize: 10, fill: "hsl(24 8% 40%)" }} interval="preserveStartEnd" />
+                    <YAxis tick={{ fontSize: 10, fill: "hsl(24 8% 40%)" }} unit="mm" />
+                    <Tooltip
+                      contentStyle={{ background: "hsl(20 12% 12%)", border: "1px solid hsl(24 10% 20%)", borderRadius: "10px", fontSize: 12 }}
+                      labelStyle={{ color: "hsl(24 8% 65%)" }}
+                      itemStyle={{ color: "#60a5fa" }}
+                      formatter={(v: number) => [`${v} mm`, "Rainfall"]}
+                    />
+                    <Area type="monotone" dataKey="rainfall" stroke="#60a5fa" strokeWidth={2} fill="url(#rainGrad)" dot={false} connectNulls />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </>
+            )}
+
+            {activeChart === "wind" && (
+              <>
+                <h2 className="text-sm font-medium text-white mb-4">Wind Speed History</h2>
+                <ResponsiveContainer width="100%" height={180}>
+                  <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                    <defs>
+                      <linearGradient id="windGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(24 10% 14%)" />
+                    <XAxis dataKey="time" tick={{ fontSize: 10, fill: "hsl(24 8% 40%)" }} interval="preserveStartEnd" />
+                    <YAxis tick={{ fontSize: 10, fill: "hsl(24 8% 40%)" }} unit=" km/h" />
+                    <Tooltip
+                      contentStyle={{ background: "hsl(20 12% 12%)", border: "1px solid hsl(24 10% 20%)", borderRadius: "10px", fontSize: 12 }}
+                      labelStyle={{ color: "hsl(24 8% 65%)" }}
+                      itemStyle={{ color: "#22d3ee" }}
+                      formatter={(v: number) => [`${v} km/h`, "Wind"]}
+                    />
+                    <Area type="monotone" dataKey="wind" stroke="#22d3ee" strokeWidth={2} fill="url(#windGrad)" dot={false} connectNulls />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </>
+            )}
           </div>
         )}
 

@@ -10,6 +10,11 @@ export const tankReadingsTable = pgTable("tank_readings", {
   levelPercent: doublePrecision("level_percent").notNull(), // 0–100
   litres: doublePrecision("litres").notNull(),
   batteryPercent: integer("battery_percent"), // sensor battery 0–100
+  temperatureCelsius: doublePrecision("temperature_celsius"), // ambient temp °C
+  rainfallMm: doublePrecision("rainfall_mm"),               // rainfall since last reading mm
+  windSpeedKmh: doublePrecision("wind_speed_kmh"),           // km/h
+  windDirectionDeg: integer("wind_direction_deg"),            // 0–359 degrees
+  pressureHpa: doublePrecision("pressure_hpa"),              // barometric pressure hPa
   recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

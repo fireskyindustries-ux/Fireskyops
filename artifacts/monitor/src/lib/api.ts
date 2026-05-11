@@ -30,6 +30,11 @@ export interface TankReading {
   levelPercent: number;
   litres: number;
   batteryPercent: number | null;
+  temperatureCelsius: number | null;
+  rainfallMm: number | null;
+  windSpeedKmh: number | null;
+  windDirectionDeg: number | null;
+  pressureHpa: number | null;
   recordedAt: string;
 }
 
@@ -94,4 +99,9 @@ export function timeAgo(date: string | null): string {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
+}
+
+export function windDirection(deg: number): string {
+  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  return dirs[Math.round(deg / 45) % 8];
 }

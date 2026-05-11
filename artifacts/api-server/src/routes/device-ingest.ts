@@ -21,11 +21,26 @@ router.post("/tanks/ingest", async (req, res) => {
     return;
   }
 
-  const { serial_number, level_cm, battery_percent, recorded_at } = req.body as {
+  const {
+    serial_number,
+    level_cm,
+    battery_percent,
+    recorded_at,
+    temperature_celsius,
+    rainfall_mm,
+    wind_speed_kmh,
+    wind_direction_deg,
+    pressure_hpa,
+  } = req.body as {
     serial_number?: string;
     level_cm?: number;
     battery_percent?: number;
     recorded_at?: string;
+    temperature_celsius?: number;
+    rainfall_mm?: number;
+    wind_speed_kmh?: number;
+    wind_direction_deg?: number;
+    pressure_hpa?: number;
   };
 
   if (!serial_number || level_cm === undefined || level_cm === null) {
@@ -47,7 +62,6 @@ router.post("/tanks/ingest", async (req, res) => {
     return;
   }
 
-  // Calculate level percent and litres
   const heightCm = tank.heightCm ?? 200;
   const levelPercent = Math.min(100, Math.max(0, (level_cm / heightCm) * 100));
   const litres = (levelPercent / 100) * tank.capacityLitres;
@@ -62,6 +76,11 @@ router.post("/tanks/ingest", async (req, res) => {
       levelPercent,
       litres,
       batteryPercent: battery_percent ?? null,
+      temperatureCelsius: temperature_celsius ?? null,
+      rainfallMm: rainfall_mm ?? null,
+      windSpeedKmh: wind_speed_kmh ?? null,
+      windDirectionDeg: wind_direction_deg ?? null,
+      pressureHpa: pressure_hpa ?? null,
       recordedAt,
     })
     .returning();
