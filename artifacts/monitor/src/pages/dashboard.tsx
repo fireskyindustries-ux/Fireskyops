@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { Plus, RefreshCw, AlertTriangle, Wifi, WifiOff, Droplets, LogOut } from "lucide-react";
+import { Plus, RefreshCw, AlertTriangle, Wifi, WifiOff, Droplets, LogOut, Shield } from "lucide-react";
 import { apiFetch, Tank, levelColor, levelLabel, offlineStatus, formatLitres, timeAgo } from "@/lib/api";
 import { TankLevel } from "@/components/tank-level";
 import { useUser, useClerk } from "@clerk/react";
+import { useIsAdmin } from "@/lib/auth";
 
 export default function Dashboard() {
   const { user } = useUser();
   const { signOut } = useClerk();
+  const isAdmin = useIsAdmin();
   const [tanks, setTanks] = useState<Tank[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +43,11 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             <Droplets className="w-5 h-5 text-orange-500" />
             <span className="font-semibold text-white text-sm">Tank Monitor</span>
+            {isAdmin && (
+              <span className="flex items-center gap-1 ml-2 px-2 py-1 rounded-full bg-green-500/20 border border-green-500/40 text-xs text-green-400">
+                <Shield className="w-3 h-3" />Admin Mode
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-[hsl(24_8%_55%)] hidden sm:block">{user?.fullName ?? user?.primaryEmailAddress?.emailAddress}</span>
@@ -132,7 +139,7 @@ export default function Dashboard() {
 
               return (
                 <Link href={`/tanks/${tank.id}`} key={tank.id}>
-                  <div className="group bg-[hsl(20_12%_10%)] border border-[hsl(24_10%_16%)] hover:border-orange-500/30 rounded-2xl p-5 cursor-pointer transition-all hover:shadow-lg hover:shadow-orange-500/5">
+                  <div className="group bg-[hsl(20_12%_10%)] border border-[hsl(24_10%_16%)] hover:border-orange-500/30 rounded-2xl p-5 cursor-pointer transition-all hover:shadow-lg hover:shadow-orange-500/10">
                     {/* Status row */}
                     <div className="flex items-center justify-between mb-4">
                       <span className="text-xs font-mono text-[hsl(24_8%_40%)]">{tank.serialNumber}</span>

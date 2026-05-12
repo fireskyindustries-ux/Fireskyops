@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { ChevronLeft, Check, Droplets, Zap, Building2 } from "lucide-react";
+import { ChevronLeft, Check, Droplets, Zap, Building2, Shield } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { useIsAdmin } from "@/lib/auth";
 
 interface SubData {
   subscription: {
@@ -52,11 +53,12 @@ const PLANS = [
 ];
 
 export default function Subscription() {
+  const isAdmin = useIsAdmin();
   const [data, setData] = useState<SubData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch<SubData>("/subscription").then(setData).catch(() => {}).finally(() => setLoading(false));
+    apiFetch<SubData>("/subscription").then(setData).catch(() => { }).finally(() => setLoading(false));
   }, []);
 
   const currentTier = data?.subscription?.tier ?? null;
@@ -75,17 +77,40 @@ export default function Subscription() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-8">
+        {/* Admin Mode Banner */}
+        {isAdmin && (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-4 mb-8 flex items-start gap-3">
+            <Shield className="w-5 h-5 text-green-400 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-green-400 text-sm">Admin Mode Active</h3>
+              <p className="text-xs text-green-300/80 mt-1">You have unlimited access to all features and can register unlimited demo tanks. This mode is for development and customer demonstrations only.</p>
+            </div>
+          </div>
+        )}
+
         {/* Current status */}
         {!loading && data && (
           <div className="bg-[hsl(20_12%_10%)] border border-[hsl(24_10%_16%)] rounded-2xl p-5 mb-8">
             <h2 className="text-sm font-medium text-[hsl(24_8%_55%)] mb-3">Current plan</h2>
-            {data.subscription ? (
+            {isAdmin ? (
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <span className="text-white font-semibold">Admin (Unlimited)</span>
+                  <span className="ml-2 text-xs px-2 py-0.5 rounded-full border border-green-500/40 bg-green-500/10 text-green-400">
+                    active
+                  </span>
+                </div>
+                <div className="text-sm text-[hsl(24_8%_45%)]">
+                  {data.tanksUsed} tanks registered (unlimited for admin)
+                </div>
+              </div>
+            ) : data.subscription ? (
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
                   <span className="text-white font-semibold capitalize">{data.subscription.tier}</span>
                   <span className="ml-2 text-xs px-2 py-0.5 rounded-full border capitalize"
                     style={{ borderColor: data.subscription.status === "active" ? "#22c55e40" : "#ef444440",
-                             color: data.subscription.status === "active" ? "#22c55e" : "#ef4444" }}>
+                      color: data.subscription.status === "active" ? "#22c55e" : "#ef4444" }}>
                     {data.subscription.status}
                   </span>
                 </div>
@@ -102,55 +127,59 @@ export default function Subscription() {
           </div>
         )}
 
-        <h2 className="text-lg font-bold text-white mb-5">Choose a plan</h2>
+        {!isAdmin && (
+          <>
+            <h2 className="text-lg font-bold text-white mb-5">Choose a plan</h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          {PLANS.map((plan) => {
-            const Icon = plan.icon;
-            const isCurrent = currentTier === plan.key;
-            return (
-              <div key={plan.key} className={`relative bg-[hsl(20_12%_10%)] border ${plan.color} rounded-2xl p-5 flex flex-col`}>
-                {plan.badge && (
-                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-xs font-medium px-3 py-0.5 rounded-full bg-orange-500 text-white">
-                    {plan.badge}
-                  </span>
-                )}
-                <div className="flex items-center gap-2 mb-3">
-                  <Icon className="w-4 h-4 text-orange-500" />
-                  <span className="font-semibold text-white text-sm">{plan.name}</span>
-                </div>
-                <div className="mb-4">
-                  <span className="text-2xl font-bold text-white">{plan.price}</span>
-                  <span className="text-xs text-[hsl(24_8%_45%)]">{plan.period}</span>
-                </div>
-                <ul className="space-y-1.5 mb-5 flex-1">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-xs text-[hsl(24_8%_65%)]">
-                      <Check className="w-3.5 h-3.5 text-orange-500 shrink-0 mt-0.5" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  disabled={isCurrent}
-                  className={`w-full py-2 rounded-full text-sm font-medium transition-colors disabled:opacity-60 ${plan.ctaColor}`}
-                  onClick={() => {
-                    if (!isCurrent) {
-                      alert("PayFast integration coming soon — contact info@fireskyindustries.co.za to upgrade.");
-                    }
-                  }}
-                >
-                  {isCurrent ? "Current plan" : "Choose plan"}
-                </button>
-              </div>
-            );
-          })}
-        </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+              {PLANS.map((plan) => {
+                const Icon = plan.icon;
+                const isCurrent = currentTier === plan.key;
+                return (
+                  <div key={plan.key} className={`relative bg-[hsl(20_12%_10%)] border ${plan.color} rounded-2xl p-5 flex flex-col`}>
+                    {plan.badge && (
+                      <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-xs font-medium px-3 py-0.5 rounded-full bg-orange-500 text-white">
+                        {plan.badge}
+                      </span>
+                    )}
+                    <div className="flex items-center gap-2 mb-3">
+                      <Icon className="w-4 h-4 text-orange-500" />
+                      <span className="font-semibold text-white text-sm">{plan.name}</span>
+                    </div>
+                    <div className="mb-4">
+                      <span className="text-2xl font-bold text-white">{plan.price}</span>
+                      <span className="text-xs text-[hsl(24_8%_45%)]">{plan.period}</span>
+                    </div>
+                    <ul className="space-y-1.5 mb-5 flex-1">
+                      {plan.features.map((f) => (
+                        <li key={f} className="flex items-start gap-2 text-xs text-[hsl(24_8%_65%)]">
+                          <Check className="w-3.5 h-3.5 text-orange-500 shrink-0 mt-0.5" />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      disabled={isCurrent}
+                      className={`w-full py-2 rounded-full text-sm font-medium transition-colors disabled:opacity-60 ${plan.ctaColor}`}
+                      onClick={() => {
+                        if (!isCurrent) {
+                          alert("PayFast integration coming soon — contact info@fireskyindustries.co.za to upgrade.");
+                        }
+                      }}
+                    >
+                      {isCurrent ? "Current plan" : "Choose plan"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
 
-        <p className="text-center text-xs text-[hsl(24_8%_35%)]">
-          Plans auto-renew monthly. Cancel anytime.{" "}
-          <a href="mailto:info@fireskyindustries.co.za" className="text-orange-500 hover:underline">Contact us</a> for annual pricing.
-        </p>
+            <p className="text-center text-xs text-[hsl(24_8%_35%)]">
+              Plans auto-renew monthly. Cancel anytime.{" "}
+              <a href="mailto:info@fireskyindustries.co.za" className="text-orange-500 hover:underline">Contact us</a> for annual pricing.
+            </p>
+          </>
+        )}
       </main>
     </div>
   );
