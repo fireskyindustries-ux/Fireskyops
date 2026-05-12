@@ -5,12 +5,12 @@ import { apiFetch } from "@/lib/api";
 import { useIsAdmin } from "@/lib/auth";
 
 export default function RegisterTank() {
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
   const isAdmin = useIsAdmin();
   const [serialNumber, setSerialNumber] = useState("");
   const [name, setName] = useState("");
   const [capacityLitres, setCapacityLitres] = useState("10000");
-  const [location, setLocation] = useState("");
+  const [locationDesc, setLocationDesc] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -26,10 +26,10 @@ export default function RegisterTank() {
           serialNumber: serialNumber.toUpperCase().trim(),
           name: name.trim() || null,
           capacityLitres: Number(capacityLitres),
-          locationDescription: location.trim() || null,
+          locationDescription: locationDesc.trim() || null,
         }),
       });
-      setLocation(`/tanks/${newTank.id}`);
+      navigate(`/tanks/${newTank.id}`);
     } catch (e: any) {
       setError(e.message || "Failed to register tank");
     } finally {
@@ -102,8 +102,8 @@ export default function RegisterTank() {
             <div>
               <label className="block text-sm font-medium text-white mb-2">Location Description</label>
               <textarea
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
+                value={locationDesc}
+                onChange={(e) => setLocationDesc(e.target.value)}
                 placeholder="e.g. North side of barn, next to main building"
                 rows={3}
                 className="w-full bg-[hsl(20_14%_8%)] border border-[hsl(24_10%_20%)] rounded-xl px-4 py-2.5 text-white placeholder:text-[hsl(24_8%_35%)] focus:outline-none focus:border-orange-500/50 transition-colors resize-none"
